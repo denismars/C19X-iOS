@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -18,6 +18,8 @@
 		B60779362458398700479C78 /* Security.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779352458398700479C78 /* Security.swift */; };
 		B60779382458399000479C78 /* Utility.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779372458399000479C78 /* Utility.swift */; };
 		B607793C24583D5B00479C78 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B607793A24583D5200479C78 /* CoreBluetooth.framework */; };
+		B607794124584A2100479C78 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = B607794024584A2100479C78 /* Device.swift */; };
+		B6077946245986DD00479C78 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = B6077945245986DD00479C78 /* BigInt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +37,7 @@
 		B60779372458399000479C78 /* Utility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utility.swift; sourceTree = "<group>"; };
 		B607793A24583D5200479C78 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		B607793F24583D7700479C78 /* C19X.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = C19X.entitlements; sourceTree = "<group>"; };
+		B607794024584A2100479C78 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,6 +46,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B607793C24583D5B00479C78 /* CoreBluetooth.framework in Frameworks */,
+				B6077946245986DD00479C78 /* BigInt in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -81,6 +85,7 @@
 				B60779332458397F00479C78 /* Network.swift */,
 				B60779352458398700479C78 /* Security.swift */,
 				B60779372458399000479C78 /* Utility.swift */,
+				B607794024584A2100479C78 /* Device.swift */,
 			);
 			path = C19X;
 			sourceTree = "<group>";
@@ -109,6 +114,9 @@
 			dependencies = (
 			);
 			name = C19X;
+			packageProductDependencies = (
+				B6077945245986DD00479C78 /* BigInt */,
+			);
 			productName = C19X;
 			productReference = B607791A2458381E00479C78 /* C19X.app */;
 			productType = "com.apple.product-type.application";
@@ -137,6 +145,9 @@
 				Base,
 			);
 			mainGroup = B60779112458381E00479C78;
+			packageReferences = (
+				B6077944245986DD00479C78 /* XCRemoteSwiftPackageReference "BigInt" */,
+			);
 			productRefGroup = B607791B2458381E00479C78 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -165,12 +176,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B60779382458399000479C78 /* Utility.swift in Sources */,
+				B60779322458397100479C78 /* Beacon.swift in Sources */,
 				B60779342458397F00479C78 /* Network.swift in Sources */,
+				B60779362458398700479C78 /* Security.swift in Sources */,
+				B607794124584A2100479C78 /* Device.swift in Sources */,
 				B60779222458381E00479C78 /* ViewController.swift in Sources */,
 				B607791E2458381E00479C78 /* AppDelegate.swift in Sources */,
 				B60779202458381E00479C78 /* SceneDelegate.swift in Sources */,
-				B60779322458397100479C78 /* Beacon.swift in Sources */,
-				B60779362458398700479C78 /* Security.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -370,6 +382,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B6077944245986DD00479C78 /* XCRemoteSwiftPackageReference "BigInt" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/attaswift/BigInt.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B6077945245986DD00479C78 /* BigInt */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B6077944245986DD00479C78 /* XCRemoteSwiftPackageReference "BigInt" */;
+			productName = BigInt;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B60779122458381E00479C78 /* Project object */;
 }

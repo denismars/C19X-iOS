@@ -151,5 +151,59 @@ extension String {
             return base64
         }
     }
+}
+
+extension Date {
     
+    func elapsed() -> String {
+        let elapsedSeconds = distance(to: Date()).magnitude
+        if (elapsedSeconds < 60) {
+            return "just now"
+        } else if (elapsedSeconds < 3600) {
+            let elapsedMinutes = Int((elapsedSeconds / 60).rounded())
+            return String(elapsedMinutes) + "m ago"
+        } else if (elapsedSeconds < 24 * 3600) {
+            let elapsedHours = Int((elapsedSeconds / 3600).rounded())
+            return String(elapsedHours) + "h ago"
+        } else {
+            let elapsedDays = Int((elapsedSeconds / (24 * 3600)).rounded())
+            return String(elapsedDays) + "d ago"
+        }
+    }
+
+}
+
+extension UInt64 {
+
+    func duration() -> (value:UInt64, unit:String) {
+        let (elapsedSeconds, _) = self.dividedReportingOverflow(by: UInt64(1000))
+        if (elapsedSeconds < 60) {
+            return (elapsedSeconds, (elapsedSeconds <= 1 ? "second" : "seconds"))
+        } else if (elapsedSeconds < 3600) {
+            let elapsedMinutes = elapsedSeconds / 60
+            return (elapsedMinutes, (elapsedMinutes <= 1 ? "minute" : "minutes"))
+        } else {
+            let elapsedHours = elapsedSeconds / 3600
+            return (elapsedHours, (elapsedHours <= 1 ? "hour" : "hours"))
+        }
+    }
+}
+
+public class FlipFlopTimer {
+    public var onInterval: TimeInterval
+    public var offInterval: TimeInterval
+    private var onAction: (() -> Void)
+    private var offAction: (() -> Void)
+    
+    init(onInterval: TimeInterval, offInterval: TimeInterval,
+         onAction: @escaping (() -> Void), offAction: @escaping (() -> Void)) {
+        self.onInterval = onInterval
+        self.offInterval = offInterval
+        self.onAction = onAction
+        self.offAction = offAction
+    }
+    
+    func start() {
+        
+    }
 }
