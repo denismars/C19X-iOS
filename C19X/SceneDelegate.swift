@@ -7,8 +7,11 @@
 //
 
 import UIKit
+import os
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    private let log = OSLog(subsystem: "org.C19X", category: "Scene")
+    private let appDelegate = UIApplication.shared.delegate as! AppDelegate
 
     var window: UIWindow?
 
@@ -36,13 +39,25 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called when the scene will move from an active state to an inactive state.
         // This may occur due to temporary interruptions (ex. an incoming phone call).
     }
-
+    
     func sceneWillEnterForeground(_ scene: UIScene) {
+        os_log("Scene will enter foreground", log: log, type: .debug)
+        appDelegate.cancelBackgroundTask()
+        if (!appDelegate.device.isRegistered()) {
+            os_log("Registration required", log: log, type: .info)
+            appDelegate.device.network.getRegistration()
+        } else {
+            appDelegate.device.network.getMessage()
+        }
+        appDelegate.device.beaconReceiver.startScan()
         // Called as the scene transitions from the background to the foreground.
         // Use this method to undo the changes made on entering the background.
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
+        os_log("Scene did enter background", log: log, type: .debug)
+        appDelegate.device.beaconReceiver.startScan()
+        appDelegate.scheduleBackgroundTask()
         // Called as the scene transitions from the foreground to the background.
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.

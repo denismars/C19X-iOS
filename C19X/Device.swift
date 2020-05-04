@@ -29,8 +29,12 @@ public class Device: AbstractNetworkListener {
     public var parameters: Parameters!
     public var contactRecords: ContactRecords!
     public var riskAnalysis: RiskAnalysis!
-    public var beacon: Beacon!
+    public var beaconTransmitter: BeaconTransmitter!
+    public var beaconReceiver: BeaconReceiver!
     public var network: Network!
+    
+    public var beaconCodeUpdateTime: Date?
+    public var lookupUpdateTime: Date?
     
     override init() {
         super.init()
@@ -41,16 +45,21 @@ public class Device: AbstractNetworkListener {
         network = Network(device: self)
         riskAnalysis = RiskAnalysis(device: self)
 
-        beacon = Beacon(serviceId: 9803801938501395)
-        beacon.listeners.append(contactRecords)
+        let serviceUUID = UUID(uuidString: "0022D481-83FE-1F13-0000-000000000000")!
+        beaconReceiver = BeaconReceiver(serviceUUID)
+        beaconReceiver.listeners.append(contactRecords)
+        beaconTransmitter = BeaconTransmitter(serviceUUID)
+        beaconTransmitter.listeners.append(contactRecords)
 
         network.listeners.append(self)
 
-        reset()
+        //reset()
         load()
-        
-        network.getTimeFromServerAndSynchronise()
-        network.getParameters()
+        downloadUpdateFromServer()
+    }
+    
+    public func isRegistered() -> Bool {
+        return codes != nil
     }
     
     public func set(status: Int) {
@@ -62,6 +71,50 @@ public class Device: AbstractNetworkListener {
     
     public func getStatus() -> Int {
         return self.status
+    }
+    
+    private func changeBeaconCodeAndScheduleUpdate() {
+        changeBeaconCode()
+        DispatchQueue.main.asyncAfter(deadline: .future(by: TimeInterval( parameters.beaconTransmitterCodeDuration / 1000), randomise: 120)) {
+            self.changeBeaconCodeAndScheduleUpdate()
+        }
+    }
+    
+    public func changeBeaconCode() {
+        os_log("Change beacon code request", log: log, type: .debug)
+        if codes != nil {
+            let beaconCode = codes!.get(parameters.retentionPeriod)
+            beaconTransmitter.setBeaconCode(beaconCode: beaconCode)
+            beaconCodeUpdateTime = Date()
+            os_log("Change beacon code successful (code=%s)", log: log, type: .debug, beaconCode.description)
+        } else {
+            os_log("Change beacon code failed, pending registration", log: log, type: .fault)
+        }
+    }
+    
+    public func getTimeSinceBeaconCodeUpdate() -> TimeInterval? {
+        if let t = beaconCodeUpdateTime {
+            return t.distance(to: Date())
+        } else {
+            return nil
+        }
+    }
+
+    public func getTimeSinceLookupUpdate() -> TimeInterval? {
+        if let t = lookupUpdateTime {
+            return t.distance(to: Date())
+        } else {
+            return nil
+        }
+    }
+
+    public func downloadUpdateFromServer() {
+        network.getTimeFromServerAndSynchronise()
+        network.getParameters()
+        network.getLookupInBackground()
+        if (isRegistered()) {
+            network.getMessage()
+        }
     }
     
     private func reset() {
@@ -81,7 +134,7 @@ public class Device: AbstractNetworkListener {
             self.sharedSecret = Data(base64Encoded: sharedSecretBase64Encoded!)!
             self.codes = Codes(sharedSecret: self.sharedSecret)
             os_log("Registration loaded from keychain (serialNumber=%u)", log: log, type: .debug, self.serialNumber)
-            startTransmitterAndScheduleCodeChange()
+            changeBeaconCodeAndScheduleUpdate()
         } else {
             os_log("Registration required", log: log, type: .info)
             network.getRegistration()
@@ -110,17 +163,6 @@ public class Device: AbstractNetworkListener {
 
     }
     
-    private func startTransmitterAndScheduleCodeChange() {
-        if (codes != nil) {
-            let beaconCode = codes!.get(parameters.retentionPeriod)
-            beacon.setBeaconCode(beaconCode: beaconCode)
-            os_log("Beacon transmitter code update (code=%s)", log: log, type: .debug, beaconCode.description)
-            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now().advanced(by: .milliseconds(parameters.beaconTransmitterCodeDuration))) {
-                self.startTransmitterAndScheduleCodeChange()
-            }
-        }
-    }
-    
     public override func networkListenerDidUpdate(serialNumber:UInt64, sharedSecret:Data) {
         let _ = Keychain.remove(key: "serialNumber")
         let _ = Keychain.remove(key: "sharedSecret")
@@ -131,12 +173,12 @@ public class Device: AbstractNetworkListener {
         self.sharedSecret = sharedSecret
         self.codes = Codes(sharedSecret: sharedSecret)
         os_log("Starting beacon transmitter following registration", log: log, type: .debug)
-        startTransmitterAndScheduleCodeChange()
+        changeBeaconCodeAndScheduleUpdate()
     }
     
     public override func networkListenerFailedUpdate(registrationError: Error?) {
         os_log("Registration failed, retrying in 10 minutes (error=%s)", log: log, type: .debug, String(describing: registrationError))
-        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now().advanced(by: .seconds(10 * 60))) {
+        DispatchQueue.main.asyncAfter(deadline: .future(by: 600)) {
             self.network.getRegistration()
         }
     }
@@ -220,7 +262,7 @@ public class Parameters: AbstractNetworkListener {
     public var serverAddress = "https://appserver-test.c19x.org";
     public var governmentAdvice = RiskAnalysis.adviceStayAtHome;
     public var retentionPeriod = 14;
-    public var signalStrengthThreshold = (-82.03 - 4.57);
+    public var signalStrengthThreshold = -77.46;
     public var contactDurationThreshold = 5 * 60000;
     public var exposureDurationThreshold = 15 * 60000;
     public var beaconReceiverOnDuration = 15000;
@@ -269,6 +311,8 @@ public class ContactRecords: AbstractBeaconListener {
         var day: [UInt64:[Int64:UInt64]] = [:]
     }
 
+    private var lastTimestamp: UInt64?
+    private var dailyTotal: UInt64 = 0
     private var lastSeen = LastSeen()
     private var dailyRecords = DailyRecords()
 
@@ -300,18 +344,8 @@ public class ContactRecords: AbstractBeaconListener {
     }
     
     public func descriptionForToday() -> (value:String, unit:String, milliseconds:UInt64) {
-        let timestamp = UInt64(NSDate().timeIntervalSince1970 * 1000)
-        let (day,_) = timestamp.dividedReportingOverflow(by: dayMillis)
-        if (dailyRecords.day[day] == nil) {
-            return ("0", "minute", 0)
-        } else {
-            var sum:UInt64 = 0
-            dailyRecords.day[day]!.values.forEach { duration in
-                sum += duration
-            }
-            let (value, unit) = sum.duration()
-            return (String(value), unit, sum)
-        }
+        let (value, unit) = dailyTotal.duration()
+        return (String(value), unit, dailyTotal)
     }
     
     public func sum() -> [Int64:UInt64] {
@@ -334,6 +368,24 @@ public class ContactRecords: AbstractBeaconListener {
     private func add(beaconCode: Int64, rssi: Int) throws {
         if (Double(rssi) >= parameters.signalStrengthThreshold) {
             let timestamp = UInt64(NSDate().timeIntervalSince1970 * 1000)
+            let (day,_) = timestamp.dividedReportingOverflow(by: dayMillis)
+            let midnight = day * 1000
+            // Day duration
+            if lastTimestamp == nil || lastTimestamp! < midnight {
+                lastTimestamp = timestamp
+                dailyTotal = 0
+                os_log("Day contact (type=first|newDay,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
+            } else {
+                let elapsed = timestamp - lastTimestamp!
+                if (elapsed > parameters.contactDurationThreshold) {
+                    os_log("Day contact (type=newPeriod,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
+                } else {
+                    dailyTotal += elapsed
+                    os_log("Day contact (type=continuous,beacon=%s,rssi=%d,elapsed=%u,total=%u)", log: self.log, type: .debug, beaconCode.description, rssi, elapsed, dailyTotal)
+                }
+                lastTimestamp = timestamp
+            }
+            // Beacon duration
             if lastSeen.beacon[beaconCode] == nil {
                 lastSeen.beacon[beaconCode] = timestamp
                 os_log("Contact (type=first,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
@@ -342,7 +394,6 @@ public class ContactRecords: AbstractBeaconListener {
                 if elapsed > parameters.contactDurationThreshold {
                     os_log("Contact (type=newPeriod,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
                 } else {
-                    let (day,_) = timestamp.dividedReportingOverflow(by: dayMillis)
                     if (dailyRecords.day[day] == nil) {
                         dailyRecords.day[day] = [:]
                         dailyRecords.day[day]![beaconCode] = elapsed
@@ -413,6 +464,7 @@ public class ContactRecords: AbstractBeaconListener {
 }
 
 public class RiskAnalysis {
+    private let log = OSLog(subsystem: "org.C19X", category: "RiskAnalysis")
     private var device: Device!
     
     public static let contactOk = 0
@@ -427,7 +479,8 @@ public class RiskAnalysis {
     
     public var contactTime: UInt64 = 0
     public var exposureTime: UInt64 = 0
-    
+    public var listeners: [RiskAnalysisListener] = []
+
     init(device: Device) {
         self.device = device
     }
@@ -461,7 +514,10 @@ public class RiskAnalysis {
                 RiskAnalysis.adviceSelfIsolate :
                 device.parameters.governmentAdvice)
         }
-        debugPrint("Risk analysis (total=\(contactTime),infectious=\(exposureTime),contact=\(contact),advice=\(advice))")
+        os_log("Risk analysis (contactTime=%u,exposureTime=%u,contact=%d,advice=%d)", log: self.log, type: .debug, contactTime, exposureTime, contact, advice)
+        for listener in listeners {
+            listener.riskAnalysisDidUpdate(contact: contact, advice: advice, contactTime: contactTime, exposureTime: exposureTime)
+        }
     }
     
     private static func get(_ data: Data, index: Int) -> Bool {
@@ -473,7 +529,6 @@ public class RiskAnalysis {
 public protocol RiskAnalysisListener {
     func riskAnalysisDidUpdate(contact:Int, advice:Int, contactTime:UInt64, exposureTime:UInt64)
 }
-
 
 public class AbstractRiskAnalysisListener: RiskAnalysisListener {
     public func riskAnalysisDidUpdate(contact:Int, advice:Int, contactTime:UInt64, exposureTime:UInt64) {}

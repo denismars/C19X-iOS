@@ -13,98 +13,64 @@ import os
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "App")
-    public let device = Device()
-    private var beaconTaskLastTimestamp = Date()
-    private var updateTaskLastTimestamp = Date()
+    public var device: Device!
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        os_log("Application finished launching", log: log, type: .debug)
+        os_log("Application will finishing launching", log: log, type: .debug)
         
+        device = Device()
         BGTaskScheduler.shared.cancelAllTaskRequests()
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: "org.C19X.beacon", using: DispatchQueue.global(qos: .utility)) { task in
-            self.handleBeaconTask(task: task)
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: "org.C19X.beacon", using: nil) { task in
+            self.handleBackgroundTask(task: task)
         }
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: "org.C19X.update", using: DispatchQueue.global(qos: .background)) { task in
-            self.handleUpdateTask(task: task)
-        }
-        
-        // Override point for customization after application launch.
         return true
     }
     
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        os_log("Application entered background", log: log, type: .debug)
-        scheduleBeaconTask()
-        scheduleUpdateTask()
+    public func cancelBackgroundTask() {
+        os_log("Cancelling background beacon task", log: log, type: .debug)
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: "org.C19X.beacon")
     }
     
-    private func scheduleBeaconTask() {
-        os_log("Scheduling beacon task", log: log, type: .debug)
+    public func scheduleBackgroundTask() {
+        os_log("Scheduling background beacon task", log: log, type: .debug)
         let request = BGProcessingTaskRequest(identifier: "org.C19X.beacon")
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 60)
-//        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval(device.parameters.beaconReceiverOffDuration / 1000))
+        request.requiresNetworkConnectivity = true
+        request.requiresExternalPower = false
         do {
             try BGTaskScheduler.shared.submit(request)
-            os_log("Scheduled beacon task successful (date=%s)", log: log, type: .fault, request.earliestBeginDate!.description)
+            os_log("Scheduled background beacon task successful", log: log, type: .fault)
         } catch {
-            os_log("Schedule beacon task failed (error=%s)", log: log, type: .fault, String(describing: error))
+            os_log("Schedule background beacon task failed (error=%s)", log: log, type: .fault, String(describing: error))
         }
     }
 
-    private func scheduleUpdateTask() {
-        os_log("Scheduling update task", log: log, type: .debug)
-        let request = BGAppRefreshTaskRequest(identifier: "org.C19X.update")
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 60)
-        do {
-            try BGTaskScheduler.shared.submit(request)
-            os_log("Scheduled update task successful (date=%s)", log: log, type: .fault, request.earliestBeginDate!.description)
-        } catch {
-            os_log("Schedule update task failed (error=%s)", log: log, type: .fault, String(describing: error))
+    private func handleBackgroundTask(task: BGTask) {
+        os_log("Handling background beacon task (time=%s)", log: log, type: .debug, Date().description)
+        scheduleBackgroundTask()
+        
+        // Change beacon code
+        let timeSinceBeaconCodeUpdate = device.getTimeSinceBeaconCodeUpdate()
+        if (timeSinceBeaconCodeUpdate == nil || timeSinceBeaconCodeUpdate! > TimeInterval(device.parameters.beaconTransmitterCodeDuration / 1000)) {
+            os_log("Changeing beacon code (time=%s)", log: log, type: .debug, Date().description)
+            device.changeBeaconCode()
         }
         
-    }
+        // Update lookup
+        let timeSinceLookupUpdate = device.getTimeSinceLookupUpdate()
+        if (timeSinceLookupUpdate == nil || timeSinceLookupUpdate! > TimeInterval(120)) {
+            os_log("Downloading updates from server (time=%s)", log: log, type: .debug, Date().description)
+            device.downloadUpdateFromServer()
+        }
 
-    private func handleBeaconTask(task: BGTask) {
-        os_log("Handling beacon task (time=%s)", log: log, type: .debug, Date().description)
-        if (!beaconTaskLastTimestamp.distance(to: Date()).isLess(than: Double(device.parameters.beaconTransmitterCodeDuration / 1000))) {
-            device.beacon.setBeaconCode(beaconCode: (device.codes!.get( device.parameters.retentionPeriod)))
-        }
-        
+        os_log("Starting background scan (time=%s)", log: log, type: .debug, Date().description)
+        device.beaconReceiver.startScan()
+
         task.expirationHandler = {
-            self.device.beacon.stopReceiver()
-            os_log("Handle beacon task failed, expired (time=%s)", log: self.log, type: .fault, Date().description)
-            task.setTaskCompleted(success: false)
-        }
-
-        if (device.beacon.startReceiver()) {
-            Timer.scheduledTimer(withTimeInterval: TimeInterval(device.parameters.beaconReceiverOnDuration / 1000), repeats: false) { _ in
-                self.device.beacon.stopReceiver()
-                os_log("Handle beacon task successful (time=%s)", log: self.log, type: .debug, Date().description)
-                task.setTaskCompleted(success: true)
-            }
-        } else {
-            os_log("Handle beacon task successful, bluetooth is off (time=%s)", log: log, type: .debug, Date().description)
+            self.device.beaconReceiver.startScan()
+            os_log("Handle background beacon task expired (time=%s)", log: self.log, type: .fault, Date().description)
             task.setTaskCompleted(success: true)
         }
-
-        scheduleBeaconTask()
     }
-
-    private func handleUpdateTask(task: BGTask) {
-        os_log("Handling update task (time=%s)", log: log, type: .debug, Date().description)
-        device.network.getTimeFromServerAndSynchronise()
-        device.network.getParameters()
-        device.network.getLookupInBackground()
-        
-        task.expirationHandler = {
-            os_log("Handle update task failed, expired (time=%s)", log: self.log, type: .fault, Date().description)
-        }
-
-        task.setTaskCompleted(success: true)
-        scheduleUpdateTask()
-        os_log("Handle update task successful (time=%s)", log: log, type: .debug, Date().description)
-    }
-    
     
     // MARK: UISceneSession Lifecycle
     

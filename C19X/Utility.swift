@@ -189,21 +189,17 @@ extension UInt64 {
     }
 }
 
-public class FlipFlopTimer {
-    public var onInterval: TimeInterval
-    public var offInterval: TimeInterval
-    private var onAction: (() -> Void)
-    private var offAction: (() -> Void)
+extension DispatchTime {
     
-    init(onInterval: TimeInterval, offInterval: TimeInterval,
-         onAction: @escaping (() -> Void), offAction: @escaping (() -> Void)) {
-        self.onInterval = onInterval
-        self.offInterval = offInterval
-        self.onAction = onAction
-        self.offAction = offAction
+    static func future(by: TimeInterval, randomise: TimeInterval) -> DispatchTime {
+        let b = Int(by.rounded())
+        let r = Int(randomise.rounded())
+        let delta = b - r + Int.random(in: 0 ... r)
+        return DispatchTime.now().advanced(by: .seconds(delta))
     }
-    
-    func start() {
-        
+
+    static func future(by: TimeInterval) -> DispatchTime {
+        let b = Int(by.rounded())
+        return DispatchTime.now().advanced(by: .seconds(b))
     }
 }
