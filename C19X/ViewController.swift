@@ -23,9 +23,8 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     @IBOutlet weak var contactView: UIView!
     @IBOutlet weak var contactDescription: UILabel!
     @IBOutlet weak var contactLastUpdate: UILabel!
-    @IBOutlet weak var contactTimeValue: UILabel!
-    @IBOutlet weak var contactTimeUnit: UILabel!
-    @IBOutlet weak var contactTimeBarchart: UIProgressView!
+    @IBOutlet weak var contactValue: UILabel!
+    @IBOutlet weak var contactValueUnit: UILabel!
     
     @IBOutlet weak var adviceView: UIView!
     @IBOutlet weak var adviceDescription: UILabel!
@@ -34,8 +33,9 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     @IBOutlet weak var adviceLastUpdate: UILabel!
     
     private weak var refreshLastUpdateLabelsTimer: Timer!
-    private var statusLastUpdateTimestamp: Date!
-    private var adviceLastUpdateTimestamp: Date!
+    private var statusLastUpdateTimestamp: Date?
+    private var contactLastUpdateTimestamp: Date?
+    private var adviceLastUpdateTimestamp: Date?
     
     override func viewDidLoad() {
         os_log("View did load", log: self.log, type: .debug)
@@ -51,10 +51,6 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         statusView.layer.cornerRadius = 10
         contactView.layer.cornerRadius = 10
         adviceView.layer.cornerRadius = 10
-
-        let now = Date();
-        statusLastUpdateTimestamp = now
-        adviceLastUpdateTimestamp = now
         
         statusSelector.selectedSegmentIndex = device.getStatus()
         updateStatusDescriptionText()
@@ -101,14 +97,15 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     }
     
     private func updateLastUpdateLabels() {
-        if let t = appDelegate.device.beaconReceiver.lastScanTimestamp {
-            contactLastUpdate.text = "Updated " + t.elapsed()
-        } else {
-            contactLastUpdate.text = ""
+        if let t = statusLastUpdateTimestamp {
+            statusLastUpdate.text = "Shared " + t.elapsed()
         }
-        
-        statusLastUpdate.text = "Shared " + statusLastUpdateTimestamp.elapsed()
-        adviceLastUpdate.text = "Updated " + adviceLastUpdateTimestamp.elapsed()
+        if let t = contactLastUpdateTimestamp {
+            contactLastUpdate.text = "Updated " + t.elapsed()
+        }
+        if let t = adviceLastUpdateTimestamp {
+            adviceLastUpdate.text = "Updated " + t.elapsed()
+        }
         os_log("Refresh last update labels (status=%s,contact=%s,advice=%s)", log: self.log, type: .debug, statusLastUpdate.text!, contactLastUpdate.text!, adviceLastUpdate.text!)
     }
     
@@ -119,37 +116,20 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         }
     }
     
-    private func updateContactTime() {
-        let (value, unit, time) = device.contactRecords.descriptionForToday()
-        self.contactTimeValue.text = value
-        self.contactTimeUnit.text = (unit + " today")
-        self.contactLastUpdate.text = "Updated just now"
-        
-        var progress = Float(time) / Float(self.device.parameters.exposureDurationThreshold)
-        if (progress > 1) {
-            progress = 1
-        }
-        self.contactTimeBarchart.progress = progress
-        if (self.device.riskAnalysis.contact == RiskAnalysis.contactInfectious) {
-            self.contactTimeBarchart.tintColor = .systemRed
-        } else if (time < self.device.parameters.exposureDurationThreshold) {
-            self.contactTimeBarchart.tintColor = .systemGreen
-        } else {
-            self.contactTimeBarchart.tintColor = .systemOrange
-        }
-        os_log("Update contact time labels (value=%s,unit=%s)", log: self.log, type: .debug, value, unit)
-    }
-    
     private func updateContactDescription() {
         if (self.device.riskAnalysis.contact == RiskAnalysis.contactOk) {
             self.contactDescription.text = "No report of COVID-19 symptoms or diagnosis has been shared in the last " + String(self.device.parameters.retentionPeriod) + " days."
         } else {
-            let exposure = (self.device.riskAnalysis.exposureTime > self.device.parameters.exposureDurationThreshold ? "more" : "less")
-            let (value,unit) = UInt64(self.device.parameters.exposureDurationThreshold).duration()
-            self.contactDescription.text = "Report of COVID-19 symptoms or diagnosis has been shared in the last " + String(self.device.parameters.retentionPeriod) + " days. You may have been exposed for " + exposure + " than " + String(value) + " " + unit + "."
+            self.contactDescription.text = "Report of COVID-19 symptoms or diagnosis has been shared in the last " + String(self.device.parameters.retentionPeriod) + " days."
         }
     }
 
+    private func updateContactValue() {
+        let count = device.contactRecords.count()
+        self.contactValue.text = String(count)
+        self.contactValueUnit.text = (count < 2 ? "contact" : "contacts") + " today"
+    }
+    
     private func updateAdviceDescription() {
         switch self.device.riskAnalysis.advice {
         case RiskAnalysis.adviceFreedom:
@@ -168,16 +148,12 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
             break
         }
     }
-    
-    internal func beaconListenerDidUpdate(didStartScan: Date) {
-        DispatchQueue.main.async {
-            self.updateContactTime()
-        }
-    }
 
     internal func beaconListenerDidUpdate(beaconCode: Int64, rssi: Int) {
+        self.contactLastUpdateTimestamp = Date()
         DispatchQueue.main.async {
-            self.updateContactTime()
+            self.updateContactValue()
+            self.updateLastUpdateLabels()
         }
     }
 
@@ -193,7 +169,7 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
                 self.updateStatusDescriptionText()
                 self.statusSelector.isEnabled = true
             }
-            self.statusLastUpdate.text = "Shared " + self.statusLastUpdateTimestamp.elapsed()
+            self.updateLastUpdateLabels()
         }
     }
 
@@ -210,7 +186,7 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
                 self.updateStatusDescriptionText()
                 self.statusSelector.isEnabled = true
             }
-            self.statusLastUpdate.text = "Shared " + self.statusLastUpdateTimestamp.elapsed()
+            self.updateLastUpdateLabels()
         }
     }
 
@@ -229,10 +205,10 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     func networkListenerFailedUpdate(registrationError: Error?) {
     }
 
-    internal func riskAnalysisDidUpdate(contact: Int, advice: Int, contactTime: UInt64, exposureTime: UInt64) {
+    internal func riskAnalysisDidUpdate(contact: Int, advice: Int, contactCount: Int, exposureCount: Int) {
         DispatchQueue.main.async {
             self.updateContactDescription()
-            self.updateContactTime()
+            self.updateContactValue()
             self.updateAdviceDescription()
         }
     }

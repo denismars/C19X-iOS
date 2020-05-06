@@ -44,8 +44,8 @@
                                         <nil key="textColor"/>
                                         <nil key="highlightedColor"/>
                                     </label>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Shared just now" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="03C-Cj-ETM" userLabel="Last update">
-                                        <rect key="frame" x="20" y="158" width="97" height="16"/>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Last update" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="03C-Cj-ETM" userLabel="Last update">
+                                        <rect key="frame" x="20" y="158" width="72" height="16"/>
                                         <fontDescription key="fontDescription" style="UICTFontTextStyleFootnote"/>
                                         <color key="textColor" systemColor="tertiaryLabelColor" red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.29999999999999999" colorSpace="custom" customColorSpace="sRGB"/>
                                         <nil key="highlightedColor"/>
@@ -70,7 +70,7 @@
                                 </constraints>
                             </view>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="UUC-nX-Qjz" userLabel="ViewMiddle">
-                                <rect key="frame" x="8" y="254" width="398" height="186.5"/>
+                                <rect key="frame" x="8" y="254" width="398" height="183"/>
                                 <subviews>
                                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Recent contacts" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="itH-6y-rnz">
                                         <rect key="frame" x="20" y="20" width="154.5" height="26"/>
@@ -84,24 +84,28 @@
                                         <nil key="textColor"/>
                                         <nil key="highlightedColor"/>
                                     </label>
-                                    <progressView opaque="NO" contentMode="scaleToFill" verticalHuggingPriority="750" progress="0.10000000000000001" translatesAutoresizingMaskIntoConstraints="NO" id="BMs-qR-UPV" userLabel="Contact bar">
-                                        <rect key="frame" x="20" y="140.5" width="358" height="2"/>
-                                        <color key="tintColor" systemColor="systemGreenColor" red="0.20392156859999999" green="0.78039215689999997" blue="0.34901960780000002" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                    </progressView>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="gdh-Sb-j3K" userLabel="Contact status">
+                                        <rect key="frame" x="12" y="56" width="2" height="42.5"/>
+                                        <color key="backgroundColor" systemColor="systemGreenColor" red="0.20392156859999999" green="0.78039215689999997" blue="0.34901960780000002" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                        <color key="tintColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        <constraints>
+                                            <constraint firstAttribute="width" constant="2" id="6Er-ST-efK"/>
+                                        </constraints>
+                                    </imageView>
                                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="0" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="pTx-Lj-6wx" userLabel="Contact time">
                                         <rect key="frame" x="20" y="111.5" width="11" height="21"/>
                                         <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
                                         <nil key="textColor"/>
                                         <nil key="highlightedColor"/>
                                     </label>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="minute" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="yjr-3N-Y4w" userLabel="Contact unit">
-                                        <rect key="frame" x="37.5" y="116.5" width="42" height="16"/>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="contact today" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="yjr-3N-Y4w" userLabel="Contact unit">
+                                        <rect key="frame" x="37.5" y="116.5" width="84" height="16"/>
                                         <fontDescription key="fontDescription" style="UICTFontTextStyleFootnote"/>
                                         <color key="textColor" systemColor="secondaryLabelColor" red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.59999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
                                         <nil key="highlightedColor"/>
                                     </label>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Updated just now" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="GLT-Hf-7zN" userLabel="Last update">
-                                        <rect key="frame" x="20" y="150.5" width="107" height="16"/>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Last update" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="GLT-Hf-7zN" userLabel="Last update">
+                                        <rect key="frame" x="20" y="147" width="72" height="16"/>
                                         <fontDescription key="fontDescription" style="UICTFontTextStyleFootnote"/>
                                         <color key="textColor" systemColor="tertiaryLabelColor" red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.29999999999999999" colorSpace="custom" customColorSpace="sRGB"/>
                                         <nil key="highlightedColor"/>
@@ -110,24 +114,24 @@
                                 <color key="backgroundColor" systemColor="secondarySystemBackgroundColor" red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <constraints>
                                     <constraint firstItem="diP-7R-tKP" firstAttribute="top" secondItem="itH-6y-rnz" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="2xa-JN-xe7"/>
+                                    <constraint firstItem="gdh-Sb-j3K" firstAttribute="top" secondItem="diP-7R-tKP" secondAttribute="top" id="4Xu-ax-71N"/>
+                                    <constraint firstItem="GLT-Hf-7zN" firstAttribute="top" secondItem="pTx-Lj-6wx" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="8LP-oJ-Muo"/>
+                                    <constraint firstItem="gdh-Sb-j3K" firstAttribute="leading" secondItem="diP-7R-tKP" secondAttribute="leading" constant="-8" id="9UE-Z9-fY2"/>
                                     <constraint firstItem="yjr-3N-Y4w" firstAttribute="bottom" secondItem="pTx-Lj-6wx" secondAttribute="bottom" id="9g4-gF-ccz"/>
                                     <constraint firstItem="diP-7R-tKP" firstAttribute="centerX" secondItem="UUC-nX-Qjz" secondAttribute="centerX" id="BW3-5n-KQf"/>
                                     <constraint firstItem="yjr-3N-Y4w" firstAttribute="leading" secondItem="pTx-Lj-6wx" secondAttribute="trailing" multiplier="0.95" constant="8" symbolic="YES" id="Bzp-qy-vFJ"/>
-                                    <constraint firstItem="BMs-qR-UPV" firstAttribute="centerX" secondItem="UUC-nX-Qjz" secondAttribute="centerX" id="Elo-TE-jzs"/>
                                     <constraint firstItem="diP-7R-tKP" firstAttribute="leading" secondItem="itH-6y-rnz" secondAttribute="leading" id="Ezn-9Q-6hS"/>
                                     <constraint firstItem="GLT-Hf-7zN" firstAttribute="leading" secondItem="itH-6y-rnz" secondAttribute="leading" id="FBO-oV-cW9"/>
-                                    <constraint firstItem="GLT-Hf-7zN" firstAttribute="top" secondItem="BMs-qR-UPV" secondAttribute="bottom" constant="8" symbolic="YES" id="FbH-Pn-ELa"/>
-                                    <constraint firstItem="BMs-qR-UPV" firstAttribute="top" secondItem="pTx-Lj-6wx" secondAttribute="bottom" constant="8" symbolic="YES" id="HBV-ql-qNl"/>
+                                    <constraint firstItem="gdh-Sb-j3K" firstAttribute="bottom" secondItem="diP-7R-tKP" secondAttribute="bottom" id="ILH-wA-sQ6"/>
                                     <constraint firstItem="itH-6y-rnz" firstAttribute="top" secondItem="UUC-nX-Qjz" secondAttribute="top" constant="20" symbolic="YES" id="Vyc-it-ydW"/>
                                     <constraint firstItem="itH-6y-rnz" firstAttribute="leading" secondItem="UUC-nX-Qjz" secondAttribute="leading" constant="20" symbolic="YES" id="ZXB-dA-lzF"/>
                                     <constraint firstItem="pTx-Lj-6wx" firstAttribute="leading" secondItem="itH-6y-rnz" secondAttribute="leading" id="agW-JI-bff"/>
-                                    <constraint firstItem="itH-6y-rnz" firstAttribute="leading" secondItem="BMs-qR-UPV" secondAttribute="leading" id="dul-Lb-eiM"/>
                                     <constraint firstAttribute="bottom" secondItem="GLT-Hf-7zN" secondAttribute="bottom" constant="20" symbolic="YES" id="feE-O8-nHD"/>
                                     <constraint firstItem="pTx-Lj-6wx" firstAttribute="top" secondItem="diP-7R-tKP" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="r6o-ha-BWg"/>
                                 </constraints>
                             </view>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="pba-5n-NGY" userLabel="ViewBottom">
-                                <rect key="frame" x="8" y="448.5" width="398" height="152"/>
+                                <rect key="frame" x="8" y="445" width="398" height="157.5"/>
                                 <subviews>
                                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="What you need to do" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="qkt-lv-9P3">
                                         <rect key="frame" x="20" y="20" width="197" height="27"/>
@@ -155,8 +159,8 @@
                                             <constraint firstAttribute="width" constant="2" id="M7U-cC-Fsm"/>
                                         </constraints>
                                     </imageView>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Updated just now" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="m1f-IA-nU0" userLabel="Last update">
-                                        <rect key="frame" x="20" y="116" width="107" height="16"/>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Last update" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="m1f-IA-nU0" userLabel="Last update">
+                                        <rect key="frame" x="20" y="121.5" width="72" height="16"/>
                                         <fontDescription key="fontDescription" style="UICTFontTextStyleFootnote"/>
                                         <color key="textColor" systemColor="tertiaryLabelColor" red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.29999999999999999" colorSpace="custom" customColorSpace="sRGB"/>
                                         <nil key="highlightedColor"/>
@@ -164,7 +168,7 @@
                                 </subviews>
                                 <color key="backgroundColor" systemColor="secondarySystemBackgroundColor" red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <constraints>
-                                    <constraint firstItem="m1f-IA-nU0" firstAttribute="top" secondItem="jMc-IP-FKH" secondAttribute="bottom" constant="8" symbolic="YES" id="1DI-r6-scS"/>
+                                    <constraint firstItem="m1f-IA-nU0" firstAttribute="top" secondItem="jMc-IP-FKH" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="1DI-r6-scS"/>
                                     <constraint firstItem="m1f-IA-nU0" firstAttribute="leading" secondItem="qkt-lv-9P3" secondAttribute="leading" id="32G-24-0bz"/>
                                     <constraint firstItem="XDx-B7-hjr" firstAttribute="top" secondItem="qkt-lv-9P3" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="5Ot-Ke-TSd"/>
                                     <constraint firstItem="XDx-B7-hjr" firstAttribute="leading" secondItem="qkt-lv-9P3" secondAttribute="leading" id="BcF-hx-q3U"/>
@@ -205,9 +209,8 @@
                         <outlet property="adviceView" destination="pba-5n-NGY" id="IDp-yR-fKn"/>
                         <outlet property="contactDescription" destination="diP-7R-tKP" id="tEK-XV-rEW"/>
                         <outlet property="contactLastUpdate" destination="GLT-Hf-7zN" id="pEi-KL-XBk"/>
-                        <outlet property="contactTimeBarchart" destination="BMs-qR-UPV" id="Qhi-pf-kGO"/>
-                        <outlet property="contactTimeUnit" destination="yjr-3N-Y4w" id="tH9-7n-wQu"/>
-                        <outlet property="contactTimeValue" destination="pTx-Lj-6wx" id="Qyv-sR-YLX"/>
+                        <outlet property="contactValue" destination="pTx-Lj-6wx" id="Qyv-sR-YLX"/>
+                        <outlet property="contactValueUnit" destination="yjr-3N-Y4w" id="tH9-7n-wQu"/>
                         <outlet property="contactView" destination="UUC-nX-Qjz" id="BMn-3I-sP8"/>
                         <outlet property="statusDescription" destination="DxO-Gm-hnJ" id="yym-qx-ZHW"/>
                         <outlet property="statusLastUpdate" destination="03C-Cj-ETM" id="SZn-EX-4yz"/>

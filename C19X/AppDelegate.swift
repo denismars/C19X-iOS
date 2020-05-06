@@ -8,69 +8,55 @@
 
 import UIKit
 import BackgroundTasks
+import CoreData
 import os
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "App")
+    private let permittedBackgroundTaskIdentifier = "org.C19X.fetch"
     public var device: Device!
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         os_log("Application will finishing launching", log: log, type: .debug)
         
         device = Device()
-        BGTaskScheduler.shared.cancelAllTaskRequests()
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: "org.C19X.beacon", using: nil) { task in
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: permittedBackgroundTaskIdentifier, using: nil) { task in
             self.handleBackgroundTask(task: task)
         }
         return true
     }
     
-    public func cancelBackgroundTask() {
-        os_log("Cancelling background beacon task", log: log, type: .debug)
-        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: "org.C19X.beacon")
+    private func handleBackgroundTask(task: BGTask) {
+        os_log("Handling background task (time=%s)", log: log, type: .debug, Date().description)
+        device.update() {
+            self.scheduleBackgroundTask()
+            task.setTaskCompleted(success: true)
+        }
+        task.expirationHandler = {
+            os_log("Handle background beacon task expired (time=%s)", log: self.log, type: .fault, Date().description)
+            self.scheduleBackgroundTask()
+            task.setTaskCompleted(success: false)
+        }
     }
     
+    public func cancelBackgroundTask() {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: permittedBackgroundTaskIdentifier)
+    }
+
     public func scheduleBackgroundTask() {
-        os_log("Scheduling background beacon task", log: log, type: .debug)
-        let request = BGProcessingTaskRequest(identifier: "org.C19X.beacon")
+        os_log("Scheduling background task", log: log, type: .debug)
+        let request = BGProcessingTaskRequest(identifier: permittedBackgroundTaskIdentifier)
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
         do {
             try BGTaskScheduler.shared.submit(request)
-            os_log("Scheduled background beacon task successful", log: log, type: .fault)
+            os_log("Schedule background task successful", log: log, type: .fault)
         } catch {
-            os_log("Schedule background beacon task failed (error=%s)", log: log, type: .fault, String(describing: error))
+            os_log("Schedule background task failed (error=%s)", log: log, type: .fault, String(describing: error))
         }
     }
 
-    private func handleBackgroundTask(task: BGTask) {
-        os_log("Handling background beacon task (time=%s)", log: log, type: .debug, Date().description)
-        scheduleBackgroundTask()
-        
-        // Change beacon code
-        let timeSinceBeaconCodeUpdate = device.getTimeSinceBeaconCodeUpdate()
-        if (timeSinceBeaconCodeUpdate == nil || timeSinceBeaconCodeUpdate! > TimeInterval(device.parameters.beaconTransmitterCodeDuration / 1000)) {
-            os_log("Changeing beacon code (time=%s)", log: log, type: .debug, Date().description)
-            device.changeBeaconCode()
-        }
-        
-        // Update lookup
-        let timeSinceLookupUpdate = device.getTimeSinceLookupUpdate()
-        if (timeSinceLookupUpdate == nil || timeSinceLookupUpdate! > TimeInterval(120)) {
-            os_log("Downloading updates from server (time=%s)", log: log, type: .debug, Date().description)
-            device.downloadUpdateFromServer()
-        }
-
-        os_log("Starting background scan (time=%s)", log: log, type: .debug, Date().description)
-        device.beaconReceiver.startScan()
-
-        task.expirationHandler = {
-            self.device.beaconReceiver.startScan()
-            os_log("Handle background beacon task expired (time=%s)", log: self.log, type: .fault, Date().description)
-            task.setTaskCompleted(success: true)
-        }
-    }
     
     // MARK: UISceneSession Lifecycle
     

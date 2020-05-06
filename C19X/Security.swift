@@ -8,6 +8,7 @@
 
 import Foundation
 import CommonCrypto
+import os
 
 public struct AES {
     
@@ -60,39 +61,72 @@ public struct AES {
 }
 
 public struct Keychain {
+    private static let log = OSLog(subsystem: "org.C19X", category: "Keychain")
     
-    public static func put(key: String, value: String) -> Bool {
+    public static func update(_ key: String, _ value: String) -> Bool {
+        os_log("Update (key=%s)", log: Keychain.log, type: .debug, key)
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                    kSecAttrAccount as String: key]
+        let attributes: [String: Any] = [kSecAttrAccount as String: key,
+                                         kSecValueData as String: value]
+        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        guard status != errSecItemNotFound else {
+            os_log("Update requires create (key=%s)", log: Keychain.log, type: .debug, key)
+            return create(key, value)
+        }
+        guard status == errSecSuccess else {
+            os_log("Update failed (key=%s)", log: Keychain.log, type: .debug, key)
+            return false
+        }
+        os_log("Update successful (key=%s)", log: Keychain.log, type: .debug, key)
+        return true
+    }
+    
+    public static func create(_ key: String, _ value: String) -> Bool {
+        os_log("Create (key=%s)", log: Keychain.log, type: .debug, key)
         let valueData = value.data(using: String.Encoding.utf8)!
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrAccount as String: key,
                                     kSecValueData as String: valueData]
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {
+            os_log("Create failed (key=%s)", log: Keychain.log, type: .debug, key)
             return false
         }
+        os_log("Create successful (key=%s)", log: Keychain.log, type: .debug, key)
         return true
     }
     
-    public static func remove(key: String) -> Bool {
+    public static func remove(_ key: String) -> Bool {
+        os_log("Remove (key=%s)", log: Keychain.log, type: .debug, key)
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrAccount as String: key]
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess else {
+            os_log("Remove failed (key=%s)", log: Keychain.log, type: .debug, key)
             return false
         }
+        os_log("Remove successful (key=%s)", log: Keychain.log, type: .debug, key)
         return true
     }
 
     public static func get(key: String) -> String? {
+        os_log("Get (key=%s)", log: Keychain.log, type: .debug, key)
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrAccount as String: key,
                                     kSecMatchLimit as String: kSecMatchLimitOne,
                                     kSecReturnData as String: kCFBooleanTrue!]
         var retrivedData: AnyObject? = nil
-        let _ = SecItemCopyMatching(query as CFDictionary, &retrivedData)
-        guard let valueData = retrivedData as? Data else {
+        let status = SecItemCopyMatching(query as CFDictionary, &retrivedData)
+        guard status == errSecSuccess else {
+            os_log("Get failed (key=%s)", log: Keychain.log, type: .debug, key)
             return nil
         }
+        guard let valueData = retrivedData as? Data else {
+            os_log("Get failed (key=%s)", log: Keychain.log, type: .debug, key)
+            return nil
+        }
+        os_log("Get successful (key=%s)", log: Keychain.log, type: .debug, key)
         return String(data: valueData, encoding: String.Encoding.utf8)
     }
 }

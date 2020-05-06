@@ -24,7 +24,7 @@ public class Network {
     }
         
     // Get time and adjust delta to synchronise with server
-    public func getTimeFromServerAndSynchronise() {
+    public func getTimeFromServerAndSynchronise(_ callback: ((Bool) -> Void)? = nil) {
         os_log("Synchronised time request", log: self.log, type: .debug)
         let url = URL(string: server + "time")
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
@@ -34,10 +34,16 @@ public class Network {
                     let clientTime = Int64(NSDate().timeIntervalSince1970 * 1000)
                     self.timeDelta = clientTime - serverTime
                     os_log("Synchronised time with server (delta=%d)", log: self.log, type: .debug, self.timeDelta)
+                    if callback != nil {
+                        callback!(true)
+                    }
                     return
                 }
             }
             os_log("Synchronised time with server failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+            if callback != nil {
+                callback!(false)
+            }
         })
         task.resume()
     }
@@ -48,7 +54,7 @@ public class Network {
     }
     
     // Get registration serial number and key
-    public func getRegistration() {
+    public func getRegistration(callback: ((Bool) -> Void)? = nil) {
         os_log("Registration request", log: self.log, type: .debug)
         let url = URL(string: server + "registration")
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
@@ -61,6 +67,9 @@ public class Network {
                     for listener in self.listeners {
                         listener.networkListenerDidUpdate(serialNumber: self.device.serialNumber, sharedSecret: self.device.sharedSecret)
                     }
+                    if callback != nil {
+                        callback!(true)
+                    }
                     return
                 }
             }
@@ -68,12 +77,15 @@ public class Network {
             for listener in self.listeners {
                 listener.networkListenerFailedUpdate(registrationError: error)
             }
+            if callback != nil {
+                callback!(false)
+            }
         })
         task.resume()
     }
     
     // Post status
-    public func postStatus(_ status: Int) {
+    public func postStatus(_ status: Int, callback: ((Bool) -> Void)? = nil) {
         os_log("Post status request (status=%u)", log: self.log, type: .debug, status)
         let string = String(getTimestamp()) + "," + String(status)
         let encrypted = AES.encrypt(key: device.sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
@@ -88,6 +100,9 @@ public class Network {
                     for listener in self.listeners {
                         listener.networkListenerDidUpdate(status: self.device.getStatus())
                     }
+                    if callback != nil {
+                        callback!(true)
+                    }
                     return
                 }
             }
@@ -95,12 +110,15 @@ public class Network {
             for listener in self.listeners {
                 listener.networkListenerFailedUpdate(statusError: error)
             }
+            if callback != nil {
+                callback!(false)
+            }
         })
         task.resume()
     }
     
     // Get device specific message
-    public func getMessage() {
+    public func getMessage(callback: ((Bool) -> Void)? = nil) {
         os_log("Get message request", log: self.log, type: .debug)
         let string = String(getTimestamp())
         let encrypted = AES.encrypt(key: device.sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
@@ -113,16 +131,22 @@ public class Network {
                     for listener in self.listeners {
                         listener.networkListenerDidUpdate(message: self.device.message)
                     }
+                    if callback != nil {
+                        callback!(true)
+                    }
                     return
                 }
             }
             os_log("Get message failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+            if callback != nil {
+                callback!(false)
+            }
         })
         task.resume()
     }
     
     // Get lookup table immediately
-    public func getLookupImmediately() {
+    public func getLookupImmediately(callback: ((Bool) -> Void)? = nil) {
         os_log("Get lookup immediately request", log: self.log, type: .debug)
         let url = URL(string: server + "lookup")
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
@@ -132,10 +156,16 @@ public class Network {
                     for listener in self.listeners {
                         listener.networkListenerDidUpdate(lookup: lookup)
                     }
+                    if callback != nil {
+                        callback!(true)
+                    }
                     return
                 }
             }
             os_log("Get lookup immediately failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+            if callback != nil {
+                callback!(false)
+            }
         })
         task.resume()
     }
@@ -143,7 +173,7 @@ public class Network {
     
     
     // Get lookup table in background
-    public func getLookupInBackground() {
+    public func getLookupInBackground(callback: ((Bool) -> Void)? = nil) {
         os_log("Get lookup in background request", log: self.log, type: .debug)
         let url = URL(string: server + "lookup")!
         DownloadManager.shared.set() { data in
@@ -152,8 +182,14 @@ public class Network {
                 for listener in self.listeners {
                     listener.networkListenerDidUpdate(lookup: lookup)
                 }
+                if callback != nil {
+                    callback!(true)
+                }
             } else {
                 os_log("Get lookup in background failed", log: self.log, type: .fault)
+                if callback != nil {
+                    callback!(false)
+                }
             }
         }
         let backgroundTask = DownloadManager.shared.session.downloadTask(with: url)
@@ -163,7 +199,7 @@ public class Network {
     }
     
     // Get application parameters
-    public func getParameters() {
+    public func getParameters(callback: ((Bool) -> Void)? = nil) {
         os_log("Get parameters request", log: self.log, type: .debug)
         let url = URL(string: server + "parameters")
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
@@ -176,11 +212,17 @@ public class Network {
                         for listener in self.listeners {
                             listener.networkListenerDidUpdate(parameters: self.device.parameters)
                         }
+                        if callback != nil {
+                            callback!(true)
+                        }
                         return
                     }
                 }
             }
             os_log("Get parameters failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+            if callback != nil {
+                callback!(false)
+            }
         })
         task.resume()
     }

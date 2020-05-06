@@ -25,6 +25,7 @@ public class Device: AbstractNetworkListener {
     private var status = statusNormal
     public var message: String = ""
     public var lookup: Data = Data(count: 1)
+    private var serverDataUpdateSince: Date?
 
     public var parameters: Parameters!
     public var contactRecords: ContactRecords!
@@ -32,9 +33,6 @@ public class Device: AbstractNetworkListener {
     public var beaconTransmitter: BeaconTransmitter!
     public var beaconReceiver: BeaconReceiver!
     public var network: Network!
-    
-    public var beaconCodeUpdateTime: Date?
-    public var lookupUpdateTime: Date?
     
     override init() {
         super.init()
@@ -55,7 +53,48 @@ public class Device: AbstractNetworkListener {
 
         //reset()
         load()
-        downloadUpdateFromServer()
+        scheduleUpdates()
+    }
+    
+    private func scheduleUpdates() {
+        update()
+        DispatchQueue.main.asyncAfter(deadline: DispatchTime.future(by: parameters.beaconCodeUpdateInterval, randomise: 120)) {
+            self.update()
+        }
+    }
+    
+    /**
+     All device update tasks, e.g. beacon code rotation, downloads. Calling before time limits has no effect.
+     */
+    public func update(callback: (() -> Void)? = nil) {
+        if beaconTransmitter.beaconCodeSince == nil || beaconTransmitter.beaconCodeSince!.distance(to: Date()) > parameters.beaconCodeUpdateInterval {
+            changeBeaconCode()
+        }
+        
+        if serverDataUpdateSince == nil || serverDataUpdateSince!.distance(to: Date()) > (24 * 60 * 60) {
+            // No registration required
+            network.getTimeFromServerAndSynchronise() { t in
+                self.network.getParameters() { p in
+                    self.network.getLookupImmediately() { l in
+                        // Registration required
+                        guard self.isRegistered() else {
+                            if callback != nil {
+                                callback!()
+                            }
+                            return
+                        }
+                        self.network.getMessage() { m in
+                            if callback != nil {
+                                callback!()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if callback != nil {
+            callback!()
+        }
     }
     
     public func isRegistered() -> Bool {
@@ -63,90 +102,59 @@ public class Device: AbstractNetworkListener {
     }
     
     public func set(status: Int) {
-        self.status = status
-        let _ = Keychain.remove(key: "status")
-        let _ = Keychain.put(key: "status", value: status.description)
-        os_log("Set status (status=%d)", log: log, type: .debug, status)
+        if (self.status != status) {
+            self.status = status
+            let result = Keychain.update("status", status.description)
+            os_log("Set status (status=%d,result=%s)", log: log, type: .debug, status, result)
+        }
     }
     
     public func getStatus() -> Int {
         return self.status
     }
     
-    private func changeBeaconCodeAndScheduleUpdate() {
-        changeBeaconCode()
-        DispatchQueue.main.asyncAfter(deadline: .future(by: TimeInterval( parameters.beaconTransmitterCodeDuration / 1000), randomise: 120)) {
-            self.changeBeaconCodeAndScheduleUpdate()
-        }
-    }
-    
-    public func changeBeaconCode() {
+    private func changeBeaconCode() {
         os_log("Change beacon code request", log: log, type: .debug)
-        if codes != nil {
-            let beaconCode = codes!.get(parameters.retentionPeriod)
-            beaconTransmitter.setBeaconCode(beaconCode: beaconCode)
-            beaconCodeUpdateTime = Date()
-            os_log("Change beacon code successful (code=%s)", log: log, type: .debug, beaconCode.description)
-        } else {
+        guard let beaconCodes = codes else {
             os_log("Change beacon code failed, pending registration", log: log, type: .fault)
+            return
         }
-    }
-    
-    public func getTimeSinceBeaconCodeUpdate() -> TimeInterval? {
-        if let t = beaconCodeUpdateTime {
-            return t.distance(to: Date())
-        } else {
-            return nil
-        }
+        let beaconCode = beaconCodes.get(parameters.retentionPeriod)
+        beaconTransmitter.setBeaconCode(beaconCode: beaconCode)
+        os_log("Change beacon code successful (code=%s)", log: log, type: .debug, beaconCode.description)
     }
 
-    public func getTimeSinceLookupUpdate() -> TimeInterval? {
-        if let t = lookupUpdateTime {
-            return t.distance(to: Date())
-        } else {
-            return nil
-        }
-    }
-
-    public func downloadUpdateFromServer() {
-        network.getTimeFromServerAndSynchronise()
-        network.getParameters()
-        network.getLookupInBackground()
-        if (isRegistered()) {
-            network.getMessage()
-        }
-    }
-    
     private func reset() {
         os_log("Reset (REMOVE FOR PRODUCTION USE)", log: log, type: .error)
-        let _ = Keychain.remove(key: "serialNumber")
-        let _ = Keychain.remove(key: "sharedSecret")
-        let _ = Keychain.remove(key: "status")
+        let _ = Keychain.remove("serialNumber")
+        let _ = Keychain.remove("sharedSecret")
+        let _ = Keychain.remove("status")
     }
     
     private func load() {
         os_log("Load", log: log, type: .debug)
         // Registration
-        let serialNumber = Keychain.get(key: "serialNumber")
-        let sharedSecretBase64Encoded = Keychain.get(key: "sharedSecret")
-        if (serialNumber != nil && sharedSecretBase64Encoded != nil) {
-            self.serialNumber = UInt64(serialNumber!)!
-            self.sharedSecret = Data(base64Encoded: sharedSecretBase64Encoded!)!
+        if
+            let serialNumberKeychainValue = Keychain.get(key: "serialNumber"),
+            let sharedSecretKeychainValue = Keychain.get(key: "sharedSecret"),
+            let serialNumber = UInt64(serialNumberKeychainValue),
+            let sharedSecret = Data(base64Encoded: sharedSecretKeychainValue) {
+            self.serialNumber = serialNumber
+            self.sharedSecret = sharedSecret
             self.codes = Codes(sharedSecret: self.sharedSecret)
             os_log("Registration loaded from keychain (serialNumber=%u)", log: log, type: .debug, self.serialNumber)
-            changeBeaconCodeAndScheduleUpdate()
+            update()
         } else {
             os_log("Registration required", log: log, type: .info)
             network.getRegistration()
         }
         
         // Status
-        let statusString = Keychain.get(key: "status")
-        if (statusString != nil) {
-            if let status = Int(statusString!) {
-                self.status = status
-                network.postStatus(status)
-            }
+        if
+            let statusKeychainValue = Keychain.get(key: "status"),
+            let status = Int(statusKeychainValue) {
+            self.status = status
+            update()
         }
         
         // Lookup
@@ -164,16 +172,16 @@ public class Device: AbstractNetworkListener {
     }
     
     public override func networkListenerDidUpdate(serialNumber:UInt64, sharedSecret:Data) {
-        let _ = Keychain.remove(key: "serialNumber")
-        let _ = Keychain.remove(key: "sharedSecret")
-        if Keychain.put(key: "serialNumber", value: String(serialNumber)), Keychain.put(key: "sharedSecret", value: sharedSecret.base64EncodedString()) {
+        if Keychain.create("serialNumber", String(serialNumber)), Keychain.create("sharedSecret", sharedSecret.base64EncodedString()) {
             os_log("Registration saved to keychain (serialNumber=%u)", log: log, type: .debug, self.serialNumber)
+            self.serialNumber = serialNumber
+            self.sharedSecret = sharedSecret
+            self.codes = Codes(sharedSecret: sharedSecret)
+            os_log("Starting beacon transmitter following registration", log: log, type: .debug)
+            update()
+        } else {
+            os_log("Registration not saved to keychain (serialNumber=%u)", log: log, type: .fault, self.serialNumber)
         }
-        self.serialNumber = serialNumber
-        self.sharedSecret = sharedSecret
-        self.codes = Codes(sharedSecret: sharedSecret)
-        os_log("Starting beacon transmitter following registration", log: log, type: .debug)
-        changeBeaconCodeAndScheduleUpdate()
     }
     
     public override func networkListenerFailedUpdate(registrationError: Error?) {
@@ -263,11 +271,7 @@ public class Parameters: AbstractNetworkListener {
     public var governmentAdvice = RiskAnalysis.adviceStayAtHome;
     public var retentionPeriod = 14;
     public var signalStrengthThreshold = -77.46;
-    public var contactDurationThreshold = 5 * 60000;
-    public var exposureDurationThreshold = 15 * 60000;
-    public var beaconReceiverOnDuration = 15000;
-    public var beaconReceiverOffDuration = 85000;
-    public var beaconTransmitterCodeDuration = 30 * 60000;
+    public var beaconCodeUpdateInterval = TimeInterval(30 * 60);
     
     public func set(_ dictionary:[String:String]) {
         if let v = dictionary["serverAddress"] {
@@ -282,17 +286,8 @@ public class Parameters: AbstractNetworkListener {
         if let v = dictionary["signalStrengthThreshold"], let n = Double(v) {
             signalStrengthThreshold = n
         }
-        if let v = dictionary["contactDurationThreshold"], let n = Int(v) {
-            contactDurationThreshold = n
-        }
-        if let v = dictionary["exposureDurationThreshold"], let n = Int(v) {
-            exposureDurationThreshold = n
-        }
-        if let v = dictionary["beaconReceiverOnDuration"], let n = Int(v) {
-            beaconReceiverOnDuration = n
-        }
-        if let v = dictionary["beaconReceiverOffDuration"], let n = Int(v) {
-            beaconReceiverOffDuration = n
+        if let v = dictionary["beaconCodeUpdateInterval"], let n = Int(v) {
+            beaconCodeUpdateInterval = TimeInterval(n / 1000)
         }
     }
 }
@@ -307,12 +302,17 @@ public class ContactRecords: AbstractBeaconListener {
     struct LastSeen: Codable {
         var beacon: [Int64:UInt64] = [:]
     }
+    public struct Record: Codable {
+        var timestamp: UInt64!
+        var beaconCode: Int64!
+        var rssi: Int!
+    }
     struct DailyRecords: Codable {
-        var day: [UInt64:[Int64:UInt64]] = [:]
+        var day: [UInt64:[Record]] = [:]
     }
 
     private var lastTimestamp: UInt64?
-    private var dailyTotal: UInt64 = 0
+    private var dailyTotal: UInt = 0
     private var lastSeen = LastSeen()
     private var dailyRecords = DailyRecords()
 
@@ -343,74 +343,36 @@ public class ContactRecords: AbstractBeaconListener {
         lock.unlock()
     }
     
-    public func descriptionForToday() -> (value:String, unit:String, milliseconds:UInt64) {
-        let (value, unit) = dailyTotal.duration()
-        return (String(value), unit, dailyTotal)
-    }
-    
-    public func sum() -> [Int64:UInt64] {
-        var sum: [Int64:UInt64] = [:]
+    public func get() -> [Record] {
+        var all: [Record] = []
         lock.lock()
         enforceRetention()
         dailyRecords.day.values.forEach { day in
-            day.forEach { beaconCode, duration in
-                if sum[beaconCode] == nil {
-                    sum[beaconCode] = duration
-                } else {
-                    sum[beaconCode]! += duration
-                }
-            }
+            all.append(contentsOf: day)
         }
         lock.unlock()
-        return sum
+        return all
+    }
+    
+    public func count() -> Int {
+        let (day,_) = UInt64(NSDate().timeIntervalSince1970).dividedReportingOverflow(by: 24 * 60 * 60)
+        if (dailyRecords.day[day] == nil) {
+            return 0
+        } else {
+            return dailyRecords.day[day]!.filter() { record in
+                return Double(record.rssi) > parameters.signalStrengthThreshold
+            }.count
+        }
     }
     
     private func add(beaconCode: Int64, rssi: Int) throws {
-        if (Double(rssi) >= parameters.signalStrengthThreshold) {
-            let timestamp = UInt64(NSDate().timeIntervalSince1970 * 1000)
-            let (day,_) = timestamp.dividedReportingOverflow(by: dayMillis)
-            let midnight = day * 1000
-            // Day duration
-            if lastTimestamp == nil || lastTimestamp! < midnight {
-                lastTimestamp = timestamp
-                dailyTotal = 0
-                os_log("Day contact (type=first|newDay,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
-            } else {
-                let elapsed = timestamp - lastTimestamp!
-                if (elapsed > parameters.contactDurationThreshold) {
-                    os_log("Day contact (type=newPeriod,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
-                } else {
-                    dailyTotal += elapsed
-                    os_log("Day contact (type=continuous,beacon=%s,rssi=%d,elapsed=%u,total=%u)", log: self.log, type: .debug, beaconCode.description, rssi, elapsed, dailyTotal)
-                }
-                lastTimestamp = timestamp
-            }
-            // Beacon duration
-            if lastSeen.beacon[beaconCode] == nil {
-                lastSeen.beacon[beaconCode] = timestamp
-                os_log("Contact (type=first,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
-            } else {
-                let elapsed = timestamp - lastSeen.beacon[beaconCode]!
-                if elapsed > parameters.contactDurationThreshold {
-                    os_log("Contact (type=newPeriod,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
-                } else {
-                    if (dailyRecords.day[day] == nil) {
-                        dailyRecords.day[day] = [:]
-                        dailyRecords.day[day]![beaconCode] = elapsed
-                        os_log("Contact (type=continuous|newDay,beacon=%s,rssi=%d,elapsed=%u,total=%u)", log: self.log, type: .debug, beaconCode.description, rssi, elapsed, dailyRecords.day[day]![beaconCode]!)
-                    } else if (dailyRecords.day[day]![beaconCode] == nil) {
-                        dailyRecords.day[day]![beaconCode] = elapsed
-                        os_log("Contact (type=continuous|newDay,beacon=%s,rssi=%d,elapsed=%u,total=%u)", log: self.log, type: .debug, beaconCode.description, rssi, elapsed, dailyRecords.day[day]![beaconCode]!)
-                    } else {
-                        dailyRecords.day[day]![beaconCode]! += elapsed
-                        os_log("Contact (type=continuous,beacon=%s,rssi=%d,elapsed=%u,total=%u)", log: self.log, type: .debug, beaconCode.description, rssi, elapsed, dailyRecords.day[day]![beaconCode]!)
-                    }
-                }
-                lastSeen.beacon[beaconCode] = timestamp
-            }
-        } else {
-            os_log("Contact discarded, weak signal (beacon=%s,rssi=%d,threshold=%d)", log: self.log, type: .debug, beaconCode.description, rssi, parameters.signalStrengthThreshold)
+        let record = Record(timestamp: UInt64(NSDate().timeIntervalSince1970), beaconCode: beaconCode, rssi: rssi)
+        let (day,_) = record.timestamp.dividedReportingOverflow(by: 24 * 60 * 60)
+        if (dailyRecords.day[day] == nil) {
+            dailyRecords.day[day] = []
         }
+        dailyRecords.day[day]!.append(record)
+        os_log("Contact (beacon=%s,rssi=%d,dayCount=%d)", log: self.log, type: .debug, beaconCode.description, rssi, dailyRecords.day[day]!.count)
     }
     
     private func enforceRetention() {
@@ -477,46 +439,40 @@ public class RiskAnalysis {
     public var contact = RiskAnalysis.contactOk
     public var advice = RiskAnalysis.adviceStayAtHome
     
-    public var contactTime: UInt64 = 0
-    public var exposureTime: UInt64 = 0
+    public var contactCount: UInt64 = 0
+    public var exposureCount: UInt64 = 0
     public var listeners: [RiskAnalysisListener] = []
 
     init(device: Device) {
         self.device = device
     }
         
-    private static func getExposureToInfection(contactRecords: ContactRecords, lookup: Data) -> (total:UInt64, infectious:UInt64) {
+    private static func getExposureToInfection(contactRecords: ContactRecords, rssiThreshold: Double, lookup: Data) -> (total:Int, infectious:Int) {
         let range = Int64(lookup.count * 8)
-        let records = contactRecords.sum()
-        let infectious = records.filter { key, value in
-            let index = Int(abs(key % range))
+        let records = contactRecords.get()
+        let infectious = records.filter { record in
+            guard Double(record.rssi) > rssiThreshold else {
+                return false
+            }
+            let index = Int(abs(record.beaconCode % range))
             return get(lookup, index: index)
         }
         
-        var sumTotal = UInt64(0)
-        records.values.forEach { duration in
-            sumTotal += UInt64(duration)
-        }
-        var sumInfectious = UInt64(0)
-        infectious.values.forEach { duration in
-            sumInfectious += UInt64(duration)
-        }
-        return (sumTotal, sumInfectious)
+        return (records.count, infectious.count)
     }
     
     public func update() {
-        let (contactTime, exposureTime) = RiskAnalysis.getExposureToInfection(contactRecords: device.contactRecords, lookup: device.lookup)
+        let (contactCount, exposureCount) = RiskAnalysis.getExposureToInfection(contactRecords: device.contactRecords, rssiThreshold: device.parameters.signalStrengthThreshold, lookup: device.lookup)
         if (device.getStatus() != Device.statusNormal) {
             advice = RiskAnalysis.adviceSelfIsolate;
         } else {
-            contact = (exposureTime == 0 ? RiskAnalysis.contactOk : RiskAnalysis.contactInfectious)
-            advice = (exposureTime >= device.parameters.contactDurationThreshold ?
-                RiskAnalysis.adviceSelfIsolate :
-                device.parameters.governmentAdvice)
+            contact = (exposureCount == 0 ? RiskAnalysis.contactOk : RiskAnalysis.contactInfectious)
+            advice = (exposureCount == 0 ? device.parameters.governmentAdvice :
+                RiskAnalysis.adviceSelfIsolate)
         }
-        os_log("Risk analysis (contactTime=%u,exposureTime=%u,contact=%d,advice=%d)", log: self.log, type: .debug, contactTime, exposureTime, contact, advice)
+        os_log("Risk analysis (contacts=%u,exposures=%u,contact=%d,advice=%d)", log: self.log, type: .debug, contactCount, exposureCount, contact, advice)
         for listener in listeners {
-            listener.riskAnalysisDidUpdate(contact: contact, advice: advice, contactTime: contactTime, exposureTime: exposureTime)
+            listener.riskAnalysisDidUpdate(contact: contact, advice: advice, contactCount: contactCount, exposureCount: exposureCount)
         }
     }
     
@@ -527,9 +483,9 @@ public class RiskAnalysis {
 }
 
 public protocol RiskAnalysisListener {
-    func riskAnalysisDidUpdate(contact:Int, advice:Int, contactTime:UInt64, exposureTime:UInt64)
+    func riskAnalysisDidUpdate(contact:Int, advice:Int, contactCount:Int, exposureCount:Int)
 }
 
 public class AbstractRiskAnalysisListener: RiskAnalysisListener {
-    public func riskAnalysisDidUpdate(contact:Int, advice:Int, contactTime:UInt64, exposureTime:UInt64) {}
+    public func riskAnalysisDidUpdate(contact:Int, advice:Int, contactCount:Int, exposureCount:Int) {}
 }
