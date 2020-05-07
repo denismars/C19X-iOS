@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreBluetooth
 import os
 
 class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAnalysisListener {
@@ -69,12 +70,17 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         if (device.parameters.isFirstUse()) {
             os_log("User confirmation required for first use", log: self.log, type: .debug)
             // Present data sharing dialog on first use
-            let dialog = UIAlertController(title: "Data Sharing", message: "Your status updates in this app will be shared anonymously to help you and your contacts to stop the spread of COVID-19.", preferredStyle: .alert)
+            let dialog = UIAlertController(title: "Share Infection Status", message: "This app will share your infection status anonymously to help stop the spread of COVID-19.", preferredStyle: .alert)
             dialog.addAction(UIAlertAction(title: "Don't Allow", style: .default) { _ in
                 self.device.parameters.set(isFirstUse: true)
                 self.device.reset()
+                let alert = UIAlertController(title: "Closing App", message: "This app cannot work without sharing your infection status.", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                    exit(0)
+                })
+                self.present(alert, animated: true)
             })
-            dialog.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+            dialog.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
                 self.device.parameters.set(isFirstUse: false)
                 self.start()
             })
@@ -85,7 +91,6 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     }
     
     private func start() {
-        requestAuthorisationForNotification()
         enableImmediateLookupUpdate()
 
         device.network.listeners.append(self)
@@ -126,13 +131,13 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     private func updateStatusDescriptionText() {
         switch statusSelector.selectedSegmentIndex {
         case 0:
-            statusDescription.text = "I do not have a high temperature or a new continuous cough"
+            statusDescription.text = "I do not have a high temperature or a new continuous cough."
             break
         case 1:
-            statusDescription.text = "I have a high temperature and/or a new continuous cough"
+            statusDescription.text = "I have a high temperature and/or a new continuous cough."
             break
         case 2:
-            statusDescription.text = "I have a confirmed diagnosis of Coronavirus (COVID-19)"
+            statusDescription.text = "I have a confirmed diagnosis of Coronavirus (COVID-19)."
             break
         default:
             break
@@ -173,9 +178,10 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
 
     private func updateContactValue(_ value:Int) {
         self.contactValue.text = String(value)
-        self.contactValueUnit.text = (value < 2 ? "contact" : "contacts")
+        self.contactValue.textColor = UIColor.label
+        self.contactValueUnit.text = (value < 2 ? "contact" : "contacts") + " tracked"
     }
-    
+
     private func updateAdviceDescription(_ advice:Int) {
         switch advice {
         case RiskAnalysis.adviceFreedom:
@@ -203,7 +209,52 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         }
     }
 
-    func networkListenerDidUpdate(serialNumber: UInt64, sharedSecret: Data) {
+    internal func beaconListenerDidUpdate(central: CBCentralManager) {
+        switch central.state {
+        case .poweredOn:
+            os_log("Bluetooth state changed (state=poweredOn)", log: self.log, type: .debug)
+            requestAuthorisationForNotification()
+            DispatchQueue.main.async {
+                self.updateContactValue(self.device.contactRecords.records.count)
+            }
+            break
+        case .poweredOff:
+            os_log("Bluetooth state changed (state=poweredOff)", log: self.log, type: .debug)
+            let dialog = UIAlertController(title: "Contact Tracing Disabled", message: "Turn on Bluetooth to resume.", preferredStyle: .alert)
+            dialog.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+            present(dialog, animated: true)
+            if UIApplication.shared.applicationState != .active {
+                raiseNotification(title: "Contact Tracing Disabled", body: "Turn on Bluetooth to resume.")
+            }
+            break
+        case .unauthorized:
+            os_log("Bluetooth state changed (state=unauthorised)", log: self.log, type: .debug)
+            let dialog = UIAlertController(title: "Contact Tracing Disabled", message: "Allow Bluetooth access in Settings > C19X to enable.", preferredStyle: .alert)
+            dialog.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+            present(dialog, animated: true)
+            if UIApplication.shared.applicationState != .active {
+                raiseNotification(title: "Contact Tracing Disabled", body: "Allow Bluetooth access in Settings > C19X to enable.")
+            }
+            break
+        case .unsupported:
+            os_log("Bluetooth state changed (state=unsupported)", log: self.log, type: .debug)
+            let dialog = UIAlertController(title: "Contact Tracing Disabled", message: "Bluetooth unavailable, restart device to enable.", preferredStyle: .alert)
+            dialog.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+            present(dialog, animated: true)
+            if UIApplication.shared.applicationState != .active {
+                raiseNotification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
+            }
+            break
+        default:
+            os_log("Bluetooth state changed (state=unknown)", log: self.log, type: .debug)
+            break
+        }
+    }
+    
+    internal func beaconListenerDidUpdate(peripheral: CBPeripheralManager) {
+    }
+
+    internal func networkListenerDidUpdate(serialNumber: UInt64, sharedSecret: Data) {
     }
     
     internal func networkListenerDidUpdate(status: Int) {
@@ -238,7 +289,10 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
 
     internal func networkListenerDidUpdate(message: String) {
         DispatchQueue.main.async {
-            self.adviceMessage.text = message
+            if (self.adviceMessage.text != message) {
+                self.adviceMessage.text = message
+                self.raiseNotification(title: "Information Update", body: "You have a new message.")
+            }
         }
     }
     
@@ -257,10 +311,10 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
             self.updateContactValue(contactCount)
             self.updateContactDescription(currentContactStatus)
             self.updateAdviceDescription(currentAdvice)
-            guard currentContactStatus != previousContactStatus, currentAdvice != previousAdvice else {
-                return
+            
+            if (currentAdvice != previousAdvice) {
+                self.raiseNotification(title: "Information Update", body: "You have received new advice.")
             }
-            self.notifyUser(contact: currentContactStatus, advice: currentAdvice)
         }
     }
 
@@ -277,7 +331,7 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         self.adviceLastUpdate.addGestureRecognizer(labelTap)
     }
     
-    private func notifyUser(contact: Int, advice: Int) {
+    private func raiseNotification(title: String, body: String) {
         let identifier = "org.C19X.notification"
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
@@ -285,10 +339,10 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
                   (settings.authorizationStatus == .provisional) else { return }
 
             let content = UNMutableNotificationContent()
-            content.title = "Information updated"
-            content.body = "Open app to review latest advice"
+            content.title = title
+            content.body = body
             content.sound = UNNotificationSound.default
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
 
             if settings.alertSetting == .enabled {
                 center.removePendingNotificationRequests(withIdentifiers: [identifier])

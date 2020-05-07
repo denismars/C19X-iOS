@@ -32,22 +32,28 @@ public class BeaconReceiver: NSObject, CBCentralManagerDelegate, CBPeripheralDel
     }
     
     public func start() {
-        centralManager = CBCentralManager(delegate: self, queue: nil, options: [CBCentralManagerOptionRestoreIdentifierKey : "org.C19X.beaconReceiver"])
+        centralManager = CBCentralManager(delegate: self, queue: nil, options: [CBCentralManagerOptionRestoreIdentifierKey : "org.C19X.beaconReceiver",
+             CBCentralManagerOptionShowPowerAlertKey : true])
     }
     
     public func centralManager(_ central: CBCentralManager, willRestoreState dict: [String : Any]) {
         os_log("Central manager restored", log: log, type: .debug)
         centralManager = central
+        for listener in listeners {
+            listener.beaconListenerDidUpdate(central: central)
+        }
     }
     
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        os_log("Bluetooth state change (state=%s)", log: log, type: .debug, String(describing: central.state))
+        os_log("Bluetooth state change (state=%s)", log: log, type: .debug, String(describing: central.state.rawValue))
         if (central.state == .poweredOn) {
             central.scanForPeripherals(withServices: [serviceCBUUID], options: nil)
             os_log("Start scan (serviceUUID=%s)", log: log, type: .debug, serviceCBUUID.description)
         } else {
-            central.stopScan()
             os_log("Stop scan", log: log, type: .debug)
+        }
+        for listener in listeners {
+            listener.beaconListenerDidUpdate(central: central)
         }
     }
     
@@ -191,6 +197,9 @@ public class BeaconTransmitter: NSObject, CBPeripheralManagerDelegate {
         } else {
             stopTransmitter()
         }
+        for listener in listeners {
+            listener.beaconListenerDidUpdate(peripheral: peripheral)
+        }
     }
     
     // Handle write request
@@ -246,9 +255,17 @@ public class BeaconTransmitter: NSObject, CBPeripheralManagerDelegate {
 }
 
 public protocol BeaconListener {
+    func beaconListenerDidUpdate(central: CBCentralManager)
+    
+    func beaconListenerDidUpdate(peripheral: CBPeripheralManager)
+    
     func beaconListenerDidUpdate(beaconCode:Int64, rssi:Int)
 }
 
 public class AbstractBeaconListener: BeaconListener {
+    public func beaconListenerDidUpdate(central: CBCentralManager) {}
+    
+    public func beaconListenerDidUpdate(peripheral: CBPeripheralManager) {}
+
     public func beaconListenerDidUpdate(beaconCode:Int64, rssi:Int) {}
 }

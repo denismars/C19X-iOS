@@ -44,6 +44,8 @@ public class Device: AbstractNetworkListener {
         beaconReceiver.listeners.append(contactRecords)
         beaconTransmitter.listeners.append(contactRecords)
         network.listeners.append(self)
+        
+//        reset()
     }
     
     private func scheduleUpdates() {
