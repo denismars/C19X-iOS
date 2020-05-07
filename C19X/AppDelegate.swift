@@ -8,7 +8,6 @@
 
 import UIKit
 import BackgroundTasks
-import CoreData
 import os
 
 @UIApplicationMain
@@ -45,6 +44,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     public func scheduleBackgroundTask() {
+        guard !device.parameters.isFirstUse() else {
+            os_log("Scheduling background task ignored until data sharing has been agreed by user", log: log, type: .debug)
+            return
+        }
         os_log("Scheduling background task", log: log, type: .debug)
         let request = BGProcessingTaskRequest(identifier: permittedBackgroundTaskIdentifier)
         request.requiresNetworkConnectivity = true

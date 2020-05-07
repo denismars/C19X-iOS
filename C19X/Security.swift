@@ -60,73 +60,178 @@ public struct AES {
     }
 }
 
-public struct Keychain {
-    private static let log = OSLog(subsystem: "org.C19X", category: "Keychain")
-    
-    public static func update(_ key: String, _ value: String) -> Bool {
-        os_log("Update (key=%s)", log: Keychain.log, type: .debug, key)
-        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                    kSecAttrAccount as String: key]
-        let attributes: [String: Any] = [kSecAttrAccount as String: key,
-                                         kSecValueData as String: value]
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        guard status != errSecItemNotFound else {
-            os_log("Update requires create (key=%s)", log: Keychain.log, type: .debug, key)
-            return create(key, value)
-        }
-        guard status == errSecSuccess else {
-            os_log("Update failed (key=%s)", log: Keychain.log, type: .debug, key)
-            return false
-        }
-        os_log("Update successful (key=%s)", log: Keychain.log, type: .debug, key)
-        return true
-    }
-    
-    public static func create(_ key: String, _ value: String) -> Bool {
-        os_log("Create (key=%s)", log: Keychain.log, type: .debug, key)
-        let valueData = value.data(using: String.Encoding.utf8)!
-        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                    kSecAttrAccount as String: key,
-                                    kSecValueData as String: valueData]
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            os_log("Create failed (key=%s)", log: Keychain.log, type: .debug, key)
-            return false
-        }
-        os_log("Create successful (key=%s)", log: Keychain.log, type: .debug, key)
-        return true
-    }
-    
-    public static func remove(_ key: String) -> Bool {
-        os_log("Remove (key=%s)", log: Keychain.log, type: .debug, key)
-        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                    kSecAttrAccount as String: key]
-        let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess else {
-            os_log("Remove failed (key=%s)", log: Keychain.log, type: .debug, key)
-            return false
-        }
-        os_log("Remove successful (key=%s)", log: Keychain.log, type: .debug, key)
-        return true
-    }
+//public struct Keychain1 {
+//    private static let log = OSLog(subsystem: "org.C19X", category: "Keychain")
+//
+//    public static func update(_ key: String, _ value: String) -> Bool {
+//        os_log("Update (key=%s)", log: Keychain.log, type: .debug, key)
+//        let query: [String: Any] = [kSecAttrAccount as String: key]
+//        let attributes: [String: Any] = [kSecValueData as String: value]
+//        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+//        guard status != errSecItemNotFound else {
+//            os_log("Update requires create (key=%s)", log: Keychain.log, type: .debug, key)
+//            return create(key, value)
+//        }
+//        guard status == errSecSuccess else {
+//            os_log("Update failed (key=%s)", log: Keychain.log, type: .debug, key)
+//            return false
+//        }
+//        os_log("Update successful (key=%s)", log: Keychain.log, type: .debug, key)
+//        return true
+//    }
+//
+//    public static func create(_ key: String, _ value: String) -> Bool {
+//        os_log("Create (key=%s)", log: Keychain.log, type: .debug, key)
+//        let valueData = value.data(using: String.Encoding.utf8)!
+//        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+//                                    kSecAttrAccount as String: key,
+//                                    kSecValueData as String: valueData]
+//        let status = SecItemAdd(query as CFDictionary, nil)
+//        guard status == errSecSuccess else {
+//            os_log("Create failed (key=%s)", log: Keychain.log, type: .debug, key)
+//            return false
+//        }
+//        os_log("Create successful (key=%s)", log: Keychain.log, type: .debug, key)
+//        return true
+//    }
+//
+//    public static func remove(_ key: String) -> Bool {
+//        os_log("Remove (key=%s)", log: Keychain.log, type: .debug, key)
+//        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+//                                    kSecAttrAccount as String: key]
+//        let status = SecItemDelete(query as CFDictionary)
+//        guard status == errSecSuccess else {
+//            os_log("Remove failed (key=%s)", log: Keychain.log, type: .debug, key)
+//            return false
+//        }
+//        os_log("Remove successful (key=%s)", log: Keychain.log, type: .debug, key)
+//        return true
+//    }
+//
+//    public static func get(_ key: String) -> String? {
+//        os_log("Get (key=%s)", log: Keychain.log, type: .debug, key)
+//        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+//                                    kSecAttrAccount as String: key,
+//                                    kSecMatchLimit as String: kSecMatchLimitOne,
+//                                    kSecReturnData as String: kCFBooleanTrue!]
+//        var retrivedData: AnyObject? = nil
+//        let status = SecItemCopyMatching(query as CFDictionary, &retrivedData)
+//        guard status == errSecSuccess else {
+//            os_log("Get failed (key=%s)", log: Keychain.log, type: .debug, key)
+//            return nil
+//        }
+//        guard let valueData = retrivedData as? Data else {
+//            os_log("Get failed (key=%s)", log: Keychain.log, type: .debug, key)
+//            return nil
+//        }
+//        os_log("Get successful (key=%s)", log: Keychain.log, type: .debug, key)
+//        return String(data: valueData, encoding: String.Encoding.utf8)
+//    }
+//}
 
-    public static func get(key: String) -> String? {
-        os_log("Get (key=%s)", log: Keychain.log, type: .debug, key)
-        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                    kSecAttrAccount as String: key,
-                                    kSecMatchLimit as String: kSecMatchLimitOne,
-                                    kSecReturnData as String: kCFBooleanTrue!]
-        var retrivedData: AnyObject? = nil
-        let status = SecItemCopyMatching(query as CFDictionary, &retrivedData)
+public struct Keychain {
+    private let log = OSLog(subsystem: "org.C19X", category: "Keychain")
+    private let service: String = "C19X"
+    public static let shared = Keychain()
+    
+    /// Does a certain item exist?
+    public func exists(_ key: String) -> Bool? {
+        let status = SecItemCopyMatching([
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: key,
+            kSecAttrService: service,
+            kSecReturnData: false,
+            ] as NSDictionary, nil)
+        if status == errSecSuccess {
+            os_log("Exists (key=%s,result=true)", log: log, type: .debug, key)
+            return true
+        } else if status == errSecItemNotFound {
+            os_log("Exists (key=%s,result=false)", log: log, type: .debug, key)
+            return false
+        } else {
+            os_log("Exists failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
+            return nil
+        }
+    }
+    
+    /// Adds an item to the keychain.
+    private func create(_ key: String, _ value: String) -> Bool {
+        let status = SecItemAdd([
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: key,
+            kSecAttrService: service,
+            // Allow background access:
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,
+            kSecValueData: value.data(using: String.Encoding.utf8)!,
+            ] as NSDictionary, nil)
         guard status == errSecSuccess else {
-            os_log("Get failed (key=%s)", log: Keychain.log, type: .debug, key)
+            os_log("Create failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
+            return false
+        }
+        os_log("Create (key=%s,result=true)", log: log, type: .debug, key)
+        return true
+    }
+    
+    /// Updates a keychain item.
+    private func update(_ key: String, _ value: String) -> Bool {
+        let status = SecItemUpdate([
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: key,
+            kSecAttrService: service,] as NSDictionary, [
+                kSecValueData: value.data(using: String.Encoding.utf8)!,
+                ] as NSDictionary)
+        guard status == errSecSuccess else {
+            os_log("Update failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
+            return false
+        }
+        os_log("Update (key=%s,result=true)", log: log, type: .debug, key)
+        return true
+    }
+    
+    /// Stores a keychain item.
+    public func set(_ key: String, _ value: String) -> Bool? {
+        let e = exists(key)
+        if e == nil {
             return nil
         }
-        guard let valueData = retrivedData as? Data else {
-            os_log("Get failed (key=%s)", log: Keychain.log, type: .debug, key)
+        let r = (e! ? update(key, value) : create(key, value))
+        os_log("Set (key=%s,result=%s)", log: log, type: .debug, key, r.description)
+        return r
+    }
+    
+    // If not present, returns nil. Only throws on error.
+    public func get(_ key: String) -> String? {
+        var result: AnyObject?
+        let status = SecItemCopyMatching([
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: key,
+            kSecAttrService: service,
+            kSecReturnData: true,
+            ] as NSDictionary, &result)
+        if status == errSecSuccess {
+            os_log("Get (key=%s,result=true)", log: log, type: .debug, key)
+            return String(data: result as! Data, encoding: .utf8)
+        } else if status == errSecItemNotFound {
+            os_log("Get (key=%s,result=false)", log: log, type: .debug, key)
+            return nil
+        } else {
+            os_log("Get failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
             return nil
         }
-        os_log("Get successful (key=%s)", log: Keychain.log, type: .debug, key)
-        return String(data: valueData, encoding: String.Encoding.utf8)
+    }
+    
+    /// Delete a single item.
+    public func remove(_ key: String) -> Bool {
+        let status = SecItemDelete([
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: key,
+            kSecAttrService: service,
+            ] as NSDictionary)
+        guard status == errSecSuccess else {
+            os_log("Remove failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
+            return false
+        }
+        os_log("Remove (key=%s,result=true)", log: log, type: .debug, key)
+        return true
     }
 }

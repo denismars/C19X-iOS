@@ -8,6 +8,7 @@
 
 import Foundation
 import Compression
+import UserNotifications
 
 open class ByteArray {
     private var byteArray : [UInt8]
@@ -203,4 +204,3 @@ extension DispatchTime {
         return DispatchTime.now().advanced(by: .seconds(b))
     }
 }
-

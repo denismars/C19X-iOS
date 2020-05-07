@@ -15,13 +15,8 @@ public class Network {
     private var server: String = "https://appserver-test.c19x.org/"
     // Time data
     private var timeDelta: Int64 = 0
-    // Device data
-    private var device: Device!
+    private var getLookupInBackgroundInProgress = false
     public var listeners: [NetworkListener] = []
-
-    init(device: Device) {
-        self.device = device
-    }
         
     // Get time and adjust delta to synchronise with server
     public func getTimeFromServerAndSynchronise(_ callback: ((Bool) -> Void)? = nil) {
@@ -61,16 +56,16 @@ public class Network {
             if error == nil, let httpResponse = response as? HTTPURLResponse, let dataString = String(bytes: data!, encoding: .utf8) {
                 if (httpResponse.statusCode == 200) {
                     let values = dataString.components(separatedBy: ",")
-                    self.device.serialNumber = UInt64(values[0])!
-                    self.device.sharedSecret = Data(base64Encoded: values[1])!
-                    os_log("Registration successful (serialNumber=%u)", log: self.log, type: .debug, self.device.serialNumber)
-                    for listener in self.listeners {
-                        listener.networkListenerDidUpdate(serialNumber: self.device.serialNumber, sharedSecret: self.device.sharedSecret)
+                    if let serialNumber = UInt64(values[0]), let sharedSecret = Data(base64Encoded: values[1]) {
+                        os_log("Registration successful (serialNumber=%u)", log: self.log, type: .debug, serialNumber)
+                        for listener in self.listeners {
+                            listener.networkListenerDidUpdate(serialNumber: serialNumber, sharedSecret: sharedSecret)
+                        }
+                        if callback != nil {
+                            callback!(true)
+                        }
+                        return
                     }
-                    if callback != nil {
-                        callback!(true)
-                    }
-                    return
                 }
             }
             os_log("Registration failed (error=%s)", log: self.log, type: .fault, String(describing: error))
@@ -85,20 +80,19 @@ public class Network {
     }
     
     // Post status
-    public func postStatus(_ status: Int, callback: ((Bool) -> Void)? = nil) {
+    public func postStatus(_ status: Int, serialNumber: UInt64, sharedSecret: Data, callback: ((Bool) -> Void)? = nil) {
         os_log("Post status request (status=%u)", log: self.log, type: .debug, status)
         let string = String(getTimestamp()) + "," + String(status)
-        let encrypted = AES.encrypt(key: device.sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
-        let url = URL(string: server + "status?key=" + String(device.serialNumber) + "&value=" + encrypted)
+        let encrypted = AES.encrypt(key: sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
+        let url = URL(string: server + "status?key=" + String(serialNumber) + "&value=" + encrypted)
         var request = URLRequest(url: url!)
         request.httpMethod = "POST"
         let task = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse {
                 if httpResponse.statusCode == 200, let dataString = String(bytes: data!, encoding: .utf8), let status = Int(dataString) {
                     os_log("Post status successful (status=%u)", log: self.log, type: .debug, status)
-                    self.device.set(status: status)
                     for listener in self.listeners {
-                        listener.networkListenerDidUpdate(status: self.device.getStatus())
+                        listener.networkListenerDidUpdate(status: status)
                     }
                     if callback != nil {
                         callback!(true)
@@ -118,18 +112,17 @@ public class Network {
     }
     
     // Get device specific message
-    public func getMessage(callback: ((Bool) -> Void)? = nil) {
+    public func getMessage(serialNumber: UInt64, sharedSecret: Data, callback: ((Bool) -> Void)? = nil) {
         os_log("Get message request", log: self.log, type: .debug)
         let string = String(getTimestamp())
-        let encrypted = AES.encrypt(key: device.sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
-        let url = URL(string: server + "message?key=" + String(device.serialNumber) + "&value=" + encrypted)
+        let encrypted = AES.encrypt(key: sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
+        let url = URL(string: server + "message?key=" + String(serialNumber) + "&value=" + encrypted)
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse {
                 if httpResponse.statusCode == 200, let message = String(bytes: data!, encoding: .utf8) {
                     os_log("Get message successful (message=%s)", log: self.log, type: .debug, message)
-                    self.device.message = message
                     for listener in self.listeners {
-                        listener.networkListenerDidUpdate(message: self.device.message)
+                        listener.networkListenerDidUpdate(message: message)
                     }
                     if callback != nil {
                         callback!(true)
@@ -175,6 +168,11 @@ public class Network {
     // Get lookup table in background
     public func getLookupInBackground(callback: ((Bool) -> Void)? = nil) {
         os_log("Get lookup in background request", log: self.log, type: .debug)
+        guard !getLookupInBackgroundInProgress else {
+            os_log("Get lookup in background in progress, skipping request", log: self.log, type: .debug)
+            return
+        }
+        getLookupInBackgroundInProgress = true
         let url = URL(string: server + "lookup")!
         DownloadManager.shared.set() { data in
             if let lookup = data {
@@ -191,6 +189,7 @@ public class Network {
                     callback!(false)
                 }
             }
+            self.getLookupInBackgroundInProgress = false
         }
         let backgroundTask = DownloadManager.shared.session.downloadTask(with: url)
         backgroundTask.countOfBytesClientExpectsToSend = 200
@@ -207,10 +206,9 @@ public class Network {
                 if httpResponse.statusCode == 200 {
                     let json = try? JSONSerialization.jsonObject(with: data!, options: [])
                     if let dictionary = json as? [String: String] {
-                        self.device.parameters.set(dictionary)
                         os_log("Get parameters successful (parameters=%s)", log: self.log, type: .debug, String(describing: dictionary))
                         for listener in self.listeners {
-                            listener.networkListenerDidUpdate(parameters: self.device.parameters)
+                            listener.networkListenerDidUpdate(parameters: dictionary)
                         }
                         if callback != nil {
                             callback!(true)
@@ -270,7 +268,7 @@ public protocol NetworkListener {
 
     func networkListenerDidUpdate(message:String)
 
-    func networkListenerDidUpdate(parameters:Parameters)
+    func networkListenerDidUpdate(parameters:[String:String])
 
     func networkListenerDidUpdate(lookup:Data)
 
@@ -287,7 +285,7 @@ public class AbstractNetworkListener: NetworkListener {
 
     public func networkListenerDidUpdate(message:String) {}
 
-    public func networkListenerDidUpdate(parameters:Parameters) {}
+    public func networkListenerDidUpdate(parameters:[String:String]) {}
 
     public func networkListenerDidUpdate(lookup:Data) {}
 }

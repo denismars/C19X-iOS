@@ -20,6 +20,8 @@
 		B607793C24583D5B00479C78 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B607793A24583D5200479C78 /* CoreBluetooth.framework */; };
 		B607794124584A2100479C78 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = B607794024584A2100479C78 /* Device.swift */; };
 		B6077946245986DD00479C78 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = B6077945245986DD00479C78 /* BigInt */; };
+		B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B60C0A112462941D002BA6A0 /* CoreData.framework */; };
+		B60C0A1524629441002BA6A0 /* C19X.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +40,8 @@
 		B607793A24583D5200479C78 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		B607793F24583D7700479C78 /* C19X.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = C19X.entitlements; sourceTree = "<group>"; };
 		B607794024584A2100479C78 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
+		B60C0A112462941D002BA6A0 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = C19X.xcdatamodel; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,6 +50,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B607793C24583D5B00479C78 /* CoreBluetooth.framework in Frameworks */,
+				B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */,
 				B6077946245986DD00479C78 /* BigInt in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -56,6 +61,7 @@
 		B60779112458381E00479C78 = {
 			isa = PBXGroup;
 			children = (
+				B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */,
 				B607791C2458381E00479C78 /* C19X */,
 				B607791B2458381E00479C78 /* Products */,
 				B607793924583D5200479C78 /* Frameworks */,
@@ -93,6 +99,7 @@
 		B607793924583D5200479C78 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B60C0A112462941D002BA6A0 /* CoreData.framework */,
 				B607793A24583D5200479C78 /* CoreBluetooth.framework */,
 			);
 			name = Frameworks;
@@ -183,6 +190,7 @@
 				B60779222458381E00479C78 /* ViewController.swift in Sources */,
 				B607791E2458381E00479C78 /* AppDelegate.swift in Sources */,
 				B60779202458381E00479C78 /* SceneDelegate.swift in Sources */,
+				B60C0A1524629441002BA6A0 /* C19X.xcdatamodeld in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -401,6 +409,20 @@
 			productName = BigInt;
 		};
 /* End XCSwiftPackageProductDependency section */
+
+/* Begin XCVersionGroup section */
+		B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */,
+			);
+			currentVersion = B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */;
+			name = C19X.xcdatamodeld;
+			path = C19X/C19X.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
+/* End XCVersionGroup section */
 	};
 	rootObject = B60779122458381E00479C78 /* Project object */;
 }
