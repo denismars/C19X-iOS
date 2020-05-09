@@ -80,11 +80,13 @@ public class Network {
     }
     
     // Post status
-    public func postStatus(_ status: Int, serialNumber: UInt64, sharedSecret: Data, callback: ((Bool) -> Void)? = nil) {
+    public func postStatus(_ status: Int, device:Device, callback: ((Bool) -> Void)? = nil) {
         os_log("Post status request (status=%u)", log: self.log, type: .debug, status)
-        let string = String(getTimestamp()) + "," + String(status)
-        let encrypted = AES.encrypt(key: sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
-        let url = URL(string: server + "status?key=" + String(serialNumber) + "&value=" + encrypted)
+        let (_, rssiHistogram, timeHistogram) = device.riskAnalysis.analyse(contactRecords: device.contactRecords, lookup: device.lookup)
+        let string = String(getTimestamp()) + "|" + String(status) + "|" + rssiHistogram.description + "|" + timeHistogram.description
+        os_log("Post status (string=%s)", log: self.log, type: .fault, string)
+        let encrypted = AES.encrypt(key: device.sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
+        let url = URL(string: server + "status?key=" + String(device.serialNumber) + "&value=" + encrypted)
         var request = URLRequest(url: url!)
         request.httpMethod = "POST"
         let task = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in

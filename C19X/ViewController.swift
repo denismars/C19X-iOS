@@ -68,26 +68,31 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     
     private func checkFirstUse() {
         if (device.parameters.isFirstUse()) {
-            os_log("User confirmation required for first use", log: self.log, type: .debug)
-            // Present data sharing dialog on first use
-            let dialog = UIAlertController(title: "Share Infection Status", message: "This app will share your infection status anonymously to help stop the spread of COVID-19.", preferredStyle: .alert)
-            dialog.addAction(UIAlertAction(title: "Don't Allow", style: .default) { _ in
-                self.device.parameters.set(isFirstUse: true)
-                self.device.reset()
-                let alert = UIAlertController(title: "Closing App", message: "This app cannot work without sharing your infection status.", preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                    exit(0)
-                })
-                self.present(alert, animated: true)
-            })
-            dialog.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
-                self.device.parameters.set(isFirstUse: false)
-                self.start()
-            })
-            self.present(dialog, animated: true)
-        } else {
-            self.start()
+            self.device.parameters.set(isFirstUse: false)
         }
+        self.start()
+//      CHANGED METHOD TO ASK PERMISSION ON EVERY UPDATE
+//        if (device.parameters.isFirstUse()) {
+//            os_log("User confirmation required for first use", log: self.log, type: .debug)
+//            // Present data sharing dialog on first use
+//            let dialog = UIAlertController(title: "Share Infection Status", message: "This app will share your infection status anonymously to help stop the spread of COVID-19.", preferredStyle: .alert)
+//            dialog.addAction(UIAlertAction(title: "Don't Allow", style: .default) { _ in
+//                self.device.parameters.set(isFirstUse: true)
+//                self.device.reset()
+//                let alert = UIAlertController(title: "Closing App", message: "This app cannot work without sharing your infection status.", preferredStyle: .alert)
+//                alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+//                    exit(0)
+//                })
+//                self.present(alert, animated: true)
+//            })
+//            dialog.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
+//                self.device.parameters.set(isFirstUse: false)
+//                self.start()
+//            })
+//            self.present(dialog, animated: true)
+//        } else {
+//            self.start()
+//        }
     }
     
     private func start() {
@@ -101,7 +106,11 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
 
         refreshLastUpdateLabelsAndScheduleAgain()
         
+        statusSelector.selectedSegmentIndex = device.getStatus()
+        updateStatusDescriptionText()
+        device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
         statusSelector.isEnabled = true
+
     }
     
     private func requestAuthorisationForNotification() {
@@ -118,13 +127,22 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         os_log("Status selector value changed (selectedSegmentIndex=%d)", log: self.log, type: .debug, statusSelector.selectedSegmentIndex)
         if (device.isRegistered()) {
             updateStatusDescriptionText()
-            device.network.postStatus(statusSelector.selectedSegmentIndex, serialNumber: device.serialNumber, sharedSecret: device.sharedSecret)
+            device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
+            let dialog = UIAlertController(title: "Share Infection Data", message: "Share your infection status and contact pattern anonymously to help stop the spread of COVID-19?", preferredStyle: .alert)
+            dialog.addAction(UIAlertAction(title: "Don't Allow", style: .default, handler: nil))
+            dialog.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
+                if let statusSelector = self.statusSelector, let device = self.device {
+                    device.network.postStatus(statusSelector.selectedSegmentIndex, device: device)
+                }
+            })
+            present(dialog, animated: true)
         } else {
             let alert = UIAlertController(title: "Device Not Registered", message: "Status update can not be shared at this time.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
             self.present(alert, animated: true)
             statusSelector.selectedSegmentIndex = self.device.getStatus()
             updateStatusDescriptionText()
+            device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
         }
     }
     
@@ -264,7 +282,6 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
             if (self.statusSelector != nil) {
                 self.statusSelector.selectedSegmentIndex = status
                 self.updateStatusDescriptionText()
-                self.statusSelector.isEnabled = true
             }
             self.updateLastUpdateLabels()
         }
@@ -273,17 +290,16 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     internal func networkListenerFailedUpdate(statusError: Error?) {
         debugPrint("Network failure (statusError=\(String(describing: statusError))")
         DispatchQueue.main.async {
+            self.updateLastUpdateLabels()
             // Present alert
             let alert = UIAlertController(title: "Server Not Available", message: "Status update can not be shared at this time.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
             self.present(alert, animated: true)
-
-            if (self.statusSelector != nil) {
-                self.statusSelector.selectedSegmentIndex = self.device.getStatus()
-                self.updateStatusDescriptionText()
-                self.statusSelector.isEnabled = true
+            
+            if let statusSelector = self.statusSelector, let device = self.device {
+                statusSelector.selectedSegmentIndex = device.getStatus()
+                device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
             }
-            self.updateLastUpdateLabels()
         }
     }
 
@@ -311,7 +327,6 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
             self.updateContactValue(contactCount)
             self.updateContactDescription(currentContactStatus)
             self.updateAdviceDescription(currentAdvice)
-            
             if (currentAdvice != previousAdvice) {
                 self.raiseNotification(title: "Information Update", body: "You have received new advice.")
             }

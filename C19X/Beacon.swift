@@ -75,7 +75,7 @@ public class BeaconReceiver: NSObject, CBCentralManagerDelegate, CBPeripheralDel
         let peripheral = queue.remove(at: 0)
         os_log("Connecting to peripheral (peripheral=%s,queue=%d)", log: log, type: .debug, peripheral.identifier.description, queue.count)
         central.connect(peripheral)
-        peripherals[peripheral] = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { _ in
+        peripherals[peripheral] = Timer.scheduledTimer(withTimeInterval: 10, repeats: false) { _ in
             self.disconnect(peripheral)
         }
     }

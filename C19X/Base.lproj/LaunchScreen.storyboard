@@ -27,7 +27,7 @@
                                                 <nil key="textColor"/>
                                                 <nil key="highlightedColor"/>
                                             </label>
-                                            <segmentedControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="fill" contentVerticalAlignment="center" segmentControlStyle="plain" selectedSegmentIndex="0" translatesAutoresizingMaskIntoConstraints="NO" id="WQW-DH-eAH">
+                                            <segmentedControl opaque="NO" contentMode="scaleToFill" enabled="NO" contentHorizontalAlignment="fill" contentVerticalAlignment="center" segmentControlStyle="plain" selectedSegmentIndex="0" translatesAutoresizingMaskIntoConstraints="NO" id="WQW-DH-eAH">
                                                 <rect key="frame" x="14" y="57" width="370" height="32"/>
                                                 <constraints>
                                                     <constraint firstAttribute="height" constant="31" id="Osf-Lm-hd1"/>
@@ -95,7 +95,7 @@
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="0" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="awp-fq-TFj" userLabel="Contact time">
                                                 <rect key="frame" x="20" y="111.5" width="17.5" height="33.5"/>
                                                 <fontDescription key="fontDescription" style="UICTFontTextStyleTitle1"/>
-                                                <nil key="textColor"/>
+                                                <color key="textColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                                 <nil key="highlightedColor"/>
                                             </label>
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="contact tracked" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="CaS-t3-NwD" userLabel="Contact unit">
@@ -110,6 +110,9 @@
                                                 <color key="textColor" systemColor="tertiaryLabelColor" red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.29999999999999999" colorSpace="custom" customColorSpace="sRGB"/>
                                                 <nil key="highlightedColor"/>
                                             </label>
+                                            <activityIndicatorView opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" animating="YES" style="medium" translatesAutoresizingMaskIntoConstraints="NO" id="Zg6-oL-dCk">
+                                                <rect key="frame" x="19" y="118.5" width="20" height="20"/>
+                                            </activityIndicatorView>
                                         </subviews>
                                         <color key="backgroundColor" systemColor="secondarySystemBackgroundColor" red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                         <constraints>
@@ -118,6 +121,7 @@
                                             <constraint firstItem="tyb-Tp-Ysc" firstAttribute="top" secondItem="t64-bY-uEe" secondAttribute="top" id="MJ1-ke-9Nz"/>
                                             <constraint firstItem="3gO-vx-PHX" firstAttribute="top" secondItem="o97-Wb-l8Z" secondAttribute="top" constant="20" symbolic="YES" id="P84-JK-eul"/>
                                             <constraint firstItem="awp-fq-TFj" firstAttribute="top" secondItem="t64-bY-uEe" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="QOd-kn-TG8"/>
+                                            <constraint firstItem="Zg6-oL-dCk" firstAttribute="centerX" secondItem="awp-fq-TFj" secondAttribute="centerX" id="ST5-YI-CZ2"/>
                                             <constraint firstItem="tyb-Tp-Ysc" firstAttribute="bottom" secondItem="t64-bY-uEe" secondAttribute="bottom" id="WMO-kX-JZO"/>
                                             <constraint firstItem="NxY-z7-n4V" firstAttribute="top" secondItem="awp-fq-TFj" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="a3U-S7-GeW"/>
                                             <constraint firstItem="3gO-vx-PHX" firstAttribute="leading" secondItem="o97-Wb-l8Z" secondAttribute="leading" constant="20" symbolic="YES" id="cIE-f5-aTM"/>
@@ -126,6 +130,7 @@
                                             <constraint firstItem="CaS-t3-NwD" firstAttribute="bottom" secondItem="awp-fq-TFj" secondAttribute="bottom" constant="-2" id="iEw-Rm-Vw0"/>
                                             <constraint firstItem="t64-bY-uEe" firstAttribute="top" secondItem="3gO-vx-PHX" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="ihI-R8-T63"/>
                                             <constraint firstItem="NxY-z7-n4V" firstAttribute="leading" secondItem="3gO-vx-PHX" secondAttribute="leading" id="nrs-Wv-TxJ"/>
+                                            <constraint firstItem="Zg6-oL-dCk" firstAttribute="centerY" secondItem="awp-fq-TFj" secondAttribute="centerY" id="ret-Wh-IKK"/>
                                             <constraint firstItem="awp-fq-TFj" firstAttribute="leading" secondItem="3gO-vx-PHX" secondAttribute="leading" id="u8h-1r-Myf"/>
                                             <constraint firstItem="tyb-Tp-Ysc" firstAttribute="leading" secondItem="t64-bY-uEe" secondAttribute="leading" constant="-8" id="uY4-yz-IYH"/>
                                         </constraints>
