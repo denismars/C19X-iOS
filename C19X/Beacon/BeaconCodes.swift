@@ -86,7 +86,7 @@ class ConcreteBeaconCodes : BeaconCodes {
             let value = BigInt(hashData)
             values[i] = DayCode(value % range)
             hash = SHA256.hash(data: hashData)
-            debugPrint("Beacon code : \(i) -> \(values[i]) <= \(value)")
+            //debugPrint("Beacon code : \(i) -> \(values[i]) <= \(value)")
         }
         os_log("Generated forward secure beacon codes (codes=%d,range=%s)", log: log, type: .debug, codes, range.description)
         return values

@@ -36,7 +36,7 @@ class ConcreteDayCodes : DayCodes {
             let value = BigInt(hashData)
             values[i] = DayCode(value % range)
             hash = SHA256.hash(data: hashData)
-            debugPrint("Day code : \(i) -> \(values[i]) <= \(value)")
+            //debugPrint("Day code : \(i) -> \(values[i]) <= \(value)")
         }
         os_log("Generated forward secure day codes (days=%d,range=%s)", log: log, type: .debug, days, range.description)
     }

@@ -100,6 +100,17 @@ class Sample {
      Sample standard deviation.
      */
     var standardDeviation:Double? { get { n > 1 ? sqrt(m2 / Double(n - 1)) : nil } }
+    /**
+     String representation of mean, standard deviation, min and max
+     */
+    var description: String { get {
+        let sCount = n.description
+        let sMean = (mean == nil ? "-" : mean!.description)
+        let sStandardDeviation = (standardDeviation == nil ? "-" : standardDeviation!.description)
+        let sMin = (min == nil ? "-" : min!.description)
+        let sMax = (max == nil ? "-" : max!.description)
+        return "count=" + sCount + ",mean=" + sMean + ",sd=" + sStandardDeviation + ",min=" + sMin + ",max=" + sMax
+    } }
 
     /**
      Add sample value.

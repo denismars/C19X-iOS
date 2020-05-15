@@ -37,18 +37,17 @@ protocol ReceiverDelegate {
  */
 class Beacon {
     var peripheral: CBPeripheral
-    var rssi: RSSI
+    var rssi: RSSI?
     var code: BeaconCode?
-    var timer: Timer?
+    var isConnected = false
     private var createdAt: Date
+    let statistics = TimeIntervalSample()
+    var timer: DispatchSourceTimer?
+    
     /**
      Beacon identifier is the same as the peripheral identifier.
      */
     var uuidString: String { get { peripheral.identifier.uuidString } }
-    /**
-     Beacon data is currently being acquired via asynchonous callbacks.
-     */
-    var isConnected: Bool { get { timer != nil } }
     /**
      Beacon expires if beacon code was acquired yesterday (day code changes at midnight everyday) or 30 minutes has elapsed.
      */
@@ -59,9 +58,16 @@ class Beacon {
         return createdOnDay != today || createdAt.distance(to: Date()) > TimeInterval(1800)
     } }
     
-    init(peripheral: CBPeripheral, rssi: RSSI) {
+    init(peripheral: CBPeripheral, delegate: CBPeripheralDelegate, rssi: RSSI) {
         self.peripheral = peripheral
+        self.peripheral.delegate = delegate
         self.rssi = rssi
+        self.createdAt = Date()
+    }
+
+    init(peripheral: CBPeripheral, delegate: CBPeripheralDelegate) {
+        self.peripheral = peripheral
+        self.peripheral.delegate = delegate
         self.createdAt = Date()
     }
 }
@@ -78,23 +84,43 @@ class Beacon {
  */
 class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripheralDelegate {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Receiver")
+    /**
+     Time delay between connect request and actual connection attempt. This is being used to
+     offer opportunities for the app to enter suspended state, and also setting the minimum contact
+     duration before the contact is recorded.
+    */
+    private let connectDelay = 4
+    /**
+     Time delay between reconnect request and actual connect request. This has to be within
+     the 10 seconds background processing limit of iOS, otherwise the app is likely to be killed off.
+     */
+    private let reconnectDelay:Double = 8
+    /**
+     Central manager for managing all connections, using a single manager for simplicity.
+     */
     private var central: CBCentralManager!
     /**
-    Characteristic UUID encodes the characteristic identifier in the upper 64-bits and the beacon code in the lower 64-bits
-    to achieve reliable read of beacon code without an actual GATT read operation.
+     Characteristic UUID encodes the characteristic identifier in the upper 64-bits and the beacon code in the lower 64-bits
+     to achieve reliable read of beacon code without an actual GATT read operation.
     */
     private let (characteristicCBUUIDUpper,_) = characteristicCBUUID.values
-    private var queue: [String] = []
+    /**
+     Table of all known beacon peripherals.
+     */
     private var peripherals: [String: Beacon] = [:]
+    /**
+     Delegate for receiving beacon detection events.
+     */
     private var delegate: ReceiverDelegate!
     /**
-     Sample of scan intervals for monitoring scan frequency in background and foreground modes.
+     Dispatch queue for running beacon reconnection timers.
      */
-    private let scanInterval = TimeIntervalSample()
+    private let dispatchQueue = DispatchQueue(label: "org.c19x.beacon.Receiver")
 
     required init(_ delegate: ReceiverDelegate?) {
         self.delegate = delegate
         super.init()
+        // Creating a central manager that supports state restore
         central = CBCentralManager(delegate: self, queue: nil, options: [
             CBCentralManagerOptionRestoreIdentifierKey : "org.C19X.beacon.Receiver",
             CBCentralManagerOptionShowPowerAlertKey : true])
@@ -109,13 +135,9 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             os_log("Scan start failed, bluetooth is not powered on", log: log, type: .fault)
             return
         }
+        // Scan for peripherals with specific service UUID, this is the only supported background scan mode
         central.scanForPeripherals(withServices: [serviceCBUUID], options: nil)
-        scanInterval.add()
-        if let mean = scanInterval.mean, let sd = scanInterval.standardDeviation, let min = scanInterval.min, let max = scanInterval.max {
-            os_log("Scanning (count=%d,mean=%f,standardDeviation=%f,min=%f,max=%f)", log: log, type: .debug, scanInterval.count, mean, sd, min, max)
-        } else {
-            os_log("Scanning", log: log, type: .debug)
-        }
+        os_log("Scanning", log: log, type: .debug)
     }
     
     /**
@@ -142,56 +164,49 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         os_log("Connect (peripheral=%s)", log: log, type: .debug, beacon.uuidString)
         guard let central = central, central.state == .poweredOn else {
             os_log("Connect failed, bluetooth is not powered on", log: log, type: .fault)
-            startScan()
             return
         }
-        // Timeout set to under 10 seconds to fit within iOS background processing time window
-        beacon.timer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { _ in
-            os_log("Connect timeout (peripheral=%s)", log: self.log, type: .debug, beacon.uuidString)
-            // Disconnect will always retrigger startScan() via processQueue()
-            self.disconnect(beacon.peripheral)
-        }
-        central.connect(beacon.peripheral)
-        os_log("Connecting (peripheral=%s)", log: log, type: .debug, beacon.uuidString)
+        // Connect is delayed to manage power usage and also filter out passing contacts
+        central.connect(beacon.peripheral, options: [CBConnectPeripheralOptionStartDelayKey : connectDelay])
+        os_log("Connecting (peripheral=%s,delay=%d)", log: log, type: .debug, beacon.uuidString, connectDelay)
     }
     
     /**
-     Process peripherals in order of discovery.
+     Reconnect to beacon peripheral after disconnection or connection failure to keep in touch.
+     This is triggered by centralManager: didFailToConnect / didDisconnectPeripheral, thus
+     the delay is introduced here to background processing time limit of around 10 seconds.
      */
-    private func processQueue() {
-        os_log("Process queue (count=%d)", log: log, type: .debug, queue.count)
-        guard !queue.isEmpty, let beacon = peripherals[queue.removeFirst()] else {
-            os_log("Queue is empty, start scan", log: log, type: .debug, queue.count)
-            startScan()
-            return
+    private func reconnect(_ peripheral: CBPeripheral) {
+        let uuid = peripheral.identifier.uuidString
+        os_log("Reconnect (peripheral=%s,delay=%f)", log: log, type: .debug, uuid, reconnectDelay)
+        if peripherals[uuid] == nil {
+            peripherals[uuid] = Beacon(peripheral: peripheral, delegate: self)
         }
-        os_log("Process queued beacon (peripheral=%s)", log: log, type: .debug, beacon.uuidString)
-        stopScan()
-        connect(beacon)
+        if let beacon = peripherals[uuid] {
+            beacon.rssi = nil
+            beacon.isConnected = false
+            beacon.timer = DispatchSource.makeTimerSource(queue: dispatchQueue)
+            if let timer = beacon.timer {
+                timer.setEventHandler {
+                    os_log("Reconnecting (peripheral=%s)", log: self.log, type: .debug, uuid)
+                    self.connect(beacon)
+                }
+                timer.schedule(deadline: DispatchTime.now() + reconnectDelay)
+                timer.resume()
+            }
+        }
     }
-    
+
     /**
      Disconnect peripheral, retaining beacon code for reuse.
      */
     private func disconnect(_ peripheral: CBPeripheral) {
         let uuid = peripheral.identifier.uuidString
         os_log("Disconnect (peripheral=%s)", log: log, type: .debug, uuid)
-        // Cancel timeout timer
-        if let beacon = peripherals[uuid] {
-            if let timer = beacon.timer {
-                os_log("Cancel timer (peripheral=%s)", log: log, type: .debug, uuid)
-                timer.invalidate()
-                beacon.timer = nil
-            }
-            peripheral.delegate = nil
-        }
-        if let central = central, central.state == .poweredOn {
-            os_log("Cancel connection (peripheral=%s)", log: log, type: .debug, uuid)
+        if let central = central {
+            os_log("Disconnecting (peripheral=%s)", log: log, type: .debug, uuid)
             central.cancelPeripheralConnection(peripheral)
         }
-        os_log("Disconnected (peripheral=%s)", log: log, type: .debug, uuid)
-        // Process queue again to start scan
-        processQueue()
     }
 
     // MARK: - CBCentralManagerDelegate
@@ -199,6 +214,24 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     func centralManager(_ central: CBCentralManager, willRestoreState dict: [String : Any]) {
         os_log("State restored", log: log, type: .debug)
         self.central = central
+        var isConnected: [String] = []
+        central.retrieveConnectedPeripherals(withServices: [serviceCBUUID]).forEach() { peripheral in
+            isConnected.append(peripheral.identifier.uuidString)
+        }
+        if let restoredPeripherals = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] {
+            for peripheral in restoredPeripherals {
+                let uuid = peripheral.identifier.uuidString
+                os_log("Restored (peripheral=%s)", log: log, type: .debug, uuid)
+                if let beacon = peripherals[uuid] {
+                    beacon.peripheral = peripheral
+                    beacon.peripheral.delegate = self
+                    beacon.rssi = nil
+                    beacon.isConnected = isConnected.contains(uuid)
+                } else {
+                    peripherals[uuid] = Beacon(peripheral: peripheral, delegate: self)
+                }
+            }
+        }
     }
     
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -212,46 +245,61 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         let uuid = peripheral.identifier.uuidString
         let rssi = RSSI.intValue
         os_log("Discovered (peripheral=%s,rssi=%d)", log: self.log, type: .debug, uuid, rssi)
-        if let beacon = peripherals[uuid] {
-            // Reuse existing information where possible
-            if beacon.isExpired {
-                // Refresh beacon code if expired
-                if !beacon.isConnected {
-                    // Queue peripheral for refresh if not already in progress
-                    peripherals[uuid] = Beacon(peripheral: peripheral, rssi: rssi)
-                    if (!queue.contains(uuid)) {
-                        queue.append(uuid)
-                    }
-                }
-            } else if let beaconCode = beacon.code {
-                // Beacon code already known and not expired, no need to reconnect
-                os_log("Detected beacon (method=scan,peripheral=%s,beaconCode=%s,rssi=%d)", log: log, type: .debug, uuid, beaconCode.description, rssi)
-                if let delegate = delegate {
-                    delegate.receiver(didDetect: beaconCode, rssi: rssi)
-                }
-            }
-        } else {
-            // Get beacon code for new peripheral
-            peripherals[uuid] = Beacon(peripheral: peripheral, rssi: rssi)
-            if (!queue.contains(uuid)) {
-                queue.append(uuid)
-            }
+        if peripherals[uuid] == nil {
+            peripherals[uuid] = Beacon(peripheral: peripheral, delegate: self, rssi: rssi)
         }
-        // Process queue of peripherals (or start scan again when queue is empty)
-        processQueue()
+        let beacon = peripherals[uuid]!
+        if !beacon.isConnected {
+            connect(peripherals[uuid]!)
+        }
+//        let beacon = peripherals[uuid]!
+//        if let beaconCode = beacon.code, !beacon.isExpired {
+//            os_log("Detected beacon (method=scan,peripheral=%s,beaconCode=%s,rssi=%d)", log: log, type: .debug, uuid, beaconCode.description, rssi)
+//            if let delegate = delegate {
+//                delegate.receiver(didDetect: beaconCode, rssi: rssi)
+//            }
+//            // SCHEDULE SCAN AGAIN?
+//        } else {
+//            connect(beacon)
+//        }
     }
     
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         let uuid = peripheral.identifier.uuidString
         os_log("Connected (peripheral=%s)", log: log, type: .debug, uuid)
-        peripheral.delegate = self;
-        peripheral.discoverServices([serviceCBUUID])
+        if peripherals[uuid] == nil {
+            peripherals[uuid] = Beacon(peripheral: peripheral, delegate: self)
+        }
+        let beacon = peripherals[uuid]!
+        if let beaconCode = beacon.code, !beacon.isExpired {
+            if let rssi = beacon.rssi {
+                // Beacon code already known and not expired, RSSI is available, ready for reporting
+                beacon.statistics.add()
+                os_log("Detected beacon (method=connect,peripheral=%s,beaconCode=%s,rssi=%d,statistics={%s})", log: log, type: .debug, uuid, beaconCode.description, rssi, beacon.statistics.description)
+                if let delegate = delegate {
+                    delegate.receiver(didDetect: beaconCode, rssi: rssi)
+                }
+                disconnect(peripheral)
+            } else {
+                // Beacon code already known and not expired, RSSI is missing, read RSSI
+                peripheral.readRSSI()
+            }
+        } else {
+            // Beacon code is unknown or expired
+            peripheral.discoverServices([serviceCBUUID])
+        }
     }
     
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         let uuid = peripheral.identifier.uuidString
-        os_log("Connect failed (peripheral=%s)", log: log, type: .debug, uuid)
-        disconnect(peripheral)
+        os_log("Connect failed (peripheral=%s,error=%s)", log: log, type: .debug, uuid, String(describing: error))
+        reconnect(peripheral)
+    }
+    
+    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        let uuid = peripheral.identifier.uuidString
+        os_log("Disconnected (peripheral=%s,error=%s)", log: log, type: .debug, uuid, String(describing: error))
+        reconnect(peripheral)
     }
     
     // MARK: - CBPeripheralDelegate
@@ -288,24 +336,48 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             let (upper,beaconCode) = characteristic.uuid.values
             if upper == characteristicCBUUIDUpper {
                 os_log("Discovered beacon characteristic (peripheral=%s,beaconCode=%s)", log: log, type: .debug, uuid, beaconCode.description)
-                if let beacon = peripherals[uuid] {
-                    beacon.code = beaconCode
-                    os_log("Detected beacon (method=connect,peripheral=%s,beaconCode=%s,rssi=%d)", log: log, type: .debug, uuid, beaconCode.description, beacon.rssi)
-                    if let delegate = delegate {
-                        delegate.receiver(didDetect: beaconCode, rssi: beacon.rssi)
-                    }
-                } else {
-                    // This should never happen, peripheral has been removed before disconnect
-                    os_log("Beacon entry missing (peripheral=%s)", log: log, type: .fault, uuid)
+                if peripherals[uuid] == nil {
+                    peripherals[uuid] = Beacon(peripheral: peripheral, delegate: self)
                 }
-                disconnect(peripheral)
-                return
+                let beacon = peripherals[uuid]!
+                beacon.code = beaconCode
+                if let rssi = beacon.rssi {
+                    beacon.statistics.add()
+                    os_log("Detected beacon (method=discover,peripheral=%s,beaconCode=%s,rssi=%d,statistics={%s})", log: log, type: .debug, uuid, beaconCode.description, rssi, beacon.statistics.description)
+                    if let delegate = delegate {
+                        delegate.receiver(didDetect: beaconCode, rssi: rssi)
+                    }
+                    disconnect(peripheral)
+                    return
+                } else {
+                    beacon.peripheral.readRSSI()
+                    return
+                }
+            }
+        }
+        disconnect(peripheral)
+    }
+    
+    func peripheral(_ peripheral: CBPeripheral, didReadRSSI RSSI: NSNumber, error: Error?) {
+        let uuid = peripheral.identifier.uuidString
+        let rssi = RSSI.intValue
+        os_log("Read RSSI (peripheral=%s,rssi=%d)", log: log, type: .debug, uuid, rssi)
+        if peripherals[uuid] == nil {
+            peripherals[uuid] = Beacon(peripheral: peripheral, delegate: self, rssi: rssi)
+        }
+        let beacon = peripherals[uuid]!
+        beacon.rssi = rssi
+        if let beaconCode = beacon.code, let rssi = beacon.rssi {
+            beacon.statistics.add()
+            os_log("Detected beacon (method=rssi,peripheral=%s,beaconCode=%s,rssi=%d,statistics={%s})", log: log, type: .debug, uuid, beaconCode.description, rssi, beacon.statistics.description)
+            if let delegate = delegate {
+                delegate.receiver(didDetect: beaconCode, rssi: rssi)
             }
         }
         disconnect(peripheral)
     }
     
     func peripheral(_ peripheral: CBPeripheral, didModifyServices invalidatedServices: [CBService]) {
-        os_log("Discovered service modification (peripheral=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+        os_log("Service modified (peripheral=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
     }
 }
