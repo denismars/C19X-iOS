@@ -22,6 +22,12 @@
 		B6077946245986DD00479C78 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = B6077945245986DD00479C78 /* BigInt */; };
 		B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B60C0A112462941D002BA6A0 /* CoreData.framework */; };
 		B60C0A1524629441002BA6A0 /* C19X.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */; };
+		B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94A24698334009874F1 /* DayCodes.swift */; };
+		B6B7D94D246983C3009874F1 /* BeaconCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94C246983C3009874F1 /* BeaconCodes.swift */; };
+		B6B7D9532469A60E009874F1 /* Transmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D9522469A60E009874F1 /* Transmitter.swift */; };
+		B6BC9E2F246A99C00017B281 /* Receiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E2E246A99C00017B281 /* Receiver.swift */; };
+		B6BC9E31246D1C9C0017B281 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E30246D1C9C0017B281 /* Utilities.swift */; };
+		B6BC9E34246D1E820017B281 /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E33246D1E820017B281 /* Database.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +48,12 @@
 		B607794024584A2100479C78 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
 		B60C0A112462941D002BA6A0 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = C19X.xcdatamodel; sourceTree = "<group>"; };
+		B6B7D94A24698334009874F1 /* DayCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCodes.swift; sourceTree = "<group>"; };
+		B6B7D94C246983C3009874F1 /* BeaconCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconCodes.swift; sourceTree = "<group>"; };
+		B6B7D9522469A60E009874F1 /* Transmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transmitter.swift; sourceTree = "<group>"; };
+		B6BC9E2E246A99C00017B281 /* Receiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Receiver.swift; sourceTree = "<group>"; };
+		B6BC9E30246D1C9C0017B281 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
+		B6BC9E33246D1E820017B281 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +91,8 @@
 		B607791C2458381E00479C78 /* C19X */ = {
 			isa = PBXGroup;
 			children = (
+				B6BC9E32246D1E440017B281 /* Data */,
+				B6B7D9492469831B009874F1 /* Beacon */,
 				B607793F24583D7700479C78 /* C19X.entitlements */,
 				B607791D2458381E00479C78 /* AppDelegate.swift */,
 				B607791F2458381E00479C78 /* SceneDelegate.swift */,
@@ -103,6 +117,26 @@
 				B607793A24583D5200479C78 /* CoreBluetooth.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B6B7D9492469831B009874F1 /* Beacon */ = {
+			isa = PBXGroup;
+			children = (
+				B6B7D94A24698334009874F1 /* DayCodes.swift */,
+				B6B7D94C246983C3009874F1 /* BeaconCodes.swift */,
+				B6B7D9522469A60E009874F1 /* Transmitter.swift */,
+				B6BC9E2E246A99C00017B281 /* Receiver.swift */,
+				B6BC9E30246D1C9C0017B281 /* Utilities.swift */,
+			);
+			path = Beacon;
+			sourceTree = "<group>";
+		};
+		B6BC9E32246D1E440017B281 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				B6BC9E33246D1E820017B281 /* Database.swift */,
+			);
+			path = Data;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -182,6 +216,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */,
+				B6B7D94D246983C3009874F1 /* BeaconCodes.swift in Sources */,
+				B6BC9E31246D1C9C0017B281 /* Utilities.swift in Sources */,
+				B6BC9E34246D1E820017B281 /* Database.swift in Sources */,
+				B6BC9E2F246A99C00017B281 /* Receiver.swift in Sources */,
+				B6B7D9532469A60E009874F1 /* Transmitter.swift in Sources */,
 				B60779382458399000479C78 /* Utility.swift in Sources */,
 				B60779322458397100479C78 /* Beacon.swift in Sources */,
 				B60779342458397F00479C78 /* Network.swift in Sources */,
