@@ -14,6 +14,8 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     private let log = OSLog(subsystem: "org.C19X", category: "ViewController")
     private let appDelegate = UIApplication.shared.delegate as! AppDelegate
     private var device: Device!
+    private var transmitter: Transmitter!
+    private var receiver: Receiver!
     
     @IBOutlet weak var statusView: UIView!
     @IBOutlet weak var statusSelector: UISegmentedControl!
@@ -96,15 +98,25 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     }
     
     private func start() {
-        enableImmediateLookupUpdate()
+        let dayCodes = ConcreteDayCodes("sharedSecret1".data(using: .utf8)!)
+        let beaconCodes = ConcreteBeaconCodes(dayCodes)
+        //let database = ConcreteDatabase()
+        //database.remove(Date.distantFuture)
+        transmitter = ConcreteTransmitter(beaconCodes: beaconCodes)
+        receiver = ConcreteReceiver(transmitter)
+        //transmitter.delegates.append(database)
+        //receiver.delegates.append(transmitter as! ConcreteTransmitter)
+        //receiver.delegates.append(database)
+        
+        //enableImmediateLookupUpdate()
 
         device.network.listeners.append(self)
         device.beaconReceiver.listeners.append(self)
         device.beaconTransmitter.listeners.append(self)
         device.riskAnalysis.listeners.append(self)
-        device.start()
+        //device.start()
 
-        refreshLastUpdateLabelsAndScheduleAgain()
+        //refreshLastUpdateLabelsAndScheduleAgain()
         
         statusSelector.selectedSegmentIndex = device.getStatus()
         updateStatusDescriptionText()
@@ -219,7 +231,7 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         }
     }
 
-    internal func beaconListenerDidUpdate(beaconCode: Int64, rssi: Int) {
+    internal func beaconListenerDidUpdate(beaconCode: UInt64, rssi: Int) {
         device.parameters.set(contactUpdate: Date())
         DispatchQueue.main.async {
             self.updateContactValue(self.device.contactRecords.records.count)
@@ -369,3 +381,23 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
 
 }
 
+class TransmitterTrigger : ReceiverDelegate {
+    private var transmitter: Transmitter
+    private var scheduled = false
+    
+    init(_ transmitter: Transmitter) {
+        self.transmitter = transmitter
+    }
+    
+    func receiver(didDetect: BeaconCode, rssi: RSSI) {
+        if !scheduled {
+            scheduled = true
+            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now().advanced(by: .seconds(5))) {
+                self.transmitter.updateBeaconCode()
+                self.scheduled = false
+            }
+        }
+    }
+    
+    
+}

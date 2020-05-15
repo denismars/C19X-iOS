@@ -10,19 +10,29 @@ import Foundation
 import CryptoKit
 import os
 
-public class Network {
+class Network {
     private let log = OSLog(subsystem: "org.C19X", category: "Network")
-    private var server: String = "https://appserver-test.c19x.org/"
-    // Time data
+    private var server: String?
     private var timeDelta: Int64 = 0
     private var getLookupInBackgroundInProgress = false
     public var listeners: [NetworkListener] = []
         
+    func set(server: String) {
+        self.server = server
+    }
+    
     // Get time and adjust delta to synchronise with server
     public func getTimeFromServerAndSynchronise(_ callback: ((Bool) -> Void)? = nil) {
-        os_log("Synchronised time request", log: self.log, type: .debug)
-        let url = URL(string: server + "time")
-        let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
+        os_log("Synchronise time request", log: self.log, type: .debug)
+        guard let server = server, let url = URL(string: server + "time") else {
+            os_log("Synchronise time failed, server undefined", log: self.log, type: .debug)
+            if callback != nil {
+                callback!(false)
+            }
+            return
+        }
+        os_log("Synchronise time request (url=%s)", log: self.log, type: .debug, url.description)
+        let task = URLSession.shared.dataTask(with: url, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse, let dataString = String(bytes: data!, encoding: .utf8) {
                 if (httpResponse.statusCode == 200) {
                     let serverTime = Int64(dataString)!
@@ -35,7 +45,7 @@ public class Network {
                     return
                 }
             }
-            os_log("Synchronised time with server failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+            os_log("Synchronise time failed (error=%s)", log: self.log, type: .fault, String(describing: error))
             if callback != nil {
                 callback!(false)
             }
@@ -51,8 +61,14 @@ public class Network {
     // Get registration serial number and key
     public func getRegistration(callback: ((Bool) -> Void)? = nil) {
         os_log("Registration request", log: self.log, type: .debug)
-        let url = URL(string: server + "registration")
-        let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
+        guard let server = server, let url = URL(string: server + "registration") else {
+            os_log("Registration failed, server undefined", log: self.log, type: .debug)
+            if callback != nil {
+                callback!(false)
+            }
+            return
+        }
+        let task = URLSession.shared.dataTask(with: url, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse, let dataString = String(bytes: data!, encoding: .utf8) {
                 if (httpResponse.statusCode == 200) {
                     let values = dataString.components(separatedBy: ",")
@@ -80,8 +96,15 @@ public class Network {
     }
     
     // Post status
-    public func postStatus(_ status: Int, device:Device, callback: ((Bool) -> Void)? = nil) {
+    func postStatus(_ status: Int, device:Device, callback: ((Bool) -> Void)? = nil) {
         os_log("Post status request (status=%u)", log: self.log, type: .debug, status)
+        guard let server = server else {
+            os_log("Post status failed, server undefined", log: self.log, type: .debug)
+            if callback != nil {
+                callback!(false)
+            }
+            return
+        }
         let (_, rssiHistogram, timeHistogram) = device.riskAnalysis.analyse(contactRecords: device.contactRecords, lookup: device.lookup)
         let string = String(getTimestamp()) + "|" + String(status) + "|" + rssiHistogram.description + "|" + timeHistogram.description
         os_log("Post status (string=%s)", log: self.log, type: .fault, string)
@@ -116,6 +139,13 @@ public class Network {
     // Get device specific message
     public func getMessage(serialNumber: UInt64, sharedSecret: Data, callback: ((Bool) -> Void)? = nil) {
         os_log("Get message request", log: self.log, type: .debug)
+        guard let server = server else {
+            os_log("Get message failed, server undefined", log: self.log, type: .debug)
+            if callback != nil {
+                callback!(false)
+            }
+            return
+        }
         let string = String(getTimestamp())
         let encrypted = AES.encrypt(key: sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
         let url = URL(string: server + "message?key=" + String(serialNumber) + "&value=" + encrypted)
@@ -143,6 +173,13 @@ public class Network {
     // Get lookup table immediately
     public func getLookupImmediately(callback: ((Bool) -> Void)? = nil) {
         os_log("Get lookup immediately request", log: self.log, type: .debug)
+        guard let server = server else {
+            os_log("Get lookup immediately failed, server undefined", log: self.log, type: .debug)
+            if callback != nil {
+                callback!(false)
+            }
+            return
+        }
         let url = URL(string: server + "lookup")
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse, let lookup = data {
@@ -170,6 +207,13 @@ public class Network {
     // Get lookup table in background
     public func getLookupInBackground(callback: ((Bool) -> Void)? = nil) {
         os_log("Get lookup in background request", log: self.log, type: .debug)
+        guard let server = server else {
+            os_log("Get lookup in background failed, server undefined", log: self.log, type: .debug)
+            if callback != nil {
+                callback!(false)
+            }
+            return
+        }
         guard !getLookupInBackgroundInProgress else {
             os_log("Get lookup in background in progress, skipping request", log: self.log, type: .debug)
             return
@@ -202,6 +246,13 @@ public class Network {
     // Get application parameters
     public func getParameters(callback: ((Bool) -> Void)? = nil) {
         os_log("Get parameters request", log: self.log, type: .debug)
+        guard let server = server else {
+            os_log("Get parameters failed, server undefined", log: self.log, type: .debug)
+            if callback != nil {
+                callback!(false)
+            }
+            return
+        }
         let url = URL(string: server + "parameters")
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse {

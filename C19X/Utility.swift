@@ -73,7 +73,7 @@ open class ByteArray {
 }
 
 extension UUID {
-    init(numbers: (Int64, Int64)) {
+    init(numbers: (Int64, UInt64)) {
         var firstNumber = numbers.0
         var secondNumber = numbers.1
         let firstData = Data(bytes: &firstNumber, count: MemoryLayout<Int64>.size)
@@ -81,15 +81,15 @@ extension UUID {
         
         let bytes = [UInt8](firstData) + [UInt8](secondData)
         
-        let tuple: uuid_t = (bytes[7], bytes[6], bytes[5], bytes[4],
-                             bytes[3], bytes[2], bytes[1], bytes[0],
-                             bytes[15], bytes[14], bytes[13], bytes[12],
-                             bytes[11], bytes[10], bytes[9], bytes[8])
+        let tuple: uuid_t = (bytes[0], bytes[1], bytes[2], bytes[3],
+                             bytes[4], bytes[5], bytes[6], bytes[7],
+                             bytes[8], bytes[9], bytes[10], bytes[11],
+                             bytes[12], bytes[13], bytes[14], bytes[15])
         
         self.init(uuid: tuple)
     }
     
-    var intTupleValue: (Int64, Int64) {
+    var intTupleValue: (Int64, UInt64) {
         let tuple = self.uuid
         
         let firstBytes: [UInt8] = [tuple.0, tuple.1, tuple.2, tuple.3,
@@ -102,7 +102,7 @@ extension UUID {
         let secondData = Data(secondBytes)
         
         let first = firstData.withUnsafeBytes { $0.pointee } as Int64
-        let second = secondData.withUnsafeBytes { $0.pointee } as Int64
+        let second = secondData.withUnsafeBytes { $0.pointee } as UInt64
         
         return (first, second)
     }

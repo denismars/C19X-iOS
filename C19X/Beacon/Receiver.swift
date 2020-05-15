@@ -120,33 +120,37 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     /**
      Start scanning for beacon peripherals.
      */
-    private func startScan() {
-        os_log("Scan start", log: log, type: .debug, serviceCBUUID.description)
+    func startScan() {
+        if lastScan != nil && Date().timeIntervalSince(lastScan!) < 8 {
+            return
+        }
+        os_log("Scan start", log: log, type: .debug)
         guard let central = central, central.state == .poweredOn else {
             os_log("Scan start failed, bluetooth is not powered on", log: log, type: .fault)
             return
         }
+        // Stop scan to reset central state
+        central.stopScan()
         // Scan for peripherals with specific service UUID, this is the only supported background scan mode
         central.scanForPeripherals(withServices: [serviceCBUUID], options: nil)
         os_log("Scanning", log: log, type: .debug)
         lastScan = Date()
-    }
-    
-    /**
-     Stop scanning for beacon peripherals.
-     */
-    private func stopScan() {
-        os_log("Scan stop", log: log, type: .debug, serviceCBUUID.description)
-        guard let central = central, central.state == .poweredOn else {
-            os_log("Scan stop failed, bluetooth is not powered on", log: log, type: .fault)
-            return
+        // Read RSSI for all connected iOS peripherals (has pulse)
+        peripherals.values.forEach() { beacon in
+            if beacon.hasPulse, beacon.peripheral.state == .connected {
+                beacon.peripheral.readRSSI()
+            }
         }
-        guard central.isScanning else {
-            os_log("Scan stopped already", log: log, type: .debug)
-            return
+        // Generate pulse to wake up subscribers
+        pulseTimer = DispatchSource.makeTimerSource(queue: dispatchQueue)
+        if let timer = pulseTimer {
+            timer.setEventHandler {
+                os_log("Waking subscribers", log: self.log, type: .debug)
+                self.transmitter.pulse()
+            }
+            timer.schedule(deadline: DispatchTime.now() + 8)
+            timer.resume()
         }
-        central.stopScan()
-        os_log("Scan stopped", log: log, type: .debug)
     }
     
     /**
@@ -208,6 +212,8 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         os_log("Update state (toState=%s)", log: log, type: .debug, central.state.description)
         if (central.state == .poweredOn) {
             startScan()
+        } else {
+            lastScan = nil
         }
     }
     
@@ -317,39 +323,17 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         if (!beacon.hasPulse) {
             disconnect(peripheral)
         }
-        startScanAgain()
-    }
-    
-    func startScanAgain() {
-        if lastScan != nil && Date().timeIntervalSince(lastScan!) < 8 {
-            return
-        }
-        os_log("Start scan again", log: log, type: .debug)
         startScan()
-        peripherals.values.forEach() { beacon in
-            if beacon.hasPulse, beacon.peripheral.state == .connected {
-                beacon.peripheral.readRSSI()
-            }
-        }
-        
-        pulseTimer = DispatchSource.makeTimerSource(queue: dispatchQueue)
-        if let timer = pulseTimer {
-            timer.setEventHandler {
-                self.transmitter.pulse()
-            }
-            timer.schedule(deadline: DispatchTime.now() + 8)
-            timer.resume()
-        }
     }
     
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         let uuid = peripheral.identifier.uuidString
         os_log("Pulse received (peripheral=%s)", log: log, type: .debug, uuid)
-        startScanAgain()
+        startScan()
     }
     
     func peripheral(_ peripheral: CBPeripheral, didModifyServices invalidatedServices: [CBService]) {
         os_log("Service modified (peripheral=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
-        startScanAgain()
+        startScan()
     }
 }

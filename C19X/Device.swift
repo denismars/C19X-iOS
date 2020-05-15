@@ -8,11 +8,11 @@
 
 import Foundation
 import CryptoKit
-import BigInt
 import CoreData
 import os
 
-public class Device: AbstractNetworkListener {
+class Device: AbstractNetworkListener {
+    
     private let log = OSLog(subsystem: "org.C19X", category: "Device")
     private static let serviceUUID = UUID(uuidString: "0022D481-83FE-1F13-0000-000000000000")!
     
@@ -26,7 +26,7 @@ public class Device: AbstractNetworkListener {
     public var sharedSecret: Data = Data()
     private var status: Int = 0
     
-    public var codes: Codes?
+    public var codes: DayCodes?
     public var message: String = ""
     public var lookup: Data = Data(count: 1)
     private var serverDataUpdateSince: Date?
@@ -34,8 +34,8 @@ public class Device: AbstractNetworkListener {
     public var parameters = Parameters()
     public var contactRecords = ContactRecords()
     public var network = Network()
-    public var beaconTransmitter = BeaconTransmitter(serviceUUID)
-    public var beaconReceiver = BeaconReceiver(serviceUUID)
+    var beaconTransmitter = BeaconTransmitter(serviceUUID)
+    var beaconReceiver = BeaconReceiver(serviceUUID)
     public var riskAnalysis = RiskAnalysis()
     
     override init() {
@@ -44,10 +44,56 @@ public class Device: AbstractNetworkListener {
         beaconReceiver.listeners.append(contactRecords)
         beaconTransmitter.listeners.append(contactRecords)
         network.listeners.append(self)
+    }
         
+    public func start() {
+        os_log("Start", log: log, type: .debug)
         reset()
+
+        // Parameters
+        network.set(server: parameters.getServerAddress())
+        
+        // Registration
+        if
+            let serialNumberKeychainValue = Keychain.shared.get("serialNumber"),
+            let sharedSecretKeychainValue = Keychain.shared.get("sharedSecret"),
+            let serialNumber = UInt64(serialNumberKeychainValue),
+            let sharedSecret = Data(base64Encoded: sharedSecretKeychainValue) {
+            os_log("Registration loaded from keychain (serialNumber=%u)", log: log, type: .debug, self.serialNumber)
+            networkListenerDidUpdate(serialNumber: serialNumber, sharedSecret: sharedSecret)
+        } else {
+            os_log("Registration required", log: log, type: .info)
+            network.getRegistration()
+        }
+        
+        // Status
+        if
+            let statusKeychainValue = Keychain.shared.get("status"),
+            let status = Int(statusKeychainValue) {
+            self.status = status
+            os_log("Status loaded from keychain (status=%d)", log: log, type: .debug, self.status)
+        }
+        
+        // Lookup
+        if FileManager().fileExists(atPath: lookupCacheUrl.path) {
+            do {
+                let data = try Data(NSData(contentsOfFile: lookupCacheUrl.path))
+                self.lookup = data
+                os_log("Lookup data loaded from cache (bytes=%u)", log: log, type: .debug, self.lookup.count)
+            } catch {}
+        } else {
+            os_log("Lookup data download required, this will be done automatically in the background", log: log, type: .info)
+        }
+        
+        // Schedule background updates (foreground, see appDelegate for background)
+        scheduleUpdates()
+        
+        // Beacons
+        beaconTransmitter.start()
+        beaconReceiver.start()
     }
     
+
     private func scheduleUpdates() {
         update()
         DispatchQueue.main.asyncAfter(deadline: DispatchTime.future(by: parameters.getBeaconCodeUpdateInterval(), randomise: 120)) {
@@ -112,9 +158,9 @@ public class Device: AbstractNetworkListener {
             os_log("Change beacon code failed, pending registration", log: log, type: .fault)
             return
         }
-        let beaconCode = beaconCodes.get(parameters.getRetentionPeriodInDays())
-        beaconTransmitter.setBeaconCode(beaconCode: beaconCode)
-        os_log("Change beacon code successful (code=%s)", log: log, type: .debug, beaconCode.description)
+        let beaconCode = beaconCodes.get()
+        //beaconTransmitter.setBeaconCode(beaconCode: UInt(beaconCode))
+        os_log("Change beacon code successful (code=%s)", log: log, type: .debug, beaconCode!.description)
     }
     
     private func enforceRetentionPeriod() {
@@ -138,82 +184,38 @@ public class Device: AbstractNetworkListener {
         }
     }
     
-    public func start() {
-        os_log("Start", log: log, type: .debug)
-        // Registration
-        if
-            let serialNumberKeychainValue = Keychain.shared.get("serialNumber"),
-            let sharedSecretKeychainValue = Keychain.shared.get("sharedSecret"),
-            let serialNumber = UInt64(serialNumberKeychainValue),
-            let sharedSecret = Data(base64Encoded: sharedSecretKeychainValue) {
-            self.serialNumber = serialNumber
-            self.sharedSecret = sharedSecret
-            self.codes = Codes(sharedSecret: self.sharedSecret)
-            os_log("Registration loaded from keychain (serialNumber=%u)", log: log, type: .debug, self.serialNumber)
-        } else {
-            os_log("Registration required", log: log, type: .info)
-            network.getRegistration()
-        }
-        
-        // Status
-        if
-            let statusKeychainValue = Keychain.shared.get("status"),
-            let status = Int(statusKeychainValue) {
-            self.status = status
-            os_log("Status loaded from keychain (status=%d)", log: log, type: .debug, self.status)
-        }
-        
-        // Lookup
-        if FileManager().fileExists(atPath: lookupCacheUrl.path) {
-            do {
-                let data = try Data(NSData(contentsOfFile: lookupCacheUrl.path))
-                self.lookup = data
-                os_log("Lookup data loaded from cache (bytes=%u)", log: log, type: .debug, self.lookup.count)
-            } catch {}
-        } else {
-            os_log("Lookup data download required, this will be done automatically in the background", log: log, type: .info)
-        }
-        
-        // Schedule background updates (foreground, see appDelegate for background)
-        scheduleUpdates()
-        
-        // Beacons
-        beaconTransmitter.start()
-        beaconReceiver.start()
-    }
-    
-    public override func networkListenerDidUpdate(serialNumber:UInt64, sharedSecret:Data) {
+    override func networkListenerDidUpdate(serialNumber:UInt64, sharedSecret:Data) {
         if
             let setSerialNumber = Keychain.shared.set("serialNumber", String(serialNumber)),
             let setSharedSecret = Keychain.shared.set("sharedSecret", sharedSecret.base64EncodedString()),
-            setSerialNumber,
-            setSharedSecret {
+            setSerialNumber, setSharedSecret {
             os_log("Registration saved to keychain (serialNumber=%u)", log: log, type: .debug, serialNumber)
             self.serialNumber = serialNumber
             self.sharedSecret = sharedSecret
-            self.codes = Codes(sharedSecret: sharedSecret)
+            self.codes = ConcreteDayCodes(sharedSecret)
             os_log("Starting beacon transmitter following registration", log: log, type: .debug)
+            changeBeaconCode()
         } else {
             os_log("Registration not saved to keychain (serialNumber=%u)", log: log, type: .fault, serialNumber)
         }
     }
     
-    public override func networkListenerFailedUpdate(registrationError: Error?) {
+    override func networkListenerFailedUpdate(registrationError: Error?) {
         os_log("Registration failed, retrying in 10 minutes (error=%s)", log: log, type: .debug, String(describing: registrationError))
         DispatchQueue.main.asyncAfter(deadline: .future(by: 600)) {
             self.network.getRegistration()
         }
     }
     
-    public override func networkListenerDidUpdate(status:Int) {
+    override func networkListenerDidUpdate(status:Int) {
         set(status: status)
     }
     
-    public override func networkListenerDidUpdate(message:String) {
+    override func networkListenerDidUpdate(message:String) {
         self.message = message
     }
     
-    public override func networkListenerDidUpdate(lookup: Data) {
+    override func networkListenerDidUpdate(lookup: Data) {
         self.lookup = lookup
         do {
             if FileManager().fileExists(atPath: lookupCacheUrl.path) {
@@ -227,59 +229,13 @@ public class Device: AbstractNetworkListener {
         riskAnalysis.update(status: status, contactRecords: contactRecords, parameters: parameters, lookup: lookup)
     }
     
-    public override func networkListenerDidUpdate(parameters: [String:String]) {
+    override func networkListenerDidUpdate(parameters: [String:String]) {
         self.parameters.set(dictionary: parameters)
+        network.set(server: self.parameters.getServerAddress())
         riskAnalysis.update(status: status, contactRecords: contactRecords, parameters: self.parameters, lookup: lookup)
     }
 }
 
-public class Codes {
-    private static let log = OSLog(subsystem: "org.C19X", category: "Codes")
-    private static let epoch = UInt64(ISO8601DateFormatter().date(from: "2020-01-01T00:00:00+0000")!.timeIntervalSince1970 * 1000)
-    private static let range = BigUInt(9223372036854775807)
-    private static let days = 365 * 10
-    private static let dayMillis = UInt64(24 * 60 * 60 * 1000)
-    
-    private var values:[Int64] = []
-    
-    init(sharedSecret: Data) {
-        self.values = Codes.getValues(sharedSecret: sharedSecret)
-    }
-    
-    public func get(_ days: Int) -> Int64 {
-        let now = UInt64(NSDate().timeIntervalSince1970 * 1000)
-        let (today,_) = (now - Codes.epoch).dividedReportingOverflow(by: Codes.dayMillis)
-        
-        let day = (days <= 1 ? Int(today) : Int(today) - random(days - 1))
-        os_log("Randomly selected code (day=%u,code=%s)", log: Codes.log, type: .debug, day, values[day].description)
-        return values[day]
-    }
-    
-    private func random(_ range: Int) -> Int {
-        var bytes = [UInt8](repeating: 0, count: 1)
-        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        if status == errSecSuccess {
-            return Int(bytes[0] % UInt8(range))
-        } else {
-            os_log("Secure random number generator failed, defaulting to Int.random (error=%d)", log: Codes.log, type: .fault, status)
-            return Int.random(in: 0 ... Int(range))
-        }
-    }
-    
-    private static func getValues(sharedSecret: Data) -> [Int64] {
-        os_log("Generating forward secure codes (days=%d)", log: log, type: .debug, days)
-        var codes = [Int64](repeating: 0, count: days)
-        var hash = SHA256.hash(data: sharedSecret)
-        for i in (0 ... (days - 1)).reversed() {
-            let hashData = Data(hash)
-            codes[i] = Int64(BigUInt(hashData) % range)
-            hash = SHA256.hash(data: hashData)
-            //debugPrint("\(i) -> \(codes[i])")
-        }
-        os_log("Generated forward secure codes (days=%d)", log: log, type: .debug, days)
-        return codes
-    }
-}
 
 public class Parameters: AbstractNetworkListener {
     private let userDefaults = UserDefaults.standard
@@ -304,7 +260,7 @@ public class Parameters: AbstractNetworkListener {
     
     public func reset() {
         userDefaults.set(true, forKey: keyFirstUse)
-        userDefaults.set("https://appserver-test.c19x.org", forKey: keyServerAddress)
+        userDefaults.set("https://c19x-dev.servehttp.com/", forKey: keyServerAddress)
         userDefaults.set(RiskAnalysis.adviceStayAtHome, forKey: keyGovernmentAdvice)
         userDefaults.set(14, forKey: keyRetentionPeriod)
         userDefaults.set(30, forKey: keyBeaconCodeUpdateInterval)
@@ -427,11 +383,11 @@ public class Parameters: AbstractNetworkListener {
 
 public struct ContactRecord {
     let time: Date!
-    let beacon: Int64!
+    let beacon: UInt64!
     let rssi: Int!
 }
 
-public class ContactRecords: AbstractBeaconListener {
+class ContactRecords: AbstractBeaconListener {
     private let log = OSLog(subsystem: "org.C19X", category: "ContactRecords")
     private lazy var persistentContainer: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "C19X")
@@ -447,7 +403,7 @@ public class ContactRecords: AbstractBeaconListener {
     
     override init() {
         super.init()
-        load()
+        //load()
     }
     
     public func reset() {
@@ -476,7 +432,7 @@ public class ContactRecords: AbstractBeaconListener {
         lock.unlock()
     }
     
-    public override func beaconListenerDidUpdate(beaconCode: Int64, rssi: Int) {
+    override func beaconListenerDidUpdate(beaconCode: UInt64, rssi: Int) {
         lock.lock()
         let record = ContactRecord(time: Date(), beacon: beaconCode, rssi: rssi)
         let managedContext = persistentContainer.viewContext
@@ -505,7 +461,7 @@ public class ContactRecords: AbstractBeaconListener {
             objects.forEach() { o in
                 if
                     let time = o.value(forKey: "time") as? Date,
-                    let beacon = o.value(forKey: "beacon") as? Int64,
+                    let beacon = o.value(forKey: "beacon") as? UInt64,
                     let rssi = o.value(forKey: "rssi") as? Int {
                     records.append(ContactRecord(time: time, beacon: beacon, rssi: rssi))
                 }
@@ -518,7 +474,7 @@ public class ContactRecords: AbstractBeaconListener {
     }
 }
 
-public class RiskAnalysis {
+class RiskAnalysis {
     private let log = OSLog(subsystem: "org.C19X", category: "RiskAnalysis")
     
     public static let contactOk = 0
@@ -534,9 +490,9 @@ public class RiskAnalysis {
     public var listeners: [RiskAnalysisListener] = []
     
     private func filter(records: [ContactRecord], lookup: Data, infectious: Bool) -> [ContactRecord] {
-        let range = Int64(lookup.count * 8)
+        let range = UInt64(lookup.count * 8)
         return records.filter { record in
-            let index = Int(abs(record.beacon % range))
+            let index = record.beacon % range
             return get(lookup, index: index) == infectious
         }
     }
@@ -623,8 +579,10 @@ public class RiskAnalysis {
         }
     }
     
-    private func get(_ data: Data, index: Int) -> Bool {
-        return ((data[index / 8] >> (index % 8)) & 1) != 0;
+    private func get(_ data: Data, index: UInt64) -> Bool {
+        let block = Int(index / 8)
+        let bit = Int(index % 8)
+        return ((data[block] >> bit) & 1) != 0;
     }
     
 }

@@ -2,6 +2,8 @@ import Foundation
 import CoreBluetooth
 import os
 
+private let beaconQueue: DispatchQueue = DispatchQueue(label: "BeaconQueue")
+
 /**
  * Beacon receiver for detecting a fixed service UUID and then discovering
  * a variable characteristic UUID where the upper 64-bit is fixed (same as
@@ -10,11 +12,11 @@ import os
 public class BeaconReceiver: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "BeaconReceiver")
     private var serviceCBUUID: CBUUID!
-    private var characteristicUuidPrefix: String!
+    private var beaconCharacteristicPrefix: Int64!
     private var centralManager: CBCentralManager?
     private var queue: [CBPeripheral] = []
     private var peripherals: [CBPeripheral:Timer] = [:]
-    private var beaconCodes: [CBPeripheral:Int64] = [:]
+    private var beaconCodes: [CBPeripheral:UInt64] = [:]
     public var listeners: [BeaconListener] = []
 
     /**
@@ -28,11 +30,12 @@ public class BeaconReceiver: NSObject, CBCentralManagerDelegate, CBPeripheralDel
     public init(_ serviceUUID: UUID) {
         super.init()
         self.serviceCBUUID = CBUUID(nsuuid: serviceUUID)
-        self.characteristicUuidPrefix = String(serviceUUID.uuidString.prefix(18))
+        let (prefix,_) = serviceUUID.intTupleValue
+        self.beaconCharacteristicPrefix = prefix
     }
     
     public func start() {
-        centralManager = CBCentralManager(delegate: self, queue: nil, options: [CBCentralManagerOptionRestoreIdentifierKey : "org.C19X.beaconReceiver",
+        centralManager = CBCentralManager(delegate: self, queue: beaconQueue, options: [CBCentralManagerOptionRestoreIdentifierKey : "org.C19X.beaconReceiver",
              CBCentralManagerOptionShowPowerAlertKey : true])
     }
     
@@ -97,6 +100,7 @@ public class BeaconReceiver: NSObject, CBCentralManagerDelegate, CBPeripheralDel
         }
         for service in services {
             if (service.uuid == serviceCBUUID) {
+                os_log("Discovered service (peripheral=%s)", log: log, type: .debug, peripheral.identifier.description)
                 peripheral.discoverCharacteristics(nil, for: service)
                 return
             }
@@ -111,9 +115,10 @@ public class BeaconReceiver: NSObject, CBCentralManagerDelegate, CBPeripheralDel
             return;
         }
         for characteristic in characteristics {
-            if (characteristic.uuid.uuidString.starts(with: characteristicUuidPrefix)) {
-                let beaconCodeUuid = String(characteristic.uuid.uuidString.suffix(17).uppercased().filter("0123456789ABCDEF".contains))
-                beaconCodes[peripheral] = Int64(beaconCodeUuid, radix: 16)
+            os_log("Discovered characteristic (peripheral=%s,characteristic=%s)", log: log, type: .debug, peripheral.identifier.description, characteristic.uuid.uuidString)
+            if let (prefix,suffix) = UUID(uuidString: characteristic.uuid.uuidString)?.intTupleValue, prefix == beaconCharacteristicPrefix {
+                os_log("Discovered characteristic (peripheral=%s,beaconCode=%s)", log: log, type: .debug, peripheral.identifier.description, String(describing: suffix))
+                beaconCodes[peripheral] = suffix
                 peripheral.readRSSI()
                 return
             }
@@ -135,9 +140,6 @@ public class BeaconReceiver: NSObject, CBCentralManagerDelegate, CBPeripheralDel
         disconnect(peripheral)
     }
     
-    public func peripheral(_ peripheral: CBPeripheral, didModifyServices invalidatedServices: [CBService]) {
-    }
-        
     // Disconnect peripheral on completion
     private func disconnect(_ peripheral: CBPeripheral) {
         os_log("Disconnecting from peripheral (peripheral=%s)", log: log, type: .debug, peripheral.identifier.description)
@@ -156,30 +158,37 @@ public class BeaconReceiver: NSObject, CBCentralManagerDelegate, CBPeripheralDel
     }
 }
 
-public class BeaconTransmitter: NSObject, CBPeripheralManagerDelegate {
+class BeaconTransmitter: NSObject, CBPeripheralManagerDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "BeaconTransmitter")
     private var serviceUUID: UUID!
     private var serviceCBUUID: CBUUID!
-    private var beaconCode: Int64?
+    private var beaconCode: UInt64?
     private var peripheralManager: CBPeripheralManager?
-    public var listeners: [BeaconListener] = []
+    var listeners: [BeaconListener] = []
     /**
      Beacon code was set at this time
      */
-    public var beaconCodeSince: Date?
+    var beaconCodeSince: Date?
 
-    public init(_ serviceUUID: UUID) {
+    init(_ serviceUUID: UUID) {
         super.init()
         self.serviceUUID = serviceUUID
         self.serviceCBUUID = CBUUID(nsuuid: serviceUUID)
     }
     
-    public func start() {
-        peripheralManager = CBPeripheralManager(delegate: self, queue: nil)
+    func start() {
+        peripheralManager = CBPeripheralManager(delegate: self, queue: beaconQueue, options: [CBPeripheralManagerOptionRestoreIdentifierKey : "org.C19X.beaconTransmitter",
+        CBPeripheralManagerOptionShowPowerAlertKey : true])
     }
     
+    func peripheralManager(_ peripheral: CBPeripheralManager, willRestoreState dict: [String : Any]) {
+        os_log("Peripheral manager restored", log: log, type: .debug)
+        peripheralManager = peripheral
+        peripheralManagerDidUpdateState(peripheral)
+    }
+
     // Set beacon code and restart transmitter with new code if bluetooth is powered on
-    public func setBeaconCode(beaconCode: Int64) {
+    func setBeaconCode(beaconCode: UInt64) {
         os_log("Set transmitter beacon code (beacon=%s)", log: self.log, type: .debug, beaconCode.description)
         self.beaconCode = beaconCode
         beaconCodeSince = Date()
@@ -190,8 +199,22 @@ public class BeaconTransmitter: NSObject, CBPeripheralManagerDelegate {
         startTransmitter()
     }
     
+    // Update notification characteristic
+    func updateRandomCharacteristic() {
+        guard let peripheralManager = peripheralManager else {
+            return
+        }
+        guard peripheralManager.isAdvertising else {
+            return
+        }
+        os_log("Update random characteristic", log: self.log, type: .debug)
+        var bytes = [UInt8](repeating: 0, count: 1)
+        let _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        //peripheralManager.updateValue(Data(bytes), for: randomCharacteristic, onSubscribedCentrals: nil)
+    }
+    
     // Start transmitter on bluetooth power on
-    public func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+    func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         if (peripheral.state == .poweredOn) {
             startTransmitter()
         } else {
@@ -203,11 +226,11 @@ public class BeaconTransmitter: NSObject, CBPeripheralManagerDelegate {
     }
     
     // Handle write request
-    public func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+    func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         for request in requests {
             if let data = request.value {
                 let byteArray = ByteArray(data)
-                let beaconCode = byteArray.getInt64(0)
+                let beaconCode = byteArray.getUInt64(0)
                 let rssi = Int(byteArray.getInt32(8))
                 os_log("Detected beacon (method=write,beacon=%s,rssi=%d)", log: self.log, type: .debug, beaconCode.description, rssi)
                 for listener in listeners {
@@ -244,7 +267,7 @@ public class BeaconTransmitter: NSObject, CBPeripheralManagerDelegate {
     
     private func stopTransmitter() {
         os_log("Stop transmitter request", log: self.log, type: .debug)
-        guard let peripheralManager = peripheralManager, peripheralManager.isAdvertising else {
+        guard let peripheralManager = peripheralManager, peripheralManager.state == .poweredOn, peripheralManager.isAdvertising else {
             os_log("Stop transmitter unnecessary, already stopped", log: self.log, type: .debug)
             return
         }
@@ -254,12 +277,36 @@ public class BeaconTransmitter: NSObject, CBPeripheralManagerDelegate {
     }
 }
 
+class BeaconRepeater: AbstractBeaconListener {
+    private var beaconTransmitter: BeaconTransmitter
+    private var lastUpdate = Date.distantPast
+    private let repeatInterval = TimeInterval(8)
+    private var dispatchQueue = DispatchQueue(label: "BeaconRepeater")
+    
+    init(_ beaconTransmitter: BeaconTransmitter) {
+        self.beaconTransmitter = beaconTransmitter
+    }
+    
+    override func beaconListenerDidUpdate(beaconCode: UInt64, rssi: Int) {
+        guard Date().timeIntervalSince(lastUpdate) > repeatInterval else {
+            return
+        }
+        
+        let timer = DispatchSource.makeTimerSource(queue: dispatchQueue)
+        timer.setEventHandler() {
+            self.beaconTransmitter.updateRandomCharacteristic()
+        }
+        timer.schedule(deadline: DispatchTime.now() + repeatInterval)
+        timer.resume()
+    }
+}
+
 public protocol BeaconListener {
     func beaconListenerDidUpdate(central: CBCentralManager)
     
     func beaconListenerDidUpdate(peripheral: CBPeripheralManager)
     
-    func beaconListenerDidUpdate(beaconCode:Int64, rssi:Int)
+    func beaconListenerDidUpdate(beaconCode:UInt64, rssi:Int)
 }
 
 public class AbstractBeaconListener: BeaconListener {
@@ -267,5 +314,5 @@ public class AbstractBeaconListener: BeaconListener {
     
     public func beaconListenerDidUpdate(peripheral: CBPeripheralManager) {}
 
-    public func beaconListenerDidUpdate(beaconCode:Int64, rssi:Int) {}
+    public func beaconListenerDidUpdate(beaconCode:UInt64, rssi:Int) {}
 }

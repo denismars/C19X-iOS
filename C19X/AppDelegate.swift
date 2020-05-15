@@ -27,23 +27,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     private func handleBackgroundTask(task: BGTask) {
-        os_log("Handling background task (time=%s)", log: log, type: .debug, Date().description)
-        device.update() {
-            self.scheduleBackgroundTask()
-            task.setTaskCompleted(success: true)
-        }
-        task.expirationHandler = {
-            os_log("Handle background beacon task expired (time=%s)", log: self.log, type: .fault, Date().description)
-            self.scheduleBackgroundTask()
-            task.setTaskCompleted(success: false)
-        }
+        task.setTaskCompleted(success: true)
+//        os_log("Handling background task (time=%s)", log: log, type: .debug, Date().description)
+//        device.update() {
+//            self.scheduleBackgroundTask()
+//            task.setTaskCompleted(success: true)
+//        }
+//        task.expirationHandler = {
+//            os_log("Handle background beacon task expired (time=%s)", log: self.log, type: .fault, Date().description)
+//            self.scheduleBackgroundTask()
+//            task.setTaskCompleted(success: false)
+//        }
     }
     
-    public func cancelBackgroundTask() {
+    func cancelBackgroundTask() {
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: permittedBackgroundTaskIdentifier)
     }
 
-    public func scheduleBackgroundTask() {
+    func scheduleBackgroundTask() {
         guard !device.parameters.isFirstUse() else {
             os_log("Scheduling background task ignored until data sharing has been agreed by user", log: log, type: .debug)
             return
