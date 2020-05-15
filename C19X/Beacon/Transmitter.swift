@@ -14,12 +14,16 @@ import os
 Beacon transmitter broadcasts fixed service UUID to enable background scan.
 */
 protocol Transmitter {
-    init(_ delegate:ReceiverDelegate?, beaconCodes: BeaconCodes)
+    var delegates: [ReceiverDelegate] { get set }
+    
+    init(beaconCodes: BeaconCodes)
     /**
      Change beacon code being broadcasted by adjusting the lower 64-bit of characteristic UUID.
      The beacon code is supplied by the beacon codes generator.
      */
     func updateBeaconCode()
+    
+    func pulse()
 }
 
 /**
@@ -34,24 +38,28 @@ let serviceCBUUID = CBUUID(string: "0022D481-83FE-1F13-0000-000000000000")
  and also enables the characteristic to be a writable characteristic for non-transmitting Android devices to submit
  their beacon code and RSSI as data.
  */
-let characteristicCBUUID = CBUUID(string: "0022D481-83FE-1F13-0000-000000000000")
+let beaconCharacteristicCBUUID = CBUUID(string: "0022D481-83FE-1F13-0000-000000000000")
+let pulseCharacteristicCBUUID = CBUUID(string: "0022D481-83FE-1F14-0000-000000000000")
 
 class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transmitter")
     private let beaconCodes: BeaconCodes!
     private var peripheral: CBPeripheralManager!
+    private var pulseCharacteristicValue: UInt8 = 0
+    private let pulseCharacteristic = CBMutableCharacteristic(type: pulseCharacteristicCBUUID, properties: [.read, .notify], value: nil, permissions: [.readable])
     /**
      Receiver delegate for capturing beacon code and RSSI from non-transmitting Android devices that write
      data to the beacon characteristic to notify the transmitter of their presence.
      */
-    private var delegate: ReceiverDelegate!
+    var delegates: [ReceiverDelegate] = []
 
-    required init(_ delegate:ReceiverDelegate?, beaconCodes: BeaconCodes) {
-        self.delegate = delegate
+    required init(beaconCodes: BeaconCodes) {
         self.beaconCodes = beaconCodes
         super.init()
-        self.peripheral = CBPeripheralManager(delegate: self, queue: nil, options: [CBPeripheralManagerOptionRestoreIdentifierKey : "org.C19X.beacon.Transmitter",
-        CBPeripheralManagerOptionShowPowerAlertKey : true])
+        self.peripheral = CBPeripheralManager(delegate: self, queue: nil, options: [
+            CBPeripheralManagerOptionRestoreIdentifierKey : "org.C19X.beacon.Transmitter",
+            CBPeripheralManagerOptionShowPowerAlertKey : true
+        ])
     }
     
     func updateBeaconCode() {
@@ -74,10 +82,11 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         peripheral.removeAllServices()
         let service = CBMutableService(type: serviceCBUUID, primary: true)
         // Beacon code is encoded in the lower 64-bits of the characteristic UUID
-        let (upper, _) = characteristicCBUUID.values
+        let (upper, _) = beaconCharacteristicCBUUID.values
         let beaconCharacteristicCBUUID = CBUUID(upper: upper, lower: beaconCode)
         let beaconCharacteristic = CBMutableCharacteristic(type: beaconCharacteristicCBUUID, properties: [.write], value: nil, permissions: [.writeable])
-        service.characteristics = [beaconCharacteristic]
+        pulseCharacteristic.value = nil
+        service.characteristics = [beaconCharacteristic, pulseCharacteristic]
         peripheral.add(service)
         peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [serviceCBUUID]])
         os_log("Update beacon code successful (code=%s,characteristic=%s)", log: self.log, type: .debug, beaconCode.description, beaconCharacteristicCBUUID.uuidString)
@@ -100,16 +109,30 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         for request in requests {
             let uuid = request.central.identifier.uuidString
+            os_log("Write (peripheral=%s)", log: log, type: .debug, uuid)
             if let data = request.value, let beaconData = BeaconData(data) {
                 peripheral.respond(to: request, withResult: .success)
                 os_log("Detected beacon (method=write,peripheral=%s,beaconCode=%s,rssi=%d)", log: log, type: .debug, uuid, beaconData.beaconCode.description, beaconData.rssi)
-                if let delegate = delegate {
+                for delegate in delegates {
                     delegate.receiver(didDetect: beaconData.beaconCode, rssi: beaconData.rssi)
                 }
             } else {
                 os_log("Invalid write request (peripheral=%s)", log: log, type: .fault, uuid)
                 peripheral.respond(to: request, withResult: .invalidAttributeValueLength)
             }
+        }
+    }
+    
+    func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
+        let uuid = central.identifier.uuidString
+        os_log("Subscribe (peripheral=%s)", log: log, type: .debug, uuid)
+    }
+    
+    func pulse() {
+        os_log("Pulse (value=%d)", log: log, type: .debug, pulseCharacteristicValue)
+        if peripheral.state == .poweredOn {
+            peripheral.updateValue(Data(repeating: pulseCharacteristicValue, count: 1), for: pulseCharacteristic, onSubscribedCentrals: nil)
+            pulseCharacteristicValue = pulseCharacteristicValue &+ 1
         }
     }
 }
