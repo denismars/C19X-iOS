@@ -10,7 +10,7 @@ import UIKit
 import CoreBluetooth
 import os
 
-class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAnalysisListener {
+class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAnalysisListener, ReceiverDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "ViewController")
     private let appDelegate = UIApplication.shared.delegate as! AppDelegate
     private var device: Device!
@@ -103,7 +103,8 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         //let database = ConcreteDatabase()
         //database.remove(Date.distantFuture)
         transmitter = ConcreteTransmitter(beaconCodes: beaconCodes)
-        receiver = ConcreteReceiver(transmitter)
+        receiver = ConcreteReceiver()
+        receiver.delegates.append(self)
         //transmitter.delegates.append(database)
         //receiver.delegates.append(transmitter as! ConcreteTransmitter)
         //receiver.delegates.append(database)
@@ -123,6 +124,11 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
         statusSelector.isEnabled = true
 
+    }
+    
+    func receiver(didDetect: BeaconCode, rssi: RSSI) {
+        device.parameters.set(contactUpdate: Date())
+        refreshLastUpdateLabelsAndScheduleAgain()
     }
     
     private func requestAuthorisationForNotification() {

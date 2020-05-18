@@ -140,7 +140,16 @@ class Sample {
  Time interval samples for collecting elapsed time statistics.
  */
 class TimeIntervalSample : Sample {
+    private var startTime: Date?
     private var timestamp: Date?
+    var period: TimeInterval? { get {
+        (startTime == nil ? nil : timestamp?.timeIntervalSince(startTime!))
+    }}
+    
+    override var description: String { get {
+        let sPeriod = (period == nil ? "-" : period!.description)
+        return super.description + ",period=" + sPeriod
+    }}
     
     /**
      Add elapsed time since last call to add() as sample.
@@ -148,6 +157,7 @@ class TimeIntervalSample : Sample {
     func add() {
         guard timestamp != nil else {
             timestamp = Date()
+            startTime = timestamp
             return
         }
         let now = Date()
