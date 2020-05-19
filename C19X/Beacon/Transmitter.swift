@@ -2,7 +2,7 @@
 //  Transmitter.swift
 //  C19X
 //
-//  Created by Freddy Choi on 24/04/2020.
+//  Created by Freddy Choi on 23/03/2020.
 //  Copyright © 2020 C19X. All rights reserved.
 //
 
@@ -11,12 +11,20 @@ import CoreBluetooth
 import os
 
 /**
-Beacon transmitter broadcasts fixed service UUID to enable background scan.
+ Beacon transmitter broadcasts a fixed service UUID to enable background scan by iOS. When iOS
+ enters background mode, the UUID will disappear from the broadcast, so Android devices need to
+ search for Apple devices and then connect and discover services to read the UUID.
 */
 protocol Transmitter {
     var delegates: [ReceiverDelegate] { get set }
     
-    init(beaconCodes: BeaconCodes)
+    /**
+     Transmitter for rotating beacon codes. Transmitter starts automatically when Bluetooth is
+     enabled. Use the updateBeaconCode() function to change the beacon code being
+     broadcasted by the transmitter.
+     */
+    init(queue: DispatchQueue, beaconCodes: BeaconCodes, database: Database)
+    
     /**
      Change beacon code being broadcasted by adjusting the lower 64-bit of characteristic UUID.
      The beacon code is supplied by the beacon codes generator.
@@ -25,7 +33,9 @@ protocol Transmitter {
 }
 
 /**
- Service UUID for beacon service.
+ Service UUID for beacon service. This is a fixed UUID to enable iOS devices to find each other even
+ in background mode. Android devices will need to find Apple devices first using the manufacturer code
+ then discover services to identify actual beacons.
  */
 let serviceCBUUID = CBUUID(string: "0022D481-83FE-1F13-0000-000000000000")
 
@@ -38,22 +48,30 @@ let serviceCBUUID = CBUUID(string: "0022D481-83FE-1F13-0000-000000000000")
  */
 let beaconCharacteristicCBUUID = CBUUID(string: "0022D481-83FE-1F13-0000-000000000000")
 
+/**
+ Transmitter offers a single service with a single characteristic for broadcasting the beacon code as the lower 64-bit
+ of the characteristic UUID. The characteristic is also writable to enable non-transmitting Android devices (receive only,
+ like the Samsung J6) to make their presence known by writing their beacon code and RSSI as data to this characteristic.
+ 
+ Keeping the transmitter and receiver working in iOS background mode is a major challenge. While it is possible to use
+ characteristic notification / subscription to keep brin
+ */
 class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transmitter")
-    private let beaconCodes: BeaconCodes!
+    private let queue: DispatchQueue
+    private let beaconCodes: BeaconCodes
+    private let database: Database
     private var peripheral: CBPeripheralManager!
-
-    private var statistics = TimeIntervalSample()
-    private let updateQueue = DispatchQueue(label: "org.c19x.beacon.TransmitterUpdate", attributes: .concurrent)
-    private var updateTimer: DispatchSourceTimer?
     /**
      Receiver delegate for capturing beacon code and RSSI from non-transmitting Android devices that write
      data to the beacon characteristic to notify the transmitter of their presence.
      */
     var delegates: [ReceiverDelegate] = []
 
-    required init(beaconCodes: BeaconCodes) {
+    required init(queue: DispatchQueue, beaconCodes: BeaconCodes, database: Database) {
+        self.queue = queue
         self.beaconCodes = beaconCodes
+        self.database = database
         super.init()
         self.peripheral = CBPeripheralManager(delegate: self, queue: nil, options: [
             CBPeripheralManagerOptionRestoreIdentifierKey : "org.C19X.beacon.Transmitter",
@@ -83,26 +101,16 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         let beaconCharacteristic = CBMutableCharacteristic(type: beaconCharacteristicCBUUID, properties: [.write], value: nil, permissions: [.writeable])
         service.characteristics = [beaconCharacteristic]
 
-        if peripheral.isAdvertising {
-            peripheral.stopAdvertising()
-        }
-        peripheral.removeAllServices()
-        peripheral.add(service)
-        peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [serviceCBUUID]])
-        os_log("Update beacon code successful (code=%s,characteristic=%s)", log: self.log, type: .debug, beaconCode.description, beaconCharacteristicCBUUID.uuidString)
-    }
-    
-    func scheduleUpdate(_ source: String) {
-        updateTimer?.cancel()
-        updateTimer = DispatchSource.makeTimerSource(queue: updateQueue)
-        updateTimer?.schedule(deadline: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(8)))
-        updateTimer?.setEventHandler { [weak self] in
-            if let log = self?.log {
-                os_log("Scheduled update (source=%s)", log: log, type: .debug, source)
+        queue.async {
+            if peripheral.isAdvertising {
+                peripheral.stopAdvertising()
             }
-            self?.updateBeaconCode()
+            peripheral.removeAllServices()
+            peripheral.add(service)
+            peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [serviceCBUUID]])
+            os_log("Update beacon code successful (code=%s,characteristic=%s)", log: self.log, type: .debug, beaconCode.description, beaconCharacteristicCBUUID.uuidString)
+            self.database.add("Transmitter update beacon (\(beaconCode.description))")
         }
-        updateTimer?.resume()
     }
     
     // MARK:- CBPeripheralManagerDelegate
@@ -120,11 +128,13 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
                 }
             }
         }
+        database.add("Transmitter restore")
         updateBeaconCode()
     }
 
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         os_log("Update state (state=%s)", log: log, type: .debug, peripheral.state.description)
+        database.add("Transmitter state update (state=\(peripheral.state.description))")
         if (peripheral.state == .poweredOn) {
             updateBeaconCode()
         }
@@ -134,35 +144,25 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         for request in requests {
             let uuid = request.central.identifier.uuidString
             os_log("Write (peripheral=%s)", log: log, type: .debug, uuid)
-            if let data = request.value, let beaconData = BeaconData(data) {
-                peripheral.respond(to: request, withResult: .success)
-                os_log("Detected beacon (method=write,peripheral=%s,beaconCode=%s,rssi=%d)", log: log, type: .debug, uuid, beaconData.beaconCode.description, beaconData.rssi)
-                for delegate in delegates {
-                    delegate.receiver(didDetect: beaconData.beaconCode, rssi: beaconData.rssi)
+            database.add("Transmitter write (uuid=\(uuid))")
+            var success = false
+            if let data = request.value {
+                if let beaconData = BeaconData(data) {
+                    os_log("Detected beacon (method=write,peripheral=%s,beaconCode=%s,rssi=%d)", log: log, type: .debug, uuid, beaconData.beaconCode.description, beaconData.rssi)
+                    for delegate in delegates {
+                        delegate.receiver(didDetect: beaconData.beaconCode, rssi: beaconData.rssi)
+                    }
+                    database.add("Transmitter detected (uuid=\(uuid),beacon=\(beaconData.beaconCode),rssi=\(beaconData.rssi))")
                 }
-            } else {
-                os_log("Bypass write request (peripheral=%s)", log: log, type: .fault, uuid)
-                peripheral.respond(to: request, withResult: .success)
+                success = true
             }
-            scheduleUpdate("didReceiveWrite")
+            queue.async {
+                guard peripheral.state == .poweredOn else {
+                    return
+                }
+                peripheral.respond(to: request, withResult: (success ? .success : .invalidAttributeValueLength))
+            }
         }
-    }
-    
-    func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
-        let uuid = central.identifier.uuidString
-        os_log("Subscribe (peripheral=%s)", log: log, type: .debug, uuid)
-    }
-    
-    func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
-        os_log("Advert started", log: log, type: .debug)
-    }
-    
-    func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
-        os_log("Service added", log: log, type: .debug)
-    }
-    
-    func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
-        os_log("Ready to update subscribers", log: log, type: .debug)
     }
 }
 

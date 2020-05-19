@@ -11,75 +11,105 @@ import CoreData
 import os
 
 protocol Database {
-    var records: [DatabaseRecord] { get }
+    var contacts: [Contact] { get }
     var delegates: [DatabaseDelegate] { get set }
     
     /**
-     Add new database record.
+     Add new contact record.
      */
-    func add(_ newRecord: DatabaseRecord)
+    func add(_ contact: Contact)
     
     /**
      Remove all database records before given date.
      */
     func remove(_ before: Date)
+
+    /**
+     Add new event.
+     */
+    func add(_ event: String)
 }
 
 protocol DatabaseDelegate {
     
-    func database(addedRecord: DatabaseRecord)
+    func database(added: Contact)
     
-    func database(changedRecords: [DatabaseRecord])
+    func database(changed: [Contact])
 }
 
 class ConcreteDatabase: Database, ReceiverDelegate {
     private let log = OSLog(subsystem: "org.c19x.data", category: "Database")
-    private lazy var persistentContainer: NSPersistentContainer = {
-        let container = NSPersistentContainer(name: "C19X")
-        container.loadPersistentStores { description, error in
+    private var persistentContainer: NSPersistentContainer
+
+    private var lock = NSLock()
+    var contacts: [Contact] = []
+    var delegates: [DatabaseDelegate] = []
+
+    init() {
+        persistentContainer = NSPersistentContainer(name: "C19X")
+        let storeDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let url = storeDirectory.appendingPathComponent("C19X.sqlite")
+        let description = NSPersistentStoreDescription(url: url)
+        description.shouldInferMappingModelAutomatically = true
+        description.shouldMigrateStoreAutomatically = true
+        description.setOption(FileProtectionType.completeUntilFirstUserAuthentication as NSObject, forKey: NSPersistentStoreFileProtectionKey)
+        persistentContainer.persistentStoreDescriptions = [description]
+        persistentContainer.loadPersistentStores { description, error in
+            description.options.forEach() { option in
+                os_log("Loaded persistent stores (key=%s,value=%s)", log: self.log, type: .debug, option.key, option.value.description)
+            }
             if let error = error {
                 fatalError("Unable to load persistent stores: \(error)")
             }
         }
-        return container
-    }()
-    private var lock = NSLock()
-    var records: [DatabaseRecord] = []
-    var delegates: [DatabaseDelegate] = []
-
-    init() {
-        load()
+        loadContacts()
+        loadEvents()
+        //deleteEvents()
     }
     
-    func add(_ newRecord: DatabaseRecord) {
-        os_log("Add (newRecord=%s)", log: self.log, type: .debug, newRecord.description)
+    func add(_ contact: Contact) {
+        os_log("Add (contact=%s)", log: self.log, type: .debug, contact.description)
         lock.lock()
         let managedContext = persistentContainer.viewContext
-        let entity = NSEntityDescription.entity(forEntityName: "Record", in: managedContext)!
+        let entity = NSEntityDescription.entity(forEntityName: "Contact", in: managedContext)!
         let object = NSManagedObject(entity: entity, insertInto: managedContext)
-        object.setValue(newRecord.time, forKey: "time")
-        object.setValue(Int64(newRecord.code), forKey: "code")
-        object.setValue(Int32(newRecord.rssi), forKey: "rssi")
+        object.setValue(contact.time, forKey: "time")
+        object.setValue(Int64(contact.code), forKey: "code")
+        object.setValue(Int32(contact.rssi), forKey: "rssi")
         do {
             try managedContext.save()
-            records.append(newRecord)
-            os_log("Added (newRecord=%s)", log: self.log, type: .debug, newRecord.description)
+            contacts.append(contact)
+            os_log("Added (contact=%s)", log: self.log, type: .debug, contact.description)
             for delegate in delegates {
-                delegate.database(addedRecord: newRecord)
+                delegate.database(added: contact)
             }
         } catch let error as NSError {
-            os_log("Add failed (newRecord=%s)", log: self.log, type: .fault, newRecord.description, error.description)
+            os_log("Add failed (contact=%s)", log: self.log, type: .fault, contact.description, error.description)
         }
         lock.unlock()
+    }
+    
+    func add(_ event: String) {
+//        //os_log("Add (event=%s)", log: self.log, type: .debug, event.description)
+//        do {
+//            let managedContext = persistentContainer.viewContext
+//            let object = NSEntityDescription.insertNewObject(forEntityName: "Event", into: managedContext)
+//            object.setValue(Date(), forKey: "time")
+//            object.setValue(event, forKey: "event")
+//            try managedContext.save()
+//            //os_log("Added (event=%s)", log: log, type: .debug, event.description)
+//        } catch let error as NSError {
+//            os_log("Add failed (event=%s)", log: self.log, type: .fault, event.description, error.description)
+//        }
     }
     
     func remove(_ before: Date) {
         os_log("Remove (before=%s)", log: self.log, type: .debug, before.description)
         lock.lock()
         let managedContext = persistentContainer.viewContext
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Record")
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Contact")
         do {
-            let objects: [NSManagedObject] = try managedContext.fetch(fetchRequest)
+            let objects: [Contact] = try managedContext.fetch(fetchRequest) as! [Contact]
             objects.forEach() { o in
                 if let time = o.value(forKey: "time") as? Date {
                     if (time.compare(before) == .orderedAscending) {
@@ -88,10 +118,10 @@ class ConcreteDatabase: Database, ReceiverDelegate {
                 }
             }
             try managedContext.save()
-            load()
+            loadContacts()
             os_log("Removed (before=%s)", log: self.log, type: .debug, before.description)
             for delegate in delegates {
-                delegate.database(changedRecords: records)
+                delegate.database(changed: contacts)
             }
         } catch let error as NSError {
             os_log("Remove failed (error=%s)", log: self.log, type: .fault, error.description)
@@ -99,41 +129,54 @@ class ConcreteDatabase: Database, ReceiverDelegate {
         lock.unlock()
     }
     
-    private func load() {
-        os_log("Load", log: self.log, type: .debug)
+    private func loadContacts() {
+        os_log("Load contacts", log: self.log, type: .debug)
         let managedContext = persistentContainer.viewContext
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Record")
+        let fetchRequest = NSFetchRequest<Contact>(entityName: "Contact")
         do {
-            let objects: [NSManagedObject] = try managedContext.fetch(fetchRequest)
-            var records: [DatabaseRecord] = []
-            objects.forEach() { o in
-                if let time = o.value(forKey: "time") as? Date,
-                   let code = o.value(forKey: "code") as? Int64,
-                   let rssi = o.value(forKey: "rssi") as? Int32 {
-                    records.append(DatabaseRecord(time: time, code: BeaconCode(code), rssi: RSSI(rssi)))
-                }
-            }
-            self.records = records
-            os_log("Loaded (recordCount=%d)", log: self.log, type: .debug, records.count)
+            self.contacts = try managedContext.fetch(fetchRequest)
+            os_log("Loaded contacts (count=%d)", log: self.log, type: .debug, self.contacts.count)
             for delegate in delegates {
-                delegate.database(changedRecords: records)
+                delegate.database(changed: self.contacts)
+            }
+        } catch let error as NSError {
+            os_log("Load contacts failed (error=%s)", log: self.log, type: .fault, error.description)
+        }
+    }
+
+    private func deleteEvents() {
+        os_log("Delete events", log: self.log, type: .debug)
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Event")
+        let managedContext = persistentContainer.viewContext
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        do {
+            if let batchDeleteResult = try managedContext.execute(deleteRequest) as? NSBatchDeleteResult {
+                os_log("Deleted events (result=%s)", log: self.log, type: .debug, batchDeleteResult.description)
+            }
+        } catch let error as NSError {
+            os_log("Delete failed (error=%s)", log: self.log, type: .fault, error.description)
+        }
+    }
+    
+    private func loadEvents() {
+        os_log("Load events", log: self.log, type: .debug)
+        let fetchRequest = NSFetchRequest<Event>(entityName: "Event")
+        let managedContext = persistentContainer.viewContext
+        do {
+            let records = try managedContext.fetch(fetchRequest)
+            os_log("Loaded events (count=%d)", log: self.log, type: .debug, records.count)
+            records.forEach() { event in
+                debugPrint(event.time!.description + "," + event.event!)
             }
         } catch let error as NSError {
             os_log("Load failed (error=%s)", log: self.log, type: .fault, error.description)
         }
     }
-    
+
     // MARK:- ReceiverDelegate
     
     func receiver(didDetect: BeaconCode, rssi: RSSI) {
-        let databaseRecord = DatabaseRecord(time: Date(), code: didDetect, rssi: rssi)
-        add(databaseRecord)
+//        let contact = C19XContact(time: Date(), code: didDetect, rssi: rssi)
+//        add(contact)
     }
-}
-
-struct DatabaseRecord {
-    let time: Date
-    let code: BeaconCode
-    let rssi: RSSI
-    var description: String { get { "time=" + time.description + ",code=" + code.description + ",rssi=" + rssi.description } }
 }

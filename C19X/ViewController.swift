@@ -14,8 +14,7 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     private let log = OSLog(subsystem: "org.C19X", category: "ViewController")
     private let appDelegate = UIApplication.shared.delegate as! AppDelegate
     private var device: Device!
-    private var transmitter: Transmitter!
-    private var receiver: Receiver!
+    private var c19x: C19X!
     
     @IBOutlet weak var statusView: UIView!
     @IBOutlet weak var statusSelector: UISegmentedControl!
@@ -41,6 +40,7 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
         os_log("View did load", log: self.log, type: .debug)
         super.viewDidLoad()
         device = appDelegate.device
+        c19x = appDelegate.c19x
         
         // UI tweaks
         statusView.layer.cornerRadius = 10
@@ -98,13 +98,8 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     }
     
     private func start() {
-        let dayCodes = ConcreteDayCodes("sharedSecret1".data(using: .utf8)!)
-        let beaconCodes = ConcreteBeaconCodes(dayCodes)
-        //let database = ConcreteDatabase()
-        //database.remove(Date.distantFuture)
-        transmitter = ConcreteTransmitter(beaconCodes: beaconCodes)
-        receiver = ConcreteReceiver()
-        receiver.delegates.append(self)
+        c19x.transmitter.delegates.append(self)
+        c19x.receiver.delegates.append(self)
         //transmitter.delegates.append(database)
         //receiver.delegates.append(transmitter as! ConcreteTransmitter)
         //receiver.delegates.append(database)
@@ -127,8 +122,16 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     }
     
     func receiver(didDetect: BeaconCode, rssi: RSSI) {
-        device.parameters.set(contactUpdate: Date())
-        refreshLastUpdateLabelsAndScheduleAgain()
+        DispatchQueue.main.async {
+            if let contacts = self.device.parameters.getCounterContacts() {
+                self.device.parameters.set(contacts: contacts + 1)
+                self.contactValue.text = (contacts + 1).description
+            } else {
+                self.device.parameters.set(contacts: 1)
+                self.contactValue.text = "1"
+            }
+            self.contactLastUpdate.text = Date().description
+        }
     }
     
     private func requestAuthorisationForNotification() {

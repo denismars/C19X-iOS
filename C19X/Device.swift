@@ -250,6 +250,7 @@ public class Parameters: AbstractNetworkListener {
     private let keyTimestampStatus = "Timestamp.Status"
     private let keyTimestampContact = "Timestamp.Contact"
     private let keyTimestampAdvice = "Timestamp.Advice"
+    private let keyCounterContacts = "Counter.Contacts"
 
     override init() {
         super.init()
@@ -271,6 +272,7 @@ public class Parameters: AbstractNetworkListener {
         userDefaults.removeObject(forKey: keyTimestampStatus)
         userDefaults.removeObject(forKey: keyTimestampContact)
         userDefaults.removeObject(forKey: keyTimestampAdvice)
+        userDefaults.removeObject(forKey: keyCounterContacts)
     }
     
     public func isFirstUse() -> Bool {
@@ -313,6 +315,14 @@ public class Parameters: AbstractNetworkListener {
         return userDefaults.object(forKey: keyTimestampAdvice) as? Date
     }
     
+    public func set(contacts: Int) {
+        userDefaults.set(contacts, forKey: keyCounterContacts)
+    }
+
+    public func getCounterContacts() -> Int? {
+        return userDefaults.object(forKey: keyCounterContacts) as? Int
+    }
+
     public func getServerAddress() -> String {
         return userDefaults.string(forKey: keyServerAddress)!
     }

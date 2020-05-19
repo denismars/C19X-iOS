@@ -2,7 +2,7 @@
 //  BeaconCodes.swift
 //  C19X
 //
-//  Created by Freddy Choi on 11/05/2020.
+//  Created by Freddy Choi on 23/03/2020.
 //  Copyright © 2020 C19X. All rights reserved.
 //
 

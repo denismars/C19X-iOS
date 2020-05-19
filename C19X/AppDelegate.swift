@@ -13,49 +13,43 @@ import os
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "App")
-    private let permittedBackgroundTaskIdentifier = "org.C19X.fetch"
+    private let permittedBGAppRefreshTaskIdentifier = "org.c19x.BGAppRefreshTask"
+    private let permittedBGProcessingTaskIdentifier = "org.c19x.BGProcessingTask"
+    private let statisticsBGAppRefreshTask = TimeIntervalSample()
+    let c19x = C19X()
+
     public var device: Device!
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         os_log("Application will finishing launching", log: log, type: .debug)
-        
+        c19x.database.add("App launch")
         device = Device()
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: permittedBackgroundTaskIdentifier, using: nil) { task in
-            self.handleBackgroundTask(task: task)
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: permittedBGAppRefreshTaskIdentifier, using: nil) { task in
+            self.handle(task: task as! BGAppRefreshTask)
         }
         return true
     }
     
-    private func handleBackgroundTask(task: BGTask) {
+    func handle(task: BGAppRefreshTask) {
+        statisticsBGAppRefreshTask.add()
+        os_log("Background app refresh start (time=%s,statistics=%s)", log: log, type: .debug, Date().description, statisticsBGAppRefreshTask.description)
+        c19x.database.add("Background app refresh")
+        task.expirationHandler = {
+            os_log("Background app refresh expired (time=%s)", log: self.log, type: .fault, Date().description)
+            task.setTaskCompleted(success: true)
+        }
+        c19x.receiver.startScan()
         task.setTaskCompleted(success: true)
-//        os_log("Handling background task (time=%s)", log: log, type: .debug, Date().description)
-//        device.update() {
-//            self.scheduleBackgroundTask()
-//            task.setTaskCompleted(success: true)
-//        }
-//        task.expirationHandler = {
-//            os_log("Handle background beacon task expired (time=%s)", log: self.log, type: .fault, Date().description)
-//            self.scheduleBackgroundTask()
-//            task.setTaskCompleted(success: false)
-//        }
-    }
-    
-    func cancelBackgroundTask() {
-        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: permittedBackgroundTaskIdentifier)
+        os_log("Background app refresh end (time=%s)", log: log, type: .debug, Date().description)
+        scheduleBGAppRefreshTask()
     }
 
-    func scheduleBackgroundTask() {
-        guard !device.parameters.isFirstUse() else {
-            os_log("Scheduling background task ignored until data sharing has been agreed by user", log: log, type: .debug)
-            return
-        }
-        os_log("Scheduling background task", log: log, type: .debug)
-        let request = BGProcessingTaskRequest(identifier: permittedBackgroundTaskIdentifier)
-        request.requiresNetworkConnectivity = true
-        request.requiresExternalPower = false
+    func scheduleBGAppRefreshTask() {
+        os_log("Schedule background task (time=%s)", log: log, type: .fault, Date().description)
+        let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 60)
         do {
             try BGTaskScheduler.shared.submit(request)
-            os_log("Schedule background task successful", log: log, type: .fault)
         } catch {
             os_log("Schedule background task failed (error=%s)", log: log, type: .fault, String(describing: error))
         }
