@@ -38,7 +38,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             os_log("Background app refresh expired (time=%s)", log: self.log, type: .fault, Date().description)
             task.setTaskCompleted(success: true)
         }
-        c19x.receiver.startScan()
+        c19x.beacon.receiver.startScan("backgroundAppRefresh")
+        c19x.beacon.receiver.reconnect("backgroundAppRefresh")
         task.setTaskCompleted(success: true)
         os_log("Background app refresh end (time=%s)", log: log, type: .debug, Date().description)
         scheduleBGAppRefreshTask()

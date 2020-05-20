@@ -9,16 +9,11 @@
 import Foundation
 
 class C19X {
-    let beaconQueue = DispatchQueue(label: "beaconQueue")
+    var beacon: Transceiver
     var database: Database
-    var transmitter: Transmitter
-    var receiver: Receiver
     
     init() {
+        beacon = Transceiver("sharedSecret1".data(using: .utf8)!)
         database = ConcreteDatabase()
-        let dayCodes = ConcreteDayCodes("sharedSecret1".data(using: .utf8)!)
-        let beaconCodes = ConcreteBeaconCodes(dayCodes)
-        receiver = ConcreteReceiver(queue: beaconQueue, database: database)
-        transmitter = ConcreteTransmitter(queue: beaconQueue, beaconCodes: beaconCodes, database: database)
     }
 }

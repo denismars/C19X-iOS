@@ -64,7 +64,7 @@ class ConcreteDatabase: Database, ReceiverDelegate {
         }
         loadContacts()
         loadEvents()
-        //deleteEvents()
+        deleteEvents()
     }
     
     func add(_ contact: Contact) {

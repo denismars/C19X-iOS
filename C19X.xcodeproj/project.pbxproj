@@ -21,6 +21,7 @@
 		B607794124584A2100479C78 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = B607794024584A2100479C78 /* Device.swift */; };
 		B6077946245986DD00479C78 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = B6077945245986DD00479C78 /* BigInt */; };
 		B60B5BC02472B00E00EBEE47 /* C19X.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60B5BBF2472B00E00EBEE47 /* C19X.swift */; };
+		B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60B5BC3247503B300EBEE47 /* Transceiver.swift */; };
 		B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B60C0A112462941D002BA6A0 /* CoreData.framework */; };
 		B60C0A1524629441002BA6A0 /* C19X.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */; };
 		B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94A24698334009874F1 /* DayCodes.swift */; };
@@ -48,6 +49,7 @@
 		B607793F24583D7700479C78 /* C19X.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = C19X.entitlements; sourceTree = "<group>"; };
 		B607794024584A2100479C78 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
 		B60B5BBF2472B00E00EBEE47 /* C19X.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C19X.swift; sourceTree = "<group>"; };
+		B60B5BC3247503B300EBEE47 /* Transceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transceiver.swift; sourceTree = "<group>"; };
 		B60C0A112462941D002BA6A0 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = C19X.xcdatamodel; sourceTree = "<group>"; };
 		B6B7D94A24698334009874F1 /* DayCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCodes.swift; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				B6B7D9522469A60E009874F1 /* Transmitter.swift */,
 				B6BC9E2E246A99C00017B281 /* Receiver.swift */,
 				B6BC9E30246D1C9C0017B281 /* Utilities.swift */,
+				B60B5BC3247503B300EBEE47 /* Transceiver.swift */,
 			);
 			path = Beacon;
 			sourceTree = "<group>";
@@ -230,6 +233,7 @@
 				B60779342458397F00479C78 /* Network.swift in Sources */,
 				B60779362458398700479C78 /* Security.swift in Sources */,
 				B60B5BC02472B00E00EBEE47 /* C19X.swift in Sources */,
+				B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */,
 				B607794124584A2100479C78 /* Device.swift in Sources */,
 				B60779222458381E00479C78 /* ViewController.swift in Sources */,
 				B607791E2458381E00479C78 /* AppDelegate.swift in Sources */,

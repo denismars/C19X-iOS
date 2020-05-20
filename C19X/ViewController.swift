@@ -98,8 +98,8 @@ class ViewController: UIViewController, BeaconListener, NetworkListener, RiskAna
     }
     
     private func start() {
-        c19x.transmitter.delegates.append(self)
-        c19x.receiver.delegates.append(self)
+        c19x.beacon.transmitter.delegates.append(self)
+        c19x.beacon.receiver.delegates.append(self)
         //transmitter.delegates.append(database)
         //receiver.delegates.append(transmitter as! ConcreteTransmitter)
         //receiver.delegates.append(database)
