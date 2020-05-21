@@ -11,6 +11,13 @@ import CryptoKit
 import BigInt
 import os
 
+/**
+ Day codes are derived from a shared secret that has been agreed with the central server on registration.
+ Given a shared secret, a sequence of forward secure codes is created by recursively hashing (SHA)
+ the hash of the shared secret, and taking the modulo of each hash value in reverse order as a long value
+ code. It is cryptographically challenging to predict the next code given the previous codes. Each day
+ is allocated a day code up to a finite number of days for simplicity.
+ */
 protocol DayCodes {
     func day() -> Day?
     func get() -> DayCode?
@@ -36,7 +43,6 @@ class ConcreteDayCodes : DayCodes {
             let value = BigInt(hashData)
             values[i] = DayCode(value % range)
             hash = SHA256.hash(data: hashData)
-            //debugPrint("Day code : \(i) -> \(values[i]) <= \(value)")
         }
         os_log("Generated forward secure day codes (days=%d,range=%s)", log: log, type: .debug, days, range.description)
     }

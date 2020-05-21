@@ -13,7 +13,7 @@ class C19X {
     var database: Database
     
     init() {
-        beacon = Transceiver("sharedSecret1".data(using: .utf8)!)
+        beacon = Transceiver("sharedSecret1".data(using: .utf8)!, codeUpdateAfter: 120)
         database = ConcreteDatabase()
     }
 }

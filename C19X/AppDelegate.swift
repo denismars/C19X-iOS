@@ -33,13 +33,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func handle(task: BGAppRefreshTask) {
         statisticsBGAppRefreshTask.add()
         os_log("Background app refresh start (time=%s,statistics=%s)", log: log, type: .debug, Date().description, statisticsBGAppRefreshTask.description)
-        c19x.database.add("Background app refresh")
         task.expirationHandler = {
             os_log("Background app refresh expired (time=%s)", log: self.log, type: .fault, Date().description)
             task.setTaskCompleted(success: true)
         }
-        c19x.beacon.receiver.startScan("backgroundAppRefresh")
-        c19x.beacon.receiver.reconnect("backgroundAppRefresh")
+        c19x.beacon.receiver.scan("backgroundAppRefresh")
         task.setTaskCompleted(success: true)
         os_log("Background app refresh end (time=%s)", log: log, type: .debug, Date().description)
         scheduleBGAppRefreshTask()

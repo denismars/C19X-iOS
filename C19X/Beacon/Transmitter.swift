@@ -16,21 +16,24 @@ import os
  search for Apple devices and then connect and discover services to read the UUID.
 */
 protocol Transmitter {
+    /**
+     Delegates for receiving beacon detection events. This is necessary because some Android devices (Samsung J6)
+     does not support BLE transmit, thus making the beacon characteristic writable offers a mechanism for such devices
+     to detect a beacon transmitter and make their own presence known by sending its own beacon code and RSSI as
+     data to the transmitter.
+     */
     var delegates: [ReceiverDelegate] { get set }
     
     /**
-     Transmitter for rotating beacon codes. Transmitter starts automatically when Bluetooth is
-     enabled. Use the updateBeaconCode() function to change the beacon code being
-     broadcasted by the transmitter.
+     Create a transmitter  that uses the same sequential dispatch queue as the receiver.
+     Transmitter starts automatically when Bluetooth is enabled. Use the updateBeaconCode() function
+     to manually change the beacon code being broadcasted by the transmitter. The code is also
+     automatically updated after the given time interval.
      */
-    init(queue: DispatchQueue, beaconCodes: BeaconCodes)
+    init(queue: DispatchQueue, beaconCodes: BeaconCodes, updateCodeAfter: TimeInterval)
     
     /**
      Change beacon code being broadcasted by adjusting the lower 64-bit of characteristic UUID.
-     The beacon code is supplied by the beacon codes generator that switches the seed code once
-     a day. The seed code is the SHA hash of the reverse of the day code. Beacon codes are hashes
-     of the seed code. For on-device matching, the seed code (rather than the day code) is published
-     by a central distribution server. The beacon codes are then generated on-device for matching.
      */
     func updateBeaconCode()
 }
@@ -47,52 +50,61 @@ let beaconServiceCBUUID = CBUUID(string: "0022D481-83FE-1F13-0000-000000000000")
  In theory, the whole 128-bit can be used for the beacon code as the service only exposes one characteristic. The
  beacon code has been encoded in the characteristic UUID to enable reliable read without an actual read operation,
  and also enables the characteristic to be a writable characteristic for non-transmitting Android devices to submit
- their beacon code and RSSI as data.
+ their beacon code and RSSI as data. The characteristic also supports notify on iOS devices  to offer a mechanism
+ for keeping the transmitter and receiver from entering suspended / killed state.
  */
 let beaconCharacteristicCBUUID = CBUUID(string: "0022D481-83FE-1F13-0000-000000000000")
-
-let beaconReadCharacteristicCBUUID = CBUUID(string: "00000000-0000-0000-0000-000000000000")
-let beaconWriteCharacteristicCBUUID = CBUUID(string: "00000000-0000-0000-0000-000000000001")
-let stayAwakeCharacteristicCBUUID = CBUUID(string: "00000000-0000-0000-0000-000000000002")
 
 /**
  Transmitter offers a single service with a single characteristic for broadcasting the beacon code as the lower 64-bit
  of the characteristic UUID. The characteristic is also writable to enable non-transmitting Android devices (receive only,
  like the Samsung J6) to make their presence known by writing their beacon code and RSSI as data to this characteristic.
  
- Keeping the transmitter and receiver working in iOS background mode is a major challenge. While it is possible to use
- characteristic notification / subscription to keep the app from being killed, that doesn't last indefinitely in practice, e.g.
- when device goes out of range and bluetooth has been switched on/off while out of range via Airplane mode (see Apple
- documentation for state restoration limitations). The method also requires establishing open ended connections to all
- peripherals which in theory is fine, but in practice causes problems for Android devices. Experiments have found that
- Android devices cannot accept new connections (without explicit disconnect) indefinitely and the bluetooth stack ceases
- to function after around 500 open connections. The device will need to be rebooted to recover. However, if each connection
- is disconnected, the bluetooth stack can work indefinitely on Android devices.
+ Keeping the transmitter and receiver working in iOS background mode is a major challenge, in particular when both
+ iOS devices are in background mode. The transmitter on iOS offers a notifying beacon characteristic that is triggered
+ by writing anything to the characteristic. On characteristic write, the transmitter will call updateValue after 8 seconds
+ to notify the receivers, to wake up the receivers with a didUpdateValueFor call. The process can repeat as a loop
+ between the transmitter and receiver to keep both devices awake. This is unnecessary for Android-Android and also
+ Android-iOS and iOS-Android detection, which can rely solely on scanForPeripherals for detection.
+ 
+ The notification based wake up method relies on an open connection which seems to be fine for iOS but may cause
+ problems for Android. Experiments have found that Android devices cannot accept new connections (without explicit
+ disconnect) indefinitely and the bluetooth stack ceases to function after around 500 open connections. The device
+ will need to be rebooted to recover. However, if each connection is disconnected, the bluetooth stack can work
+ indefinitely, but frequent connect and disconnect can still cause the same problem. The recommendation is to
+ (1) always disconnect from Android as soon as the work is complete, (2) minimise the number of connections to
+ an Android device, and (3) maximise time interval between connections. With all these in mind, the transmitter
+ on Android does not support notify and also a connect is only performed on first contact to get the bacon code.
  */
 class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transmitter")
+    /// Dedicated sequential queue for all beacon transmitter and receiver tasks.
     private let queue: DispatchQueue
+    /// Beacon code generator for creating cryptographically secure public codes that can be later used for on-device matching.
     private let beaconCodes: BeaconCodes
+    /// Automatically change beacon codes at regular intervals.
+    private let updateCodeAfter: TimeInterval
+    /// Peripheral manager for managing all connections, using a single manager for simplicity.
     private var peripheral: CBPeripheralManager!
+    /// Beacon characteristic being broadcasted by the transmitter, this is a mutating characteristic where the beacon code
+    /// is encoded in the lower 64-bits of the UUID.
     private var beaconCharacteristic: CBMutableCharacteristic?
-    /**
-     Dummy data for writing to the receivers to trigger state restoration or resume from suspend state to background state.
-     */
+    /// Dummy data for writing to the receivers to trigger state restoration or resume from suspend state to background state.
     private let emptyData = Data(repeating: 0, count: 0)
     /**
      Shifting timer for triggering notify for subscribers several seconds after resume from suspend state to background state,
      but before re-entering suspend state. The time limit is under 10 seconds as desribed in Apple documentation.
      */
     private var notifyTimer: DispatchSourceTimer?
-    /**
-     Receiver delegate for capturing beacon code and RSSI from non-transmitting Android devices that write
-     data to the beacon characteristic to notify the transmitter of their presence.
-     */
+    /// Last beacon code update time, used to update code automatically at regular intervals.
+    private var codeUpdatedAt = Date.distantPast
+    /// Delegates for receiving beacon detection events.
     var delegates: [ReceiverDelegate] = []
 
-    required init(queue: DispatchQueue, beaconCodes: BeaconCodes) {
+    required init(queue: DispatchQueue, beaconCodes: BeaconCodes, updateCodeAfter: TimeInterval) {
         self.queue = queue
         self.beaconCodes = beaconCodes
+        self.updateCodeAfter = updateCodeAfter
         super.init()
         self.peripheral = CBPeripheralManager(delegate: self, queue: queue, options: [
             CBPeripheralManagerOptionRestoreIdentifierKey : "org.C19X.beacon.Transmitter",
@@ -101,17 +113,17 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     }
     
     func updateBeaconCode() {
-        os_log("Update beacon code", log: log, type: .debug)
+        os_log("updateBeaconCode", log: log, type: .debug)
         guard let peripheral = peripheral else {
-            os_log("Update denied, no peripheral", log: log, type: .fault)
+            os_log("updateBeaconCode denied, no peripheral", log: log, type: .fault)
             return
         }
         guard peripheral.state == .poweredOn else {
-            os_log("Update denied, bluetooth is not on", log: log, type: .fault)
+            os_log("updateBeaconCode denied, bluetooth is not on", log: log, type: .fault)
             return
         }
         guard let beaconCode = beaconCodes.get() else {
-            os_log("Update denied, beacon codes exhausted", log: log, type: .fault)
+            os_log("updateBeaconCode denied, beacon codes exhausted", log: log, type: .fault)
             return
         }
         
@@ -129,9 +141,13 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         peripheral.removeAllServices()
         peripheral.add(beaconService)
         peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]])
-        os_log("Update beacon code successful (code=%s,characteristic=%s)", log: self.log, type: .debug, beaconCode.description, beaconCharacteristicCBUUID.uuidString)
+        codeUpdatedAt = Date()
+        os_log("updateBeaconCode successful (code=%s,characteristic=%s)", log: self.log, type: .debug, beaconCode.description, beaconCharacteristicCBUUID.uuidString)
     }
     
+    /**
+     Generate updateValue notification after 8 seconds to notify all subscribers and keep the iOS receivers awake.
+     */
     private func notifySubscribers(_ source: String) {
         notifyTimer?.cancel()
         notifyTimer = DispatchSource.makeTimerSource(queue: queue)
@@ -142,6 +158,11 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
             }
             os_log("Notify subscribers (source=%s)", log: s.log, type: .debug, source)
             peripheral.updateValue(s.emptyData, for: beaconCharacteristic, onSubscribedCentrals: nil)
+            let updateCodeInterval = Date().timeIntervalSince(s.codeUpdatedAt)
+            if updateCodeInterval > s.updateCodeAfter {
+                os_log("Automatic beacon code update (lastUpdate=%s,elapsed=%s)", log: s.log, type: .debug, s.codeUpdatedAt.description, updateCodeInterval.description)
+                s.updateBeaconCode()
+            }
         }
         notifyTimer?.resume()
     }
@@ -161,11 +182,10 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
                 }
             }
         }
-        // Update beacon characteristic on restore
-        updateBeaconCode()
     }
 
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        // Bluetooth on -> Update beacon code -> Advertise
         os_log("Update state (state=%s)", log: log, type: .debug, peripheral.state.description)
         if (peripheral.state == .poweredOn) {
             updateBeaconCode()
@@ -179,6 +199,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
      its chance of background scanning over a long period without being killed off.
      */
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+        // Write -> Notify delegates -> Write response -> Notify subscribers
         for request in requests {
             let uuid = request.central.identifier.uuidString
             os_log("Write (central=%s)", log: log, type: .debug, uuid)
@@ -200,16 +221,24 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     }
     
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
+        // Read -> Notify subscribers
+        // This should never happen, no readable characteristic. For debug only.
         os_log("Read (central=%s)", log: log, type: .debug, request.central.identifier.uuidString)
         notifySubscribers("didReceiveRead")
     }
     
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
+        // Subscribe -> Notify subscribers
+        // iOS receiver subscribes to the beacon characteristic on first contact. This ensures the first call keeps
+        // the transmitter and receiver awake. Future loops will rely on didReceiveWrite as the trigger.
         os_log("Subscribe (central=%s)", log: log, type: .debug, central.identifier.uuidString)
         notifySubscribers("didSubscribeTo")
     }
     
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
+        // Unsubscribe -> Notify subscribers
+        // This should never happen, as unsubscribe can only happen on characteristic change, where the characteristic and service
+        // are both replaced at the same time. For debug only.
         os_log("Unsubscribe (central=%s)", log: log, type: .debug, central.identifier.uuidString)
         notifySubscribers("didUnsubscribeFrom")
     }

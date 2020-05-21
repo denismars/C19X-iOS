@@ -9,6 +9,9 @@
 import Foundation
 import CoreBluetooth
 
+/**
+ CBUUID has been extended to make use of the upper and lower 64-bits for of the UUID for data transfer.
+ */
 extension CBUUID {
     /**
      Create UUID from upper and lower 64-bits values. Java long compatible conversion.
@@ -34,6 +37,9 @@ extension CBUUID {
     }
 }
 
+/**
+ Extension to make the state human readable in logs.
+ */
 extension CBManagerState: CustomStringConvertible {
     /**
      Get plain text description of state.
@@ -51,6 +57,9 @@ extension CBManagerState: CustomStringConvertible {
     }
 }
 
+/**
+Extension to make the state human readable in logs.
+*/
 extension CBPeripheralState: CustomStringConvertible {
     /**
      Get plain text description fo state.
