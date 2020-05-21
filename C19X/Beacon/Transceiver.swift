@@ -37,9 +37,9 @@ import CoreBluetooth
  the beacon codes.
  */
 class Transceiver {
-    private let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
     private let dayCodes: DayCodes
     private let beaconCodes: BeaconCodes
+    let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
     var transmitter : Transmitter
     var receiver: Receiver
     

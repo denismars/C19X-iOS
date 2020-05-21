@@ -177,10 +177,25 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 wakeTransmitter("scan", beacon)
             }
         }
-        // All known peripherals -> Connect to establish OS (e.g. after restore) or invalidate
+        // All peripherals -> Check delegate -> Connect iOS peripherals if not connected
+        central.retrievePeripherals(withIdentifiers: beacons.keys.map { UUID(uuidString: $0)! }).forEach { peripheral in
+            let uuid = peripheral.identifier.uuidString
+            if let beacon = beacons[uuid] {
+                beacon.peripheral = peripheral
+                peripheral.delegate = self
+                if peripheral.state != .connected, central.state == .poweredOn, let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
+                    os_log("connect (source=scan|retrieve|ios,peripheral=%s,state=%s)", log: log, type: .debug, uuid, peripheral.state.description)
+                    central.connect(peripheral)
+                }
+            }
+        }
+        // All peripherals -> Connect if operating system is unknown (e.g. after restore)
+        // This will also enable removable of invalid devices following restore.
         beacons.values.forEach() { beacon in
-            if beacon.operatingSystem == nil, beacon.peripheral.state == .disconnecting || beacon.peripheral.state == .disconnected {
-                connect("scan", beacon.peripheral)
+            if beacon.operatingSystem == nil, beacon.peripheral.state != .connected {
+                let uuid = beacon.uuidString
+                os_log("connect (source=scan|osUnknown,peripheral=%s,state=%s)", log: log, type: .debug, uuid, beacon.peripheral.state.description)
+                central.connect(beacon.peripheral)
             }
         }
     }
