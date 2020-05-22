@@ -33,6 +33,16 @@ protocol Transmitter {
     init(queue: DispatchQueue, beaconCodes: BeaconCodes, updateCodeAfter: TimeInterval)
     
     /**
+     Start transmitter. The actual start is triggered by bluetooth state changes.
+     */
+    func start(_ source: String)
+
+    /**
+     Stops and resets transmitter.
+     */
+    func stop(_ source: String)
+
+    /**
      Change beacon code being broadcasted by adjusting the lower 64-bit of characteristic UUID.
      */
     func updateBeaconCode()
@@ -84,6 +94,12 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     private let beaconCodes: BeaconCodes
     /// Automatically change beacon codes at regular intervals.
     private let updateCodeAfter: TimeInterval
+    /**
+     Characteristic UUID encodes the characteristic identifier in the upper 64-bits and the beacon code in the lower 64-bits
+     to achieve reliable read of beacon code without an actual GATT read operation. In theory, the whole 128-bits can be
+     used considering the beacon only has one characteristic.
+    */
+    private let (characteristicCBUUIDUpper,_) = beaconCharacteristicCBUUID.values
     /// Peripheral manager for managing all connections, using a single manager for simplicity.
     private var peripheral: CBPeripheralManager!
     /// Beacon characteristic being broadcasted by the transmitter, this is a mutating characteristic where the beacon code
@@ -96,6 +112,8 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
      but before re-entering suspend state. The time limit is under 10 seconds as desribed in Apple documentation.
      */
     private var notifyTimer: DispatchSourceTimer?
+    /// Dedicated sequential queue for the shifting timer.
+    private let notifyTimerQueue = DispatchQueue(label: "org.c19x.beacon.transmitter.Timer")
     /// Last beacon code update time, used to update code automatically at regular intervals.
     private var codeUpdatedAt = Date.distantPast
     /// Delegates for receiving beacon detection events.
@@ -106,18 +124,42 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         self.beaconCodes = beaconCodes
         self.updateCodeAfter = updateCodeAfter
         super.init()
+        // Create a peripheral that supports state restoration
         self.peripheral = CBPeripheralManager(delegate: self, queue: queue, options: [
             CBPeripheralManagerOptionRestoreIdentifierKey : "org.C19X.beacon.Transmitter",
             CBPeripheralManagerOptionShowPowerAlertKey : true
         ])
     }
     
-    func updateBeaconCode() {
-        os_log("updateBeaconCode", log: log, type: .debug)
-        guard let peripheral = peripheral else {
-            os_log("updateBeaconCode denied, no peripheral", log: log, type: .fault)
+    func start(_ source: String) {
+        os_log("start (source=%s)", log: log, type: .debug, source)
+        guard !peripheral.isAdvertising else {
+            os_log("start denied, already started (source=%s)", log: log, type: .fault, source)
             return
         }
+        if let (_,beaconCode) = beaconCharacteristic?.uuid.values {
+            peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]])
+            os_log("start successful, for existing beacon code (source=%s,code=%s)", log: log, type: .debug, source, beaconCode.description)
+        } else {
+            updateBeaconCode()
+            os_log("start successful, for new beacon code (source=%s)", log: log, type: .debug, source)
+        }
+        notifySubscribers("start|" + source)
+    }
+    
+    func stop(_ source: String) {
+        os_log("stop (source=%s)", log: log, type: .debug, source)
+        guard peripheral.isAdvertising else {
+            os_log("stop denied, already stopped (source=%s)", log: log, type: .fault, source)
+            return
+        }
+        peripheral.stopAdvertising()
+        notifyTimer?.cancel()
+        notifyTimer = nil
+    }
+    
+    func updateBeaconCode() {
+        os_log("updateBeaconCode", log: log, type: .debug)
         guard peripheral.state == .poweredOn else {
             os_log("updateBeaconCode denied, bluetooth is not on", log: log, type: .fault)
             return
@@ -150,14 +192,14 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
      */
     private func notifySubscribers(_ source: String) {
         notifyTimer?.cancel()
-        notifyTimer = DispatchSource.makeTimerSource(queue: queue)
+        notifyTimer = DispatchSource.makeTimerSource(queue: notifyTimerQueue)
         notifyTimer?.schedule(deadline: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(8)))
         notifyTimer?.setEventHandler { [weak self] in
-            guard let s = self, let beaconCharacteristic = s.beaconCharacteristic, let peripheral = s.peripheral else {
+            guard let s = self, let beaconCharacteristic = s.beaconCharacteristic else {
                 return
             }
             os_log("Notify subscribers (source=%s)", log: s.log, type: .debug, source)
-            peripheral.updateValue(s.emptyData, for: beaconCharacteristic, onSubscribedCentrals: nil)
+            s.peripheral.updateValue(s.emptyData, for: beaconCharacteristic, onSubscribedCentrals: nil)
             let updateCodeInterval = Date().timeIntervalSince(s.codeUpdatedAt)
             if updateCodeInterval > s.updateCodeAfter {
                 os_log("Automatic beacon code update (lastUpdate=%s,elapsed=%s)", log: s.log, type: .debug, s.codeUpdatedAt.description, updateCodeInterval.description)
@@ -178,6 +220,11 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
                 if let characteristics = service.characteristics {
                     for characteristic in characteristics {
                         os_log("Restored (characteristic=%s)", log: log, type: .debug, characteristic.uuid.uuidString)
+                        let (upper,beaconCode) = characteristic.uuid.values
+                        if upper == characteristicCBUUIDUpper, let beaconCharacteristic = characteristic as? CBMutableCharacteristic {
+                            os_log("Restored beacon characteristic (code=%s)", log: log, type: .debug, beaconCode.description)
+                            self.beaconCharacteristic = beaconCharacteristic
+                        }
                     }
                 }
             }
@@ -188,7 +235,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         // Bluetooth on -> Update beacon code -> Advertise
         os_log("Update state (state=%s)", log: log, type: .debug, peripheral.state.description)
         if (peripheral.state == .poweredOn) {
-            updateBeaconCode()
+            start("didUpdateState|powerOn")
         }
     }
     

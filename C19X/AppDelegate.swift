@@ -22,8 +22,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         os_log("Application will finishing launching", log: log, type: .debug)
-        c19x.database.add("App launch")
         device = Device()
+        
+        // Schedule regular background task to stop - rest - start beacon to keep it running indefinitely
+        // State preservation and restoration work most of the time. It can handle bluetooth off/on reliably,
+        // and it can handle airplane mode on/off most of the time, especially when bluetooth off period
+        // isn't too long. CoreBluetooth struggles the most in situations where a connected peripheral goes
+        // out of range and returns, when both devices are in background mode the whole time. Bringing the
+        // app back to foreground instantly resumes the connection but that's not great.
+        //
+        // Test procedure for background task during development
+        // 1. Run app, send it to background mode (sleep button or de-focus app)
+        // 2. Pause app in Xcode, log should show "[App] Schedule background task"
+        // 3. On the (lldb) prompt, run:
+        //    e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"org.c19x.BGAppRefreshTask"]
+        //    ... should respond with "Simulating launch for task with identifier org.c19x.BGAppRefreshTask"
+        // 4. Resume app in Xcode, log should show "[App] Background app refresh start"
+        //
+        // To test early termination of background task
+        // 5. While the background task is running, pause app in Xcode
+        // 6. On the (lldb) prompt, run:
+        //    e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateExpirationForTaskWithIdentifier:@"org.c19x.BGAppRefreshTask"]
+        //    ... should respond with "Simulating expiration for task with identifier org.c19x.BGAppRefreshTask"
+        // 7. Resume app in Xcode, log should show "[App] Background app refresh expired"
+        
         BGTaskScheduler.shared.register(forTaskWithIdentifier: permittedBGAppRefreshTaskIdentifier, using: nil) { task in
             self.handle(task: task as! BGAppRefreshTask)
         }
@@ -33,11 +55,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func handle(task: BGAppRefreshTask) {
         statisticsBGAppRefreshTask.add()
         os_log("Background app refresh start (time=%s,statistics=%s)", log: log, type: .debug, Date().description, statisticsBGAppRefreshTask.description)
-        c19x.beacon.receiver.scan("backgroundAppRefresh")
-        // Keep app awake for a short time
+        c19x.beacon.stop("BGAppRefreshTask")
+        // Let beacon rest for a while
         let timer = DispatchSource.makeTimerSource(queue: c19x.beacon.queue)
         timer.schedule(deadline: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(12)))
         timer.setEventHandler { [weak self] in
+            self?.c19x.beacon.start("BGAppRefreshTask|rest")
             task.setTaskCompleted(success: true)
             if let log = self?.log {
                 os_log("Background app refresh end (time=%s)", log: log, type: .debug, Date().description)
@@ -47,6 +70,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         task.expirationHandler = {
             os_log("Background app refresh expired (time=%s)", log: self.log, type: .fault, Date().description)
             timer.cancel()
+            self.c19x.beacon.start("BGAppRefreshTask|expiration")
             task.setTaskCompleted(success: true)
         }
         scheduleBGAppRefreshTask()
@@ -55,7 +79,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func scheduleBGAppRefreshTask() {
         os_log("Schedule background task (time=%s)", log: log, type: .fault, Date().description)
         let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 60)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.hour)
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {

@@ -49,4 +49,20 @@ class Transceiver {
         transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter)
         receiver = ConcreteReceiver(queue: queue)
     }
+    
+    /**
+     Transmitter and receiver benefits from periodic restart for long-running operations.
+     */
+    func start(_ source: String) {
+        transmitter.start(source)
+        receiver.start(source)
+    }
+
+    /**
+     Transmitter and receiver benefits from periodic restart for long-running operations.
+     */
+    func stop(_ source: String) {
+        transmitter.stop(source)
+        receiver.stop(source)
+    }
 }

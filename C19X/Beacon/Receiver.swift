@@ -23,6 +23,16 @@ protocol Receiver {
     init(queue: DispatchQueue)
     
     /**
+     Start receiver. The actual start is triggered by bluetooth state changes.
+     */
+    func start(_ source: String)
+    
+    /**
+     Stop and resets receiver.
+     */
+    func stop(_ source: String)
+    
+    /**
      Scan for beacons. This is normally called when bluetooth powers on, but also called by
      background app refresh task in the AppDelegate as backup for keeping the receiver awake.
      */
@@ -59,7 +69,9 @@ enum OperatingSystem {
  */
 class Beacon {
     /// Peripheral underpinning the beacon.
-    var peripheral: CBPeripheral
+    var peripheral: CBPeripheral {
+        didSet { lastUpdatedAt = Date() }
+    }
     /**
      Operating system (Android | iOS) distinguished by whether the beacon characteristic supports
      notify (iOS only). Android devices are discoverable by iOS in all circumstances, thus a connect
@@ -71,13 +83,24 @@ class Beacon {
      didUpdateValueFor, which triggers readRSSI) continues to function when both devices are in
      background mode.
      */
-    var operatingSystem: OperatingSystem?
+    var operatingSystem: OperatingSystem? {
+        didSet { lastUpdatedAt = Date() }
+    }
     /// Notifying beacon characteristic (iOS peripherals only).
-    var characteristic: CBCharacteristic?
+    var characteristic: CBCharacteristic? {
+        didSet { lastUpdatedAt = Date() }
+    }
     /// RSSI value obtained from either scanForPeripheral or readRSSI.
-    var rssi: RSSI?
+    var rssi: RSSI? {
+        didSet { lastUpdatedAt = Date() }
+    }
     /// Beacon code obtained from the lower 64-bits of the beacon characteristic UUID.
-    var code: BeaconCode?
+    var code: BeaconCode? {
+        didSet {
+            lastUpdatedAt = Date()
+            codeUpdatedAt = Date()
+        }
+    }
     /**
      Last update timestamp for beacon code. Need to track this to invalidate codes from
      yesterday. It is unnecessary to invalidate old codes obtained during a day as the fact
@@ -85,7 +108,14 @@ class Beacon {
      changing the code will offer no security benefit, but increases connection failure risks,
      especially for Android devices.
      */
-    var codeUpdatedAt = Date.distantPast
+    private var codeUpdatedAt = Date.distantPast
+    /**
+     Last update timestamp for any beacon information. Need to track this to invalidate
+     peripherals that have not been seen for a long time to avoid holding on to an ever
+     growing table of beacons and pending connections to iOS devices. Invalidated
+     beacons can be discovered again in the future by scan instead.
+     */
+    private var lastUpdatedAt = Date.distantPast
     /// Track connection interval and up time statistics for this beacon, for debug purposes.
     let statistics = TimeIntervalSample()
     
@@ -94,16 +124,19 @@ class Beacon {
      */
     var uuidString: String { get { peripheral.identifier.uuidString } }
     /**
-     Beacon is expired if any of the key information is missing (operatingSystem, RSSI, code), or
-     if beacon code was acquired yesterday (day code changes at midnight everyday).
+     Beacon is ready if all the information is available (operatingSystem, RSSI, code), and
+     the code was acquired today (day code changes at midnight everyday).
      */
-    var isExpired: Bool { get {
-        guard operatingSystem != nil, rssi != nil, code != nil else {
-            return true
+    var isReady: Bool { get {
+        guard operatingSystem != nil, code != nil, rssi != nil else {
+            return false
         }
         let today = UInt64(Date().timeIntervalSince1970).dividedReportingOverflow(by: UInt64(86400))
         let createdOnDay = UInt64(codeUpdatedAt.timeIntervalSince1970).dividedReportingOverflow(by: UInt64(86400))
-        return createdOnDay != today
+        return createdOnDay == today
+    } }
+    var isExpired: Bool { get {
+        Date().timeIntervalSince(lastUpdatedAt) > TimeInterval.day
     } }
     
     init(peripheral: CBPeripheral) {
@@ -135,7 +168,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
      Characteristic UUID encodes the characteristic identifier in the upper 64-bits and the beacon code in the lower 64-bits
      to achieve reliable read of beacon code without an actual GATT read operation. In theory, the whole 128-bits can be
      used considering the beacon only has one characteristic.
-    */
+     */
     private let (characteristicCBUUIDUpper,_) = beaconCharacteristicCBUUID.values
     /// Table of known beacons, indexed by the peripheral UUID.
     private var beacons: [String: Beacon] = [:]
@@ -146,60 +179,102 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
      call to CoreBluetooth delegate methods. Apple documentation suggests the time limit is about 10 seconds.
      */
     private var scanTimer: DispatchSourceTimer?
+    /// Dedicated sequential queue for the shifting timer.
+    private let scanTimerQueue = DispatchQueue(label: "org.c19x.beacon.receiver.Timer")
     /// Delegates for receiving beacon detection events.
     var delegates: [ReceiverDelegate] = []
     /// Track scan interval and up time statistics for the receiver, for debug purposes.
     private let statistics = TimeIntervalSample()
-
-
+    
+    
     required init(queue: DispatchQueue) {
         self.queue = queue
         super.init()
-        // Creating a central manager that supports state restore
-        central = CBCentralManager(delegate: self, queue: queue, options: [
+        self.central = CBCentralManager(delegate: self, queue: queue, options: [
             CBCentralManagerOptionRestoreIdentifierKey : "org.C19X.beacon.Receiver",
             CBCentralManagerOptionShowPowerAlertKey : true])
+    }
+    
+    func start(_ source: String) {
+        os_log("start (source=%s)", log: log, type: .debug, source)
+        guard !central.isScanning else {
+            os_log("start denied, already started (source=%s)", log: log, type: .fault, source)
+            return
+        }
+        // Start scanning
+        if central.state == .poweredOn {
+            scan("start|" + source)
+        }
+    }
+    
+    func stop(_ source: String) {
+        os_log("stop (source=%s)", log: log, type: .debug, source)
+        guard central.isScanning else {
+            os_log("stop denied, already stopped (source=%s)", log: log, type: .fault, source)
+            return
+        }
+        // Stop scanning
+        scanTimer?.cancel()
+        scanTimer = nil
+        central.stopScan()
+        // Cancel all connections, the resulting didDisconnect and didFailToConnect
+        beacons.values.forEach() { beacon in
+            if beacon.peripheral.state != .disconnected {
+                disconnect("stop|" + source, beacon.peripheral)
+            }
+        }
     }
     
     func scan(_ source: String) {
         statistics.add()
         os_log("scan (source=%s,statistics={%s})", log: log, type: .debug, source, statistics.description)
-        guard let central = central, central.state == .poweredOn else {
+        guard central.state == .poweredOn else {
             os_log("scan failed, bluetooth is not powered on", log: log, type: .fault)
             return
         }
         // Scan for peripherals -> didDiscover
         central.scanForPeripherals(withServices: [beaconServiceCBUUID])
-        // Connected iOS peripherals -> Write value to wake transmitter
+        // Connected peripherals -> Check registration
         central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
             let uuid = peripheral.identifier.uuidString
-            if let beacon = beacons[uuid], let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
-                wakeTransmitter("scan", beacon)
+            if beacons[uuid] == nil {
+                os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
+                beacons[uuid] = Beacon(peripheral: peripheral)
             }
         }
-        // All peripherals -> Check delegate -> Connect iOS peripherals if not connected
-        central.retrievePeripherals(withIdentifiers: beacons.keys.map { UUID(uuidString: $0)! }).forEach { peripheral in
-            let uuid = peripheral.identifier.uuidString
-            if let beacon = beacons[uuid] {
-                beacon.peripheral = peripheral
-                peripheral.delegate = self
-                if peripheral.state != .connected, central.state == .poweredOn, let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
-                    os_log("connect (source=scan|retrieve|ios,peripheral=%s,state=%s)", log: log, type: .debug, uuid, peripheral.state.description)
-                    central.connect(peripheral)
+        // All peripherals -> Discard expired beacons
+        beacons.values.filter{$0.isExpired}.forEach { beacon in
+            let uuid = beacon.uuidString
+            os_log("scan found expired peripheral (peripheral=%s)", log: log, type: .debug, uuid)
+            disconnect("scan|expired", beacon.peripheral)
+            beacons[uuid] = nil
+        }
+        // All peripherals -> Check pending actions
+        beacons.values.forEach() { beacon in
+            // All peripherals -> Connect if operating system is unknown (e.g. after restore)
+            // This will also enable removable of invalid devices following restore, in didFailToConnect
+            if beacon.operatingSystem == nil, beacon.peripheral.state != .connected {
+                connect("scan|noOS|" + beacon.peripheral.state.description, beacon.peripheral)
+            }
+            // iOS peripherals
+            else if let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
+                // iOS peripherals (Connected) -> Wake transmitter
+                if beacon.peripheral.state == .connected {
+                    wakeTransmitter("scan|ios", beacon)
+                }
+                    // iOS peripherals (Not connected) -> Connect
+                else {
+                    connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
                 }
             }
-        }
-        // All peripherals -> Connect if operating system is unknown (e.g. after restore)
-        // This will also enable removable of invalid devices following restore.
-        beacons.values.forEach() { beacon in
-            if beacon.operatingSystem == nil, beacon.peripheral.state != .connected {
-                let uuid = beacon.uuidString
-                os_log("connect (source=scan|osUnknown,peripheral=%s,state=%s)", log: log, type: .debug, uuid, beacon.peripheral.state.description)
-                central.connect(beacon.peripheral)
+            // All peripherals -> Check delegate (bit too paranoid?)
+            if beacon.peripheral.delegate == nil {
+                os_log("scan found detached peripheral (peripheral=%s)", log: log, type: .fault, beacon.uuidString)
+                beacon.peripheral.delegate = self
             }
         }
     }
-        
+    
     /**
      Schedule scan for beacons after a delay of 8 seconds to start scan again just before
      state change from background to suspended. Scan is sufficient for finding Android
@@ -207,7 +282,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
      */
     private func scheduleScan(_ source: String) {
         scanTimer?.cancel()
-        scanTimer = DispatchSource.makeTimerSource(queue: queue)
+        scanTimer = DispatchSource.makeTimerSource(queue: scanTimerQueue)
         scanTimer?.schedule(deadline: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(8)))
         scanTimer?.setEventHandler { [weak self] in
             self?.scan("scheduleScan|"+source)
@@ -223,8 +298,9 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     private func connect(_ source: String, _ peripheral: CBPeripheral) {
         let uuid = peripheral.identifier.uuidString
         os_log("connect (source=%s,peripheral=%s)", log: log, type: .debug, source, uuid)
-        if central.isScanning {
-            central.stopScan()
+        guard central.state == .poweredOn, central.isScanning else {
+            os_log("connect denied, central stopped (source=%s,peripheral=%s)", log: log, type: .fault, source, uuid)
+            return
         }
         scheduleScan("connect")
         central.connect(peripheral)
@@ -274,10 +350,10 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         os_log("wakeTransmitter (source=%s,peripheral=%s)", log: log, type: .debug, source, beacon.uuidString)
         beacon.peripheral.writeValue(emptyData, for: characteristic, type: .withResponse)
     }
-
+    
     /// Notify receiver delegates of beacon detection
     private func notifyDelegates(_ source: String, _ beacon: Beacon) {
-        guard !beacon.isExpired, let code = beacon.code, let rssi = beacon.rssi else {
+        guard beacon.isReady, let code = beacon.code, let rssi = beacon.rssi else {
             return
         }
         beacon.statistics.add()
@@ -332,10 +408,10 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             return
         }
         beacon.rssi = rssi
-        // Beacon not expired -> Notify delegates -> Wake transmitter -> Scan again
-        // Beacon is "expired" when it doesn't have all the required information (operatingSystem, code, rssi)
-        // or the codeUpdatedAt date is not today.
-        if let operatingSystem = beacon.operatingSystem, !beacon.isExpired {
+        // Beacon is ready -> Notify delegates -> Wake transmitter -> Scan again
+        // Beacon is "ready" when it has all the required information (operatingSystem, code, rssi)
+        // and the codeUpdatedAt date is today.
+        if let operatingSystem = beacon.operatingSystem, beacon.isReady {
             // Android -> Notify delegates -> Scan again
             // Android peripheral is detected by iOS central for every call to scanForPeripherals, in both foreground and background modes.
             // Android BLE address changes over time, thus triggering expire, then connect and therefore no need to connect every time to
@@ -355,8 +431,8 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 scheduleScan("didDiscover|ios")
             }
         }
-        // Beacon expired | Beacon is new -> Connect
-        else if beacon.isExpired || beacon.peripheral.state == .disconnected || beacon.peripheral.state == .disconnecting {
+        // Beacon is not ready | Beacon is new -> Connect
+        else if !beacon.isReady || beacon.peripheral.state == .disconnected || beacon.peripheral.state == .disconnecting {
             connect("didDiscover", peripheral)
         }
         // Default -> Scan again
@@ -371,11 +447,13 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             // This should never happen
             return
         }
-        if beacon.isExpired {
-            // Expired -> Read Code (RSSI should already be available from didDiscover)
+        if !beacon.isReady {
+            // Not ready -> Read Code (RSSI should already be available from didDiscover)
             readCode("didConnect", peripheral)
         } else {
-            // Not expired -> Read RSSI -> Read Code (This is the path after restore, didFailToConnect, disconnect[iOS], didModifyService)
+            // Ready -> Read RSSI -> Read Code
+            // This is the path after restore, didFailToConnect, disconnect[iOS], didModifyService where
+            // the RSSI value may be available but need to be refreshed
             readRSSI("didConnect", peripheral)
         }
     }
@@ -417,7 +495,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         os_log("didReadRSSI (peripheral=%s,rssi=%d,error=%s)", log: log, type: .debug, uuid, rssi, String(describing: error))
         if let beacon = beacons[uuid] {
             beacon.rssi = rssi
-            if beacon.isExpired {
+            if !beacon.isReady {
                 readCode("didReadRSSI", peripheral)
                 return
             } else {
@@ -431,7 +509,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         // It is called again here to extend the time interval between scans.
         scheduleScan("didReadRSSI")
     }
-
+    
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         // Discover services -> Discover characteristics | Disconnect
         let uuid = peripheral.identifier.uuidString
@@ -467,7 +545,6 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 let notifies = characteristic.properties.contains(.notify)
                 os_log("didDiscoverCharacteristicsFor, found beacon characteristic (peripheral=%s,beaconCode=%s,notifies=%s)", log: log, type: .debug, uuid, beaconCode.description, (notifies ? "true" : "false"))
                 beacon.code = beaconCode
-                beacon.codeUpdatedAt = Date()
                 // Characteristic notifies -> Operating system is iOS, else Android
                 beacon.operatingSystem = (notifies ? .ios : .android)
                 // Characteristic change -> Unsubscribe
@@ -487,7 +564,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         if let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
             wakeTransmitter("didDiscoverCharacteristicsFor", beacon)
         }
-        // Android -> Disconnect
+            // Android -> Disconnect
         else {
             disconnect("didDiscoverCharacteristicsFor", peripheral)
         }
@@ -517,7 +594,6 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         os_log("didModifyServices (peripheral=%s)", log: log, type: .debug, uuid)
         if let beacon = beacons[uuid] {
             beacon.code = nil
-            beacon.codeUpdatedAt = Date.distantPast
             if peripheral.state == .connected {
                 readCode("didModifyServices", peripheral)
             } else {

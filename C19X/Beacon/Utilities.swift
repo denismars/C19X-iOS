@@ -58,8 +58,8 @@ extension CBManagerState: CustomStringConvertible {
 }
 
 /**
-Extension to make the state human readable in logs.
-*/
+ Extension to make the state human readable in logs.
+ */
 extension CBPeripheralState: CustomStringConvertible {
     /**
      Get plain text description fo state.
@@ -73,6 +73,15 @@ extension CBPeripheralState: CustomStringConvertible {
         @unknown default: return "undefined"
         }
     }
+}
+
+/**
+ Extension to make the time intervals more human readable in code.
+ */
+extension TimeInterval {
+    static var day: TimeInterval { get { TimeInterval(86400) } }
+    static var hour: TimeInterval { get { TimeInterval(3600) } }
+    static var minute: TimeInterval { get { TimeInterval(60) } }
 }
 
 /**
@@ -119,8 +128,8 @@ class Sample {
         let sMin = (min == nil ? "-" : min!.description)
         let sMax = (max == nil ? "-" : max!.description)
         return "count=" + sCount + ",mean=" + sMean + ",sd=" + sStandardDeviation + ",min=" + sMin + ",max=" + sMax
-    } }
-
+        } }
+    
     /**
      Add sample value.
      */
@@ -153,12 +162,12 @@ class TimeIntervalSample : Sample {
     private var timestamp: Date?
     var period: TimeInterval? { get {
         (startTime == nil ? nil : timestamp?.timeIntervalSince(startTime!))
-    }}
+        }}
     
     override var description: String { get {
         let sPeriod = (period == nil ? "-" : period!.description)
         return super.description + ",period=" + sPeriod
-    }}
+        }}
     
     /**
      Add elapsed time since last call to add() as sample.
