@@ -90,17 +90,17 @@ class ConcreteDatabase: Database, ReceiverDelegate {
     }
     
     func add(_ event: String) {
-//        //os_log("Add (event=%s)", log: self.log, type: .debug, event.description)
-//        do {
-//            let managedContext = persistentContainer.viewContext
-//            let object = NSEntityDescription.insertNewObject(forEntityName: "Event", into: managedContext)
-//            object.setValue(Date(), forKey: "time")
-//            object.setValue(event, forKey: "event")
-//            try managedContext.save()
-//            //os_log("Added (event=%s)", log: log, type: .debug, event.description)
-//        } catch let error as NSError {
-//            os_log("Add failed (event=%s)", log: self.log, type: .fault, event.description, error.description)
-//        }
+        //os_log("Add (event=%s)", log: self.log, type: .debug, event.description)
+        do {
+            let managedContext = persistentContainer.viewContext
+            let object = NSEntityDescription.insertNewObject(forEntityName: "Event", into: managedContext)
+            object.setValue(Date(), forKey: "time")
+            object.setValue(event, forKey: "event")
+            try managedContext.save()
+            //os_log("Added (event=%s)", log: log, type: .debug, event.description)
+        } catch let error as NSError {
+            os_log("Add failed (event=%s)", log: self.log, type: .fault, event.description, error.description)
+        }
     }
     
     func remove(_ before: Date) {

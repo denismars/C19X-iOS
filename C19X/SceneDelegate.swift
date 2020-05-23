@@ -11,10 +11,7 @@ import os
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "Scene")
-    private let appDelegate = UIApplication.shared.delegate as! AppDelegate
-
     var window: UIWindow?
-
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
@@ -42,11 +39,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     
     func sceneWillEnterForeground(_ scene: UIScene) {
         os_log("Scene will enter foreground", log: log, type: .debug)
+        (UIApplication.shared.delegate as! AppDelegate).disableBGAppRefreshTask()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
         os_log("Scene did enter background", log: log, type: .debug)
-        (UIApplication.shared.delegate as! AppDelegate).scheduleBGAppRefreshTask()
+        (UIApplication.shared.delegate as! AppDelegate).enableBGAppRefreshTask()
     }
 
 

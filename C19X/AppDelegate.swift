@@ -17,9 +17,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let permittedBGProcessingTaskIdentifier = "org.c19x.BGProcessingTask"
     private let statisticsBGAppRefreshTask = TimeIntervalSample()
     let c19x = C19X()
-
-    public var device: Device!
-
+    var device: Device!
+    
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         os_log("Application will finishing launching", log: log, type: .debug)
         device = Device()
@@ -73,20 +72,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             self.c19x.beacon.start("BGAppRefreshTask|expiration")
             task.setTaskCompleted(success: true)
         }
-        scheduleBGAppRefreshTask()
+        enableBGAppRefreshTask()
     }
-
-    func scheduleBGAppRefreshTask() {
-        os_log("Schedule background task (time=%s)", log: log, type: .fault, Date().description)
+    
+    /**
+     Enable background app refresh task for resetting and resting the beacon at regular intervals.
+     This should be called from SceneDelegate:sceneDidEnterBackground.
+     */
+    func enableBGAppRefreshTask() {
         let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.hour)
         do {
             try BGTaskScheduler.shared.submit(request)
+            os_log("Background app refresh task enabled (time=%s)", log: log, type: .fault, Date().description)
         } catch {
-            os_log("Schedule background task failed (error=%s)", log: log, type: .fault, String(describing: error))
+            os_log("Background app refresh task enable failed (error=%s)", log: log, type: .fault, String(describing: error))
         }
     }
-
+    
+    /**
+     Disable background app refresh task for resetting and resting the beacon at regular intervals.
+     This should be called from SceneDelegate:sceneDidEnterForeground.
+     */
+    func disableBGAppRefreshTask() {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: permittedBGAppRefreshTaskIdentifier)
+        os_log("Background app refresh task disabled (time=%s)", log: log, type: .fault, Date().description)
+    }
     
     // MARK: UISceneSession Lifecycle
     
