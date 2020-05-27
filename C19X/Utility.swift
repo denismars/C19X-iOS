@@ -154,26 +154,6 @@ extension String {
     }
 }
 
-extension Date {
-    
-    func elapsed() -> String {
-        let elapsedSeconds = distance(to: Date()).magnitude
-        if (elapsedSeconds < 60) {
-            return "just now"
-        } else if (elapsedSeconds < 3600) {
-            let elapsedMinutes = Int((elapsedSeconds / 60).rounded())
-            return String(elapsedMinutes) + "m ago"
-        } else if (elapsedSeconds < 24 * 3600) {
-            let elapsedHours = Int((elapsedSeconds / 3600).rounded())
-            return String(elapsedHours) + "h ago"
-        } else {
-            let elapsedDays = Int((elapsedSeconds / (24 * 3600)).rounded())
-            return String(elapsedDays) + "d ago"
-        }
-    }
-
-}
-
 extension UInt64 {
 
     func duration() -> (value:UInt64, unit:String) {

@@ -20,15 +20,19 @@
 		B607793C24583D5B00479C78 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B607793A24583D5200479C78 /* CoreBluetooth.framework */; };
 		B607794124584A2100479C78 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = B607794024584A2100479C78 /* Device.swift */; };
 		B6077946245986DD00479C78 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = B6077945245986DD00479C78 /* BigInt */; };
-		B60B5BC02472B00E00EBEE47 /* C19X.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60B5BBF2472B00E00EBEE47 /* C19X.swift */; };
 		B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60B5BC3247503B300EBEE47 /* Transceiver.swift */; };
 		B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B60C0A112462941D002BA6A0 /* CoreData.framework */; };
 		B60C0A1524629441002BA6A0 /* C19X.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */; };
+		B635CFE5247907F400873E20 /* Controller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B635CFE4247907F400873E20 /* Controller.swift */; };
+		B6439C15247D2A16004338A6 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6439C14247D2A16004338A6 /* Settings.swift */; };
+		B6439C17247D2F4F004338A6 /* SecuredStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6439C16247D2F4F004338A6 /* SecuredStorage.swift */; };
+		B6439C19247D2F68004338A6 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6439C18247D2F68004338A6 /* Keychain.swift */; };
+		B6439C1B247D2FD8004338A6 /* DataUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6439C1A247D2FD8004338A6 /* DataUtilities.swift */; };
 		B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94A24698334009874F1 /* DayCodes.swift */; };
 		B6B7D94D246983C3009874F1 /* BeaconCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94C246983C3009874F1 /* BeaconCodes.swift */; };
 		B6B7D9532469A60E009874F1 /* Transmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D9522469A60E009874F1 /* Transmitter.swift */; };
 		B6BC9E2F246A99C00017B281 /* Receiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E2E246A99C00017B281 /* Receiver.swift */; };
-		B6BC9E31246D1C9C0017B281 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E30246D1C9C0017B281 /* Utilities.swift */; };
+		B6BC9E31246D1C9C0017B281 /* BeaconUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E30246D1C9C0017B281 /* BeaconUtilities.swift */; };
 		B6BC9E34246D1E820017B281 /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E33246D1E820017B281 /* Database.swift */; };
 /* End PBXBuildFile section */
 
@@ -48,15 +52,19 @@
 		B607793A24583D5200479C78 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		B607793F24583D7700479C78 /* C19X.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = C19X.entitlements; sourceTree = "<group>"; };
 		B607794024584A2100479C78 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
-		B60B5BBF2472B00E00EBEE47 /* C19X.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C19X.swift; sourceTree = "<group>"; };
 		B60B5BC3247503B300EBEE47 /* Transceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transceiver.swift; sourceTree = "<group>"; };
 		B60C0A112462941D002BA6A0 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = C19X.xcdatamodel; sourceTree = "<group>"; };
+		B635CFE4247907F400873E20 /* Controller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controller.swift; sourceTree = "<group>"; };
+		B6439C14247D2A16004338A6 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
+		B6439C16247D2F4F004338A6 /* SecuredStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuredStorage.swift; sourceTree = "<group>"; };
+		B6439C18247D2F68004338A6 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+		B6439C1A247D2FD8004338A6 /* DataUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataUtilities.swift; sourceTree = "<group>"; };
 		B6B7D94A24698334009874F1 /* DayCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCodes.swift; sourceTree = "<group>"; };
 		B6B7D94C246983C3009874F1 /* BeaconCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconCodes.swift; sourceTree = "<group>"; };
 		B6B7D9522469A60E009874F1 /* Transmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transmitter.swift; sourceTree = "<group>"; };
 		B6BC9E2E246A99C00017B281 /* Receiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Receiver.swift; sourceTree = "<group>"; };
-		B6BC9E30246D1C9C0017B281 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
+		B6BC9E30246D1C9C0017B281 /* BeaconUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconUtilities.swift; sourceTree = "<group>"; };
 		B6BC9E33246D1E820017B281 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -95,6 +103,7 @@
 		B607791C2458381E00479C78 /* C19X */ = {
 			isa = PBXGroup;
 			children = (
+				B6439C13247D298A004338A6 /* Logic */,
 				B6BC9E32246D1E440017B281 /* Data */,
 				B6B7D9492469831B009874F1 /* Beacon */,
 				B607793F24583D7700479C78 /* C19X.entitlements */,
@@ -110,7 +119,6 @@
 				B60779352458398700479C78 /* Security.swift */,
 				B60779372458399000479C78 /* Utility.swift */,
 				B607794024584A2100479C78 /* Device.swift */,
-				B60B5BBF2472B00E00EBEE47 /* C19X.swift */,
 			);
 			path = C19X;
 			sourceTree = "<group>";
@@ -124,6 +132,14 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		B6439C13247D298A004338A6 /* Logic */ = {
+			isa = PBXGroup;
+			children = (
+				B635CFE4247907F400873E20 /* Controller.swift */,
+			);
+			path = Logic;
+			sourceTree = "<group>";
+		};
 		B6B7D9492469831B009874F1 /* Beacon */ = {
 			isa = PBXGroup;
 			children = (
@@ -131,7 +147,7 @@
 				B6B7D94C246983C3009874F1 /* BeaconCodes.swift */,
 				B6B7D9522469A60E009874F1 /* Transmitter.swift */,
 				B6BC9E2E246A99C00017B281 /* Receiver.swift */,
-				B6BC9E30246D1C9C0017B281 /* Utilities.swift */,
+				B6BC9E30246D1C9C0017B281 /* BeaconUtilities.swift */,
 				B60B5BC3247503B300EBEE47 /* Transceiver.swift */,
 			);
 			path = Beacon;
@@ -141,6 +157,10 @@
 			isa = PBXGroup;
 			children = (
 				B6BC9E33246D1E820017B281 /* Database.swift */,
+				B6439C14247D2A16004338A6 /* Settings.swift */,
+				B6439C16247D2F4F004338A6 /* SecuredStorage.swift */,
+				B6439C18247D2F68004338A6 /* Keychain.swift */,
+				B6439C1A247D2FD8004338A6 /* DataUtilities.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -224,16 +244,20 @@
 			files = (
 				B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */,
 				B6B7D94D246983C3009874F1 /* BeaconCodes.swift in Sources */,
-				B6BC9E31246D1C9C0017B281 /* Utilities.swift in Sources */,
+				B6BC9E31246D1C9C0017B281 /* BeaconUtilities.swift in Sources */,
 				B6BC9E34246D1E820017B281 /* Database.swift in Sources */,
 				B6BC9E2F246A99C00017B281 /* Receiver.swift in Sources */,
+				B6439C17247D2F4F004338A6 /* SecuredStorage.swift in Sources */,
 				B6B7D9532469A60E009874F1 /* Transmitter.swift in Sources */,
+				B6439C15247D2A16004338A6 /* Settings.swift in Sources */,
 				B60779382458399000479C78 /* Utility.swift in Sources */,
+				B6439C1B247D2FD8004338A6 /* DataUtilities.swift in Sources */,
+				B6439C19247D2F68004338A6 /* Keychain.swift in Sources */,
 				B60779322458397100479C78 /* Beacon.swift in Sources */,
 				B60779342458397F00479C78 /* Network.swift in Sources */,
 				B60779362458398700479C78 /* Security.swift in Sources */,
-				B60B5BC02472B00E00EBEE47 /* C19X.swift in Sources */,
 				B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */,
+				B635CFE5247907F400873E20 /* Controller.swift in Sources */,
 				B607794124584A2100479C78 /* Device.swift in Sources */,
 				B60779222458381E00479C78 /* ViewController.swift in Sources */,
 				B607791E2458381E00479C78 /* AppDelegate.swift in Sources */,

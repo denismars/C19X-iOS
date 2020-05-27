@@ -52,6 +52,11 @@ protocol ReceiverDelegate {
      Beacon code has been detected.
      */
     func receiver(didDetect: BeaconCode, rssi: RSSI)
+    
+    /**
+     Receiver did update state.
+     */
+    func receiver(didUpdateState: CBManagerState)
 }
 
 /**
@@ -136,7 +141,7 @@ class Beacon {
         return createdOnDay == today
     } }
     var isExpired: Bool { get {
-        Date().timeIntervalSince(lastUpdatedAt) > TimeInterval.day
+        Date().timeIntervalSince(lastUpdatedAt) > TimeInterval.hour
     } }
     
     init(peripheral: CBPeripheral) {
@@ -392,6 +397,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         if (central.state == .poweredOn) {
             scan("updateState")
         }
+        delegates.forEach { $0.receiver(didUpdateState: central.state) }
     }
     
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {

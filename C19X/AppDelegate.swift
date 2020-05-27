@@ -16,12 +16,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let permittedBGAppRefreshTaskIdentifier = "org.c19x.BGAppRefreshTask"
     private let permittedBGProcessingTaskIdentifier = "org.c19x.BGProcessingTask"
     private let statisticsBGAppRefreshTask = TimeIntervalSample()
-    let c19x = C19X()
-    var device: Device!
+    
+    var controller: Controller!
+    /// Dedicated sequential queue for the shifting timer.
+    private let appRefreshTaskTimerQueue = DispatchQueue(label: "org.c19x.application.AppRefreshTaskTimer")
+    
+    //var device: Device!
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         os_log("Application will finishing launching", log: log, type: .debug)
-        device = Device()
+        controller = ConcreteController()
+        //device = Device()
         
         // Schedule regular background task to stop - rest - start beacon to keep it running indefinitely
         // State preservation and restoration work most of the time. It can handle bluetooth off/on reliably,
@@ -54,12 +59,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func handle(task: BGAppRefreshTask) {
         statisticsBGAppRefreshTask.add()
         os_log("Background app refresh start (time=%s,statistics=%s)", log: log, type: .debug, Date().description, statisticsBGAppRefreshTask.description)
-        c19x.beacon.stop("BGAppRefreshTask")
+        controller?.transceiver?.stop("BGAppRefreshTask")
         // Let beacon rest for a while
-        let timer = DispatchSource.makeTimerSource(queue: c19x.beacon.queue)
+        let timer = DispatchSource.makeTimerSource(queue: appRefreshTaskTimerQueue)
         timer.schedule(deadline: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(12)))
         timer.setEventHandler { [weak self] in
-            self?.c19x.beacon.start("BGAppRefreshTask|rest")
+            self?.controller?.transceiver?.start("BGAppRefreshTask|rest")
             task.setTaskCompleted(success: true)
             if let log = self?.log {
                 os_log("Background app refresh end (time=%s)", log: log, type: .debug, Date().description)
@@ -69,7 +74,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         task.expirationHandler = {
             os_log("Background app refresh expired (time=%s)", log: self.log, type: .fault, Date().description)
             timer.cancel()
-            self.c19x.beacon.start("BGAppRefreshTask|expiration")
+            self.controller?.transceiver?.start("BGAppRefreshTask|expiration")
             task.setTaskCompleted(success: true)
         }
         enableBGAppRefreshTask()

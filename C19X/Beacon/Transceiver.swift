@@ -8,6 +8,7 @@
 
 import Foundation
 import CoreBluetooth
+import os
 
 /**
  Beacon transmitter and receiver for broadcasting and detecting frequently changing beacon codes
@@ -36,33 +37,56 @@ import CoreBluetooth
  on the server side, and also on the device, this scheme offers a small attack surface for decoding all
  the beacon codes.
  */
-class Transceiver {
+protocol Transceiver {
+    /**
+     Beacon transmitter.
+     */
+    var transmitter : Transmitter { get set }
+    /**
+     Beacon receiver.
+     */
+    var receiver: Receiver { get set }
+
+    /**
+     Start transmitter and receiver to follow Bluetooth state changes to start and stop advertising and scanning.
+     */
+    func start(_ source: String)
+    
+    /**
+     Stop transmitter and receiver will disable advertising, scanning and terminate all connections.
+     */
+    func stop(_ source: String)
+    
+    func append(_ delegate: ReceiverDelegate)
+}
+
+class ConcreteTransceiver : Transceiver {
+    private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transceiver")
     private let dayCodes: DayCodes
     private let beaconCodes: BeaconCodes
-    let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
+    private let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
     var transmitter : Transmitter
     var receiver: Receiver
     
-    init(_ sharedSecret: Data, codeUpdateAfter: TimeInterval) {
+    init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
         dayCodes = ConcreteDayCodes(sharedSecret)
         beaconCodes = ConcreteBeaconCodes(dayCodes)
         transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter)
         receiver = ConcreteReceiver(queue: queue)
     }
     
-    /**
-     Transmitter and receiver benefits from periodic restart for long-running operations.
-     */
     func start(_ source: String) {
         transmitter.start(source)
         receiver.start(source)
     }
 
-    /**
-     Transmitter and receiver benefits from periodic restart for long-running operations.
-     */
     func stop(_ source: String) {
         transmitter.stop(source)
         receiver.stop(source)
+    }
+    
+    func append(_ delegate: ReceiverDelegate) {
+        receiver.delegates.append(delegate)
+        transmitter.delegates.append(delegate)
     }
 }

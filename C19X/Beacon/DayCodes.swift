@@ -24,6 +24,7 @@ protocol DayCodes {
     func get(_ day: Day) -> DayCode?
 }
 
+typealias SharedSecret = Data
 typealias DayCode = Int64
 typealias Day = UInt
 
@@ -32,7 +33,7 @@ class ConcreteDayCodes : DayCodes {
     private let epoch = UInt64(ISO8601DateFormatter().date(from: "2020-01-01T00:00:00+0000")!.timeIntervalSince1970)
     private var values:[DayCode]
     
-    init(_ sharedSecret: Data) {
+    init(_ sharedSecret: SharedSecret) {
         let days = 365 * 10
         let range = BigInt(DayCode.max)
         os_log("Generating forward secure day codes (days=%d,range=%s)", log: log, type: .debug, days, range.description)
