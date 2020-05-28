@@ -14,23 +14,28 @@ protocol Network {
     /**
      Synchronise time with server to enable authenticated messaging.
      */
-    func synchroniseTime()
+    func synchroniseTime(_ callback: ((_ timeDelta: TimeMillis, Error?) -> Void)?)
     
     /**
      Get registration data from central server.
      */
-    func getRegistration(callback: @escaping (SerialNumber?, SharedSecret?, Error?) -> Void)
+    func getRegistration(_ callback: ((SerialNumber?, SharedSecret?, Error?) -> Void)?)
     
     /**
      Post health status to central server for sharing.
      */
-    func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, callback: @escaping (_ didPost: Status?, _ error: Error?) -> Void)
+    func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, _ callback: ((_ didPost: Status?, _ error: Error?) -> Void)?)
 }
+
+/**
+ Timestamp as milliseconds since epoch as in Java.
+ */
+typealias TimeMillis = Int64
 
 class ConcreteNetwork: Network {
     private let log = OSLog(subsystem: "org.C19X.logic", category: "Network")
     private let settings: Settings
-    private var timeDelta: Int64 = 0
+    private var timeDelta: TimeMillis = 0
     private var getLookupInBackgroundInProgress = false
     public var listeners: [NetworkListener] = []
         
@@ -39,24 +44,28 @@ class ConcreteNetwork: Network {
     }
     
     // Get time and adjust delta to synchronise with server
-    func synchroniseTime() {
+    func synchroniseTime(_ callback: ((_ timeDelta: TimeMillis, Error?) -> Void)?) {
         os_log("Synchronise time request", log: self.log, type: .debug)
+        let clientTime = Int64(NSDate().timeIntervalSince1970 * 1000)
         guard let url = URL(string: settings.server() + "time") else {
             os_log("Synchronise time failed, invalid request", log: self.log, type: .fault)
+            callback?(timeDelta, NetworkError.invalidRequest)
             return
         }
         let task = URLSession.shared.dataTask(with: url, completionHandler: { data, response, error in
             guard error == nil else {
                 os_log("Synchronise time failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
+                callback?(self.timeDelta, error)
                 return
             }
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let dataString = String(bytes: data!, encoding: .utf8), let serverTime = Int64(dataString) else {
                 os_log("Synchronise time failed, invalid response", log: self.log, type: .fault)
+                callback?(self.timeDelta, NetworkError.invalidResponse)
                 return
             }
-            let clientTime = Int64(NSDate().timeIntervalSince1970 * 1000)
             self.timeDelta = clientTime - serverTime
             os_log("Synchronised time with server (delta=%d)", log: self.log, type: .debug, self.timeDelta)
+            callback?(self.timeDelta, nil)
         })
         task.resume()
     }
@@ -67,44 +76,44 @@ class ConcreteNetwork: Network {
     }
     
     // Get registration serial number and key
-    func getRegistration(callback: @escaping (SerialNumber?, SharedSecret?, Error?) -> Void) {
+    func getRegistration(_ callback: ((SerialNumber?, SharedSecret?, Error?) -> Void)?) {
         os_log("Registration request", log: self.log, type: .debug)
         guard let url = URL(string: settings.server() + "registration") else {
             os_log("Registration failed, invalid request", log: self.log, type: .fault)
-            callback(nil, nil, NetworkError.invalidRequest)
+            callback?(nil, nil, NetworkError.invalidRequest)
             return
         }
         let task = URLSession.shared.dataTask(with: url, completionHandler: { data, response, error in
             guard error == nil else {
                 os_log("Registration failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
-                callback(nil, nil, error)
+                callback?(nil, nil, error)
                 return
             }
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let dataString = String(bytes: data!, encoding: .utf8) else {
                 os_log("Registration failed, invalid response", log: self.log, type: .fault)
-                callback(nil, nil, NetworkError.invalidResponse)
+                callback?(nil, nil, NetworkError.invalidResponse)
                 return
             }
             let values = dataString.components(separatedBy: ",")
             guard values.count >= 2, let serialNumber = SerialNumber(values[0]), let sharedSecret = SharedSecret(base64Encoded: values[1]) else {
                 os_log("Registration failed, invalid response", log: self.log, type: .fault)
-                callback(nil, nil, NetworkError.invalidResponse)
+                callback?(nil, nil, NetworkError.invalidResponse)
                 return
             }
             os_log("Registration successful (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
-            callback(serialNumber, sharedSecret, nil)
+            callback?(serialNumber, sharedSecret, nil)
         })
         task.resume()
     }
     
     // Post status
-    func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, callback: @escaping (_ didPost: Status?, _ error: Error?) -> Void) {
+    func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, _ callback: ((_ didPost: Status?, _ error: Error?) -> Void)?) {
         // Create and encrypt request
         os_log("Post status request (status=%s)", log: self.log, type: .debug, status.description)
         let value = String(getTimestamp()) + "|" + String(status.rawValue)
         guard let encrypted = AES.encrypt(key: sharedSecret, string: value), let encoded = encrypted.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed), let url = URL(string: settings.server() + "status?key=" + String(serialNumber) + "&value=" + encoded) else {
             os_log("Post status failed, cannot encrypt and encode URL (value=%s)", log: self.log, type: .fault, value)
-                callback(nil, NetworkError.encryptionFailure)
+                callback?(nil, NetworkError.encryptionFailure)
                 return
         }
         var request = URLRequest(url: url)
@@ -112,16 +121,16 @@ class ConcreteNetwork: Network {
         let task = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
             guard error == nil else {
                 os_log("Post status failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
-                callback(nil, error)
+                callback?(nil, error)
                 return
             }
             guard let data = data, let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let dataString = String(bytes: data, encoding: .utf8), let statusRawValue = Int(dataString), let status = Status(rawValue: statusRawValue) else {
                 os_log("Post status failed, invalid response", log: self.log, type: .fault)
-                callback(nil, NetworkError.invalidResponse)
+                callback?(nil, NetworkError.invalidResponse)
                 return
             }
             os_log("Post status successful (status=%s)", log: self.log, type: .debug, status.description)
-            callback(status, nil)
+            callback?(status, nil)
         })
         task.resume()
     }

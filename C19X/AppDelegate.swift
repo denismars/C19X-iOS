@@ -17,8 +17,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let permittedBGProcessingTaskIdentifier = "org.c19x.BGProcessingTask"
     private let statisticsBGAppRefreshTask = TimeIntervalSample()
     var controller: Controller!
-    /// Dedicated sequential queue for the shifting timer.
-    private let appRefreshTaskTimerQueue = DispatchQueue(label: "org.c19x.application.AppRefreshTaskTimer")
     
     //var device: Device!
     
@@ -58,22 +56,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func handle(task: BGAppRefreshTask) {
         statisticsBGAppRefreshTask.add()
         os_log("Background app refresh start (time=%s,statistics=%s)", log: log, type: .debug, Date().description, statisticsBGAppRefreshTask.description)
-        controller?.transceiver?.stop("BGAppRefreshTask")
-        // Let beacon rest for a while
-        let timer = DispatchSource.makeTimerSource(queue: appRefreshTaskTimerQueue)
-        timer.schedule(deadline: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(12)))
-        timer.setEventHandler { [weak self] in
-            self?.controller?.transceiver?.start("BGAppRefreshTask|rest")
+        guard let transceiver = controller.transceiver else {
             task.setTaskCompleted(success: true)
-            if let log = self?.log {
-                os_log("Background app refresh end (time=%s)", log: log, type: .debug, Date().description)
-            }
+            os_log("Background app refresh end, transceiver has not been initialised yet (time=%s)", log: log, type: .debug, Date().description)
+            return
         }
-        timer.resume()
         task.expirationHandler = {
+            transceiver.start("BGAppRefreshTask|expiration")
             os_log("Background app refresh expired (time=%s)", log: self.log, type: .fault, Date().description)
-            timer.cancel()
-            self.controller?.transceiver?.start("BGAppRefreshTask|expiration")
+            task.setTaskCompleted(success: true)
+        }
+        transceiver.stop("BGAppRefreshTask")
+        controller.synchroniseTime() { error in
+            transceiver.start("BGAppRefreshTask|rest")
+            os_log("Background app refresh end (time=%s)", log: self.log, type: .debug, Date().description)
             task.setTaskCompleted(success: true)
         }
         enableBGAppRefreshTask()

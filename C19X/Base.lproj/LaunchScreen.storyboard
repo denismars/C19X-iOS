@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="16096" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="16097" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16087"/>
@@ -98,8 +98,8 @@
                                                 <color key="textColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                                 <nil key="highlightedColor"/>
                                             </label>
-                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="contact tracked" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="CaS-t3-NwD" userLabel="Contact unit">
-                                                <rect key="frame" x="43.5" y="122.5" width="120.5" height="20.5"/>
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="contacts tracked" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="CaS-t3-NwD" userLabel="Contact unit">
+                                                <rect key="frame" x="43.5" y="122" width="129" height="21"/>
                                                 <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
                                                 <color key="textColor" systemColor="secondaryLabelColor" red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.59999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
                                                 <nil key="highlightedColor"/>
@@ -116,6 +116,8 @@
                                         </subviews>
                                         <color key="backgroundColor" systemColor="secondarySystemBackgroundColor" red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                         <constraints>
+                                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="NxY-z7-n4V" secondAttribute="trailing" constant="20" symbolic="YES" id="2RZ-py-An5"/>
+                                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="CaS-t3-NwD" secondAttribute="trailing" constant="20" symbolic="YES" id="56j-iX-Qgy"/>
                                             <constraint firstItem="t64-bY-uEe" firstAttribute="leading" secondItem="3gO-vx-PHX" secondAttribute="leading" id="6sW-4h-hwc"/>
                                             <constraint firstItem="t64-bY-uEe" firstAttribute="centerX" secondItem="o97-Wb-l8Z" secondAttribute="centerX" id="JLJ-bb-dM7"/>
                                             <constraint firstItem="tyb-Tp-Ysc" firstAttribute="top" secondItem="t64-bY-uEe" secondAttribute="top" id="MJ1-ke-9Nz"/>
@@ -131,6 +133,7 @@
                                             <constraint firstItem="t64-bY-uEe" firstAttribute="top" secondItem="3gO-vx-PHX" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="ihI-R8-T63"/>
                                             <constraint firstItem="NxY-z7-n4V" firstAttribute="leading" secondItem="3gO-vx-PHX" secondAttribute="leading" id="nrs-Wv-TxJ"/>
                                             <constraint firstItem="Zg6-oL-dCk" firstAttribute="centerY" secondItem="awp-fq-TFj" secondAttribute="centerY" id="ret-Wh-IKK"/>
+                                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="3gO-vx-PHX" secondAttribute="trailing" constant="223.5" id="tuI-1V-6OT"/>
                                             <constraint firstItem="awp-fq-TFj" firstAttribute="leading" secondItem="3gO-vx-PHX" secondAttribute="leading" id="u8h-1r-Myf"/>
                                             <constraint firstItem="tyb-Tp-Ysc" firstAttribute="leading" secondItem="t64-bY-uEe" secondAttribute="leading" constant="-8" id="uY4-yz-IYH"/>
                                         </constraints>
@@ -139,7 +142,7 @@
                                         <rect key="frame" x="8" y="398.5" width="398" height="141"/>
                                         <subviews>
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="What you need to do" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="BAr-2d-wa8">
-                                                <rect key="frame" x="20" y="20" width="197" height="27"/>
+                                                <rect key="frame" x="20" y="20" width="196.5" height="27"/>
                                                 <fontDescription key="fontDescription" style="UICTFontTextStyleTitle2"/>
                                                 <nil key="textColor"/>
                                                 <nil key="highlightedColor"/>
@@ -174,10 +177,12 @@
                                         <color key="backgroundColor" systemColor="secondarySystemBackgroundColor" red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                         <constraints>
                                             <constraint firstItem="Bkn-iY-SWp" firstAttribute="top" secondItem="mbZ-dD-ClK" secondAttribute="bottom" constant="8" symbolic="YES" id="1qs-Zq-FY3"/>
+                                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="BAr-2d-wa8" secondAttribute="trailing" constant="20" symbolic="YES" id="2T7-2N-yLr"/>
                                             <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="Bkn-iY-SWp" secondAttribute="bottom" constant="20" symbolic="YES" id="6M4-Zk-5ug"/>
                                             <constraint firstItem="Ltg-sw-Xbm" firstAttribute="leading" secondItem="mbZ-dD-ClK" secondAttribute="leading" constant="-8" id="9NG-Md-2ei"/>
                                             <constraint firstItem="BAr-2d-wa8" firstAttribute="top" secondItem="ntT-iq-ODe" secondAttribute="top" constant="20" symbolic="YES" id="B3w-eV-2hg"/>
                                             <constraint firstAttribute="bottom" secondItem="AQ0-Nh-1fJ" secondAttribute="bottom" constant="20" symbolic="YES" id="J8X-gE-Ime"/>
+                                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="AQ0-Nh-1fJ" secondAttribute="trailing" constant="20" symbolic="YES" id="MOo-Ye-4oe"/>
                                             <constraint firstItem="Ltg-sw-Xbm" firstAttribute="bottom" secondItem="mbZ-dD-ClK" secondAttribute="bottom" id="VNe-eZ-wby"/>
                                             <constraint firstItem="Bkn-iY-SWp" firstAttribute="leading" secondItem="BAr-2d-wa8" secondAttribute="leading" id="WJl-7D-C7p"/>
                                             <constraint firstItem="Bkn-iY-SWp" firstAttribute="centerX" secondItem="ntT-iq-ODe" secondAttribute="centerX" id="Y6k-P7-DIy"/>

@@ -10,10 +10,13 @@ import Foundation
 import CoreBluetooth
 import os
 
+/**
+ Controller for encapsulating all application data and logic.
+ */
 protocol Controller {
     var settings: Settings { get }
     var transceiver: Transceiver? { get }
-    
+
     /// Delegates for receiving application events.
     var delegates: [ControllerDelegate] { get set }
     
@@ -28,7 +31,12 @@ protocol Controller {
     func background()
     
     /**
-     Set health status, locally and remotely
+     Sychronise time with server.
+     */
+    func synchroniseTime(callback: ((Error?) -> Void)?)
+    
+    /**
+     Set health status, locally and remotely.
      */
     func status(_ setTo: Status)
 }
@@ -49,13 +57,25 @@ class ConcreteController : Controller, ReceiverDelegate {
     
     func foreground() {
         os_log("foreground", log: self.log, type: .debug)
-        network.synchroniseTime()
+        synchroniseTime()
         synchroniseStatus()
         initialiseTransceiver()
     }
     
     func background() {
         os_log("background", log: self.log, type: .debug)
+    }
+    
+    func synchroniseTime(callback: ((Error?) -> Void)? = nil) {
+        os_log("Synchronise time", log: self.log, type: .debug)
+        network.synchroniseTime() { _, error  in
+            if error == nil {
+                os_log("Synchronise time successful", log: self.log, type: .debug)
+            } else {
+                os_log("Synchronise time failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+            }
+            callback?(error)
+        }
     }
     
     func status(_ setTo: Status) {
