@@ -10,19 +10,24 @@ import Foundation
 import os
 
 class Settings {
+    static let shared = Settings()
     private let log = OSLog(subsystem: "org.c19x", category: "Controller")
     private let userDefaults = UserDefaults.standard
     private let securedStorage = SecuredStorage()
-    // Status value is in secured storage
+    // keyStatusValue : Status value is in secured storage
     private let keyStatusLastTimestamp = "Status.LastTimestamp"
     private let keyContactsCount = "Contacts.Count"
     private let keyContactsLastTimestamp = "Contacts.LastTimestamp"
-    // Advice value is in secured storage
+    // keyAdviceValue : Advice value is in secured storage
     private let keyAdviceLastTimestamp = "Advice.LastTimestamp"
+    private let keyServer = "Server"
 
     init() {
     }
     
+    /**
+     Clear all application data
+     */
     func reset() -> Bool {
         guard securedStorage.remove() else {
             return false
@@ -31,7 +36,22 @@ class Settings {
         userDefaults.removeObject(forKey: keyContactsCount)
         userDefaults.removeObject(forKey: keyContactsLastTimestamp)
         userDefaults.removeObject(forKey: keyAdviceLastTimestamp)
+        userDefaults.removeObject(forKey: keyServer)
         return true
+    }
+    
+    /**
+     Set registration.
+     */
+    func registration(serialNumber: SerialNumber, sharedSecret: SharedSecret) -> Bool? {
+        securedStorage.registration(serialNumber: serialNumber, sharedSecret: sharedSecret)
+    }
+
+    /**
+     Get registration.
+     */
+    func registration() -> (serialNumber: SerialNumber, sharedSecret: SharedSecret)? {
+        securedStorage.registration()
     }
     
     /**
@@ -112,4 +132,25 @@ class Settings {
         return (advice, timestamp)
     }
     
+    /**
+     Set server address.
+     */
+    func server(_ setTo: Server) {
+        userDefaults.set(setTo, forKey: keyServer)
+    }
+    
+    /**
+     Get server address.
+     */
+    func server() -> Server {
+        guard let server = userDefaults.string(forKey: keyServer) else {
+            return "https://c19x-dev.servehttp.com/"
+        }
+        return server
+    }
 }
+
+/**
+ Server address.
+ */
+typealias Server = String

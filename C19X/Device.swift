@@ -33,10 +33,10 @@ class Device: AbstractNetworkListener {
     
     public var parameters = Parameters()
     public var contactRecords = ContactRecords()
-    public var network = Network()
+    public var network = ConcreteNetwork(Settings.shared)
     var beaconTransmitter = BeaconTransmitter(serviceUUID)
     var beaconReceiver = BeaconReceiver(serviceUUID)
-    public var riskAnalysis = RiskAnalysis()
+    public var riskAnalysis = ConcreteRiskAnalysis(Settings.shared)
     
     override init() {
         super.init()
@@ -50,9 +50,6 @@ class Device: AbstractNetworkListener {
         os_log("Start", log: log, type: .debug)
         reset()
 
-        // Parameters
-        network.set(server: parameters.getServerAddress())
-        
         // Registration
         if
             let serialNumberKeychainValue = Keychain.shared.get("serialNumber"),
@@ -63,7 +60,7 @@ class Device: AbstractNetworkListener {
             networkListenerDidUpdate(serialNumber: serialNumber, sharedSecret: sharedSecret)
         } else {
             os_log("Registration required", log: log, type: .info)
-            network.getRegistration()
+            //network.getRegistration()
         }
         
         // Status
@@ -115,22 +112,22 @@ class Device: AbstractNetworkListener {
         if serverDataUpdateSince == nil || serverDataUpdateSince!.distance(to: Date()) > (24 * 60 * 60) {
             // No registration required
             network.getLookupInBackground()
-            network.getTimeFromServerAndSynchronise() { t in
-                self.network.getParameters() { p in
-                    // Registration required
-                    guard self.isRegistered() else {
-                        if callback != nil {
-                            callback!()
-                        }
-                        return
-                    }
-                    self.network.getMessage(serialNumber: self.serialNumber, sharedSecret: self.sharedSecret) { m in
-                        if callback != nil {
-                            callback!()
-                        }
-                    }
-                }
-            }
+//            network.getTimeFromServerAndSynchronise() { t in
+//                self.network.getParameters() { p in
+//                    // Registration required
+//                    guard self.isRegistered() else {
+//                        if callback != nil {
+//                            callback!()
+//                        }
+//                        return
+//                    }
+//                    self.network.getMessage(serialNumber: self.serialNumber, sharedSecret: self.sharedSecret) { m in
+//                        if callback != nil {
+//                            callback!()
+//                        }
+//                    }
+//                }
+//            }
         }
         if callback != nil {
             callback!()
@@ -144,7 +141,7 @@ class Device: AbstractNetworkListener {
     public func set(status: Int) {
         if let _ = Keychain.shared.set("status", status.description) {
             self.status = status
-            riskAnalysis.update(status: status, contactRecords: contactRecords, parameters: parameters, lookup: lookup)
+            //riskAnalysis.update(status: status, contactRecords: contactRecords, parameters: parameters, lookup: lookup)
         }
     }
     
@@ -203,7 +200,7 @@ class Device: AbstractNetworkListener {
     override func networkListenerFailedUpdate(registrationError: Error?) {
         os_log("Registration failed, retrying in 10 minutes (error=%s)", log: log, type: .debug, String(describing: registrationError))
         DispatchQueue.main.asyncAfter(deadline: .future(by: 600)) {
-            self.network.getRegistration()
+            //self.network.getRegistration()
         }
     }
     
@@ -226,13 +223,12 @@ class Device: AbstractNetworkListener {
         } catch {
             os_log("Lookup data save to cache failed (error=%s)", log: log, type: .fault, String(describing: error))
         }
-        riskAnalysis.update(status: status, contactRecords: contactRecords, parameters: parameters, lookup: lookup)
+        //riskAnalysis.update(status: status, contactRecords: contactRecords, parameters: parameters, lookup: lookup)
     }
     
     override func networkListenerDidUpdate(parameters: [String:String]) {
         self.parameters.set(dictionary: parameters)
-        network.set(server: self.parameters.getServerAddress())
-        riskAnalysis.update(status: status, contactRecords: contactRecords, parameters: self.parameters, lookup: lookup)
+        //riskAnalysis.update(status: status, contactRecords: contactRecords, parameters: self.parameters, lookup: lookup)
     }
 }
 
@@ -262,7 +258,7 @@ public class Parameters: AbstractNetworkListener {
     public func reset() {
         userDefaults.set(true, forKey: keyFirstUse)
         userDefaults.set("https://c19x-dev.servehttp.com/", forKey: keyServerAddress)
-        userDefaults.set(RiskAnalysis.adviceStayAtHome, forKey: keyGovernmentAdvice)
+        //userDefaults.set(RiskAnalysis.adviceStayAtHome, forKey: keyGovernmentAdvice)
         userDefaults.set(14, forKey: keyRetentionPeriod)
         userDefaults.set(30, forKey: keyBeaconCodeUpdateInterval)
         let rssiHistogram: [Int:Double] = [:]
@@ -484,123 +480,3 @@ class ContactRecords: AbstractBeaconListener {
     }
 }
 
-class RiskAnalysis {
-    private let log = OSLog(subsystem: "org.C19X", category: "RiskAnalysis")
-    
-    public static let contactOk = 0
-    public static let contactInfectious = 1
-    
-    public static let adviceFreedom = 0
-    public static let adviceStayAtHome = 1
-    public static let adviceSelfIsolate = 2
-    
-    public var contact = RiskAnalysis.contactOk
-    public var advice = RiskAnalysis.adviceStayAtHome
-    
-    public var listeners: [RiskAnalysisListener] = []
-    
-    private func filter(records: [ContactRecord], lookup: Data, infectious: Bool) -> [ContactRecord] {
-        let range = UInt64(lookup.count * 8)
-        return records.filter { record in
-            let index = record.beacon % range
-            return get(lookup, index: index) == infectious
-        }
-    }
-    
-    private func rssiHistogram(records: [ContactRecord]) -> [Int:Int] {
-        var histogram: [Int:Int] = [:]
-        records.forEach() { record in
-            if histogram[record.rssi] == nil {
-                histogram[record.rssi] = 1
-            } else {
-                histogram[record.rssi]! += 1
-            }
-        }
-        return histogram
-    }
-    
-    private func timeHistogram(records: [ContactRecord]) -> [Int:Int] {
-        var histogram: [Int:Int] = [:]
-        let now = Date()
-        let daySeconds:UInt64 = 24*60*60
-        let (today,_) = UInt64(now.timeIntervalSince1970).dividedReportingOverflow(by: daySeconds)
-        records.forEach() { record in
-            let (day,_) = UInt64(record.time.timeIntervalSince1970).dividedReportingOverflow(by: daySeconds)
-            let delta = abs(Int(today - day))
-            if histogram[delta] == nil {
-                histogram[delta] = 1
-            } else {
-                histogram[delta]! += 1
-            }
-        }
-        return histogram
-    }
-    
-    private func multiply(_ counts:[Int:Int], _ weights:[Int:Double]) -> Double {
-        var sumWeight = Double.zero
-        weights.values.forEach() { weight in sumWeight += weight }
-        guard !sumWeight.isZero else {
-            // Unweighted
-            var sumCount = 0
-            counts.values.forEach() { count in sumCount += count }
-            return (sumCount == 0 ? Double.zero : Double(1))
-        }
-        // Weighted
-        var product = Double.zero
-        counts.forEach() { key, value in
-            if let weight = weights[key] {
-                product += (Double(value) * weight)
-            }
-        }
-        return product / sumWeight
-    }
-    
-    public func analyse(contactRecords: ContactRecords, lookup: Data) -> (infectious:[ContactRecord], rssiHistogram:[Int:Int], timeHistogram:[Int:Int]) {
-        let infectious = filter(records: contactRecords.records, lookup: lookup, infectious: true)
-        let rssiCounts = rssiHistogram(records: infectious)
-        let timeCounts = timeHistogram(records: infectious)
-        return (infectious, rssiCounts, timeCounts)
-    }
-    
-    private func analyse(contactRecords: ContactRecords, lookup: Data, rssiWeights: [Int : Double], timeWeights: [Int : Double]) -> (infectious: Int, risk: Double) {
-        let (infectious, rssiHistogram, timeHistogram) = analyse(contactRecords: contactRecords, lookup: lookup)
-        let rssiValue = multiply(rssiHistogram, rssiWeights)
-        let timeValue = multiply(timeHistogram, timeWeights)
-        os_log("Analysis data (infectious=%d,rssiValue=%f,timeValue=%f)", log: self.log, type: .debug, infectious.count, rssiValue, timeValue)
-        return (infectious.count, rssiValue * timeValue)
-    }
-    
-    public func update(status: Int, contactRecords: ContactRecords, parameters: Parameters, lookup: Data) {
-        let previousContactStatus = contact
-        let previousAdvice = advice
-        let contactCount = contactRecords.records.count
-        let (infectiousCount, infectionRisk) = analyse(contactRecords: contactRecords, lookup: lookup, rssiWeights: parameters.getRssiHistogram(), timeWeights: parameters.getTimeHistogram())
-        
-        if (status != Device.statusNormal) {
-            advice = RiskAnalysis.adviceSelfIsolate;
-        } else {
-            contact = (infectiousCount == 0 ? RiskAnalysis.contactOk : RiskAnalysis.contactInfectious)
-            advice = (infectionRisk.isZero ? parameters.getGovernmentAdvice() :
-                RiskAnalysis.adviceSelfIsolate)
-        }
-        os_log("Analysis updated (contactCount=%u,infectiousCount=%u,contact=%d,advice=%d,risk=%f)", log: self.log, type: .debug, contactCount, infectiousCount, contact, advice, infectionRisk)
-        for listener in listeners {
-            listener.riskAnalysisDidUpdate(previousContactStatus: previousContactStatus, currentContactStatus: contact, previousAdvice: previousAdvice, currentAdvice: advice, contactCount: contactCount)
-        }
-    }
-    
-    private func get(_ data: Data, index: UInt64) -> Bool {
-        let block = Int(index / 8)
-        let bit = Int(index % 8)
-        return ((data[block] >> bit) & 1) != 0;
-    }
-    
-}
-
-public protocol RiskAnalysisListener {
-    func riskAnalysisDidUpdate(previousContactStatus:Int, currentContactStatus:Int, previousAdvice:Int, currentAdvice:Int, contactCount:Int)
-}
-
-public class AbstractRiskAnalysisListener: RiskAnalysisListener {
-    public func riskAnalysisDidUpdate(previousContactStatus:Int, currentContactStatus:Int, previousAdvice:Int, currentAdvice:Int, contactCount:Int) {}
-}

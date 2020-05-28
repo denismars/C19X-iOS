@@ -68,7 +68,6 @@ class SecuredStorage {
         return Keychain.shared.set("contactStatus", setTo.rawValue.description)
     }
 
-
     /**
      Get isolation advice from keychain.
      */
@@ -103,6 +102,13 @@ typealias SerialNumber = UInt64
  Health status.
  */
 enum Status: Int {
+    var description: String { get {
+        switch self {
+        case .healthy: return ".healthy"
+        case .symptomatic: return ".symptomatic"
+        case .confirmedDiagnosis: return ".confirmedDiagnosis"
+        }
+    }}
     case healthy = 0, symptomatic, confirmedDiagnosis
 }
 
@@ -110,5 +116,12 @@ enum Status: Int {
  Isolation advice.
  */
 enum Advice: Int {
+    var description: String { get {
+        switch self {
+        case .normal: return ".normal"
+        case .stayAtHome: return ".stayAtHome"
+        case .selfIsolation: return ".selfIsolation"
+        }
+    }}
     case normal = 0, stayAtHome, selfIsolation
 }

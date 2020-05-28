@@ -16,7 +16,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let permittedBGAppRefreshTaskIdentifier = "org.c19x.BGAppRefreshTask"
     private let permittedBGProcessingTaskIdentifier = "org.c19x.BGProcessingTask"
     private let statisticsBGAppRefreshTask = TimeIntervalSample()
-    
     var controller: Controller!
     /// Dedicated sequential queue for the shifting timer.
     private let appRefreshTaskTimerQueue = DispatchQueue(label: "org.c19x.application.AppRefreshTaskTimer")

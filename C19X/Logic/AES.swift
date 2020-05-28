@@ -10,9 +10,9 @@ import Foundation
 import CommonCrypto
 import os
 
-public struct AES {
+struct AES {
     
-    public static func encrypt(key: Data?, string: String?) -> String? {
+    static func encrypt(key: Data?, string: String?) -> String? {
         guard let string = string else { return nil }
         
         guard let data = string.data(using: .utf8) else { return nil }

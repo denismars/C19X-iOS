@@ -10,145 +10,162 @@ import Foundation
 import CryptoKit
 import os
 
-class Network {
-    private let log = OSLog(subsystem: "org.C19X", category: "Network")
-    private var server: String?
+protocol Network {
+    /**
+     Synchronise time with server to enable authenticated messaging.
+     */
+    func synchroniseTime()
+    
+    /**
+     Get registration data from central server.
+     */
+    func getRegistration(callback: @escaping (SerialNumber?, SharedSecret?, Error?) -> Void)
+    
+    /**
+     Post health status to central server for sharing.
+     */
+    func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, callback: @escaping (_ didPost: Status?, _ error: Error?) -> Void)
+}
+
+class ConcreteNetwork: Network {
+    private let log = OSLog(subsystem: "org.C19X.logic", category: "Network")
+    private let settings: Settings
     private var timeDelta: Int64 = 0
     private var getLookupInBackgroundInProgress = false
     public var listeners: [NetworkListener] = []
         
-    func set(server: String) {
-        self.server = server
+    init(_ settings: Settings) {
+        self.settings = settings
     }
     
     // Get time and adjust delta to synchronise with server
-    public func getTimeFromServerAndSynchronise(_ callback: ((Bool) -> Void)? = nil) {
+    func synchroniseTime() {
         os_log("Synchronise time request", log: self.log, type: .debug)
-        guard let server = server, let url = URL(string: server + "time") else {
-            os_log("Synchronise time failed, server undefined", log: self.log, type: .debug)
-            if callback != nil {
-                callback!(false)
-            }
+        guard let url = URL(string: settings.server() + "time") else {
+            os_log("Synchronise time failed, invalid request", log: self.log, type: .fault)
             return
         }
-        os_log("Synchronise time request (url=%s)", log: self.log, type: .debug, url.description)
         let task = URLSession.shared.dataTask(with: url, completionHandler: { data, response, error in
-            if error == nil, let httpResponse = response as? HTTPURLResponse, let dataString = String(bytes: data!, encoding: .utf8) {
-                if (httpResponse.statusCode == 200) {
-                    let serverTime = Int64(dataString)!
-                    let clientTime = Int64(NSDate().timeIntervalSince1970 * 1000)
-                    self.timeDelta = clientTime - serverTime
-                    os_log("Synchronised time with server (delta=%d)", log: self.log, type: .debug, self.timeDelta)
-                    if callback != nil {
-                        callback!(true)
-                    }
-                    return
-                }
+            guard error == nil else {
+                os_log("Synchronise time failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
+                return
             }
-            os_log("Synchronise time failed (error=%s)", log: self.log, type: .fault, String(describing: error))
-            if callback != nil {
-                callback!(false)
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let dataString = String(bytes: data!, encoding: .utf8), let serverTime = Int64(dataString) else {
+                os_log("Synchronise time failed, invalid response", log: self.log, type: .fault)
+                return
             }
+            let clientTime = Int64(NSDate().timeIntervalSince1970 * 1000)
+            self.timeDelta = clientTime - serverTime
+            os_log("Synchronised time with server (delta=%d)", log: self.log, type: .debug, self.timeDelta)
         })
         task.resume()
     }
     
     // Get timestamp that is synchronised with server
-    public func getTimestamp() -> Int64 {
+    private func getTimestamp() -> Int64 {
         Int64(NSDate().timeIntervalSince1970 * 1000) + timeDelta
     }
     
     // Get registration serial number and key
-    public func getRegistration(callback: ((Bool) -> Void)? = nil) {
+    func getRegistration(callback: @escaping (SerialNumber?, SharedSecret?, Error?) -> Void) {
         os_log("Registration request", log: self.log, type: .debug)
-        guard let server = server, let url = URL(string: server + "registration") else {
-            os_log("Registration failed, server undefined", log: self.log, type: .debug)
-            if callback != nil {
-                callback!(false)
-            }
+        guard let url = URL(string: settings.server() + "registration") else {
+            os_log("Registration failed, invalid request", log: self.log, type: .fault)
+            callback(nil, nil, NetworkError.invalidRequest)
             return
         }
         let task = URLSession.shared.dataTask(with: url, completionHandler: { data, response, error in
-            if error == nil, let httpResponse = response as? HTTPURLResponse, let dataString = String(bytes: data!, encoding: .utf8) {
-                if (httpResponse.statusCode == 200) {
-                    let values = dataString.components(separatedBy: ",")
-                    if let serialNumber = UInt64(values[0]), let sharedSecret = Data(base64Encoded: values[1]) {
-                        os_log("Registration successful (serialNumber=%u)", log: self.log, type: .debug, serialNumber)
-                        for listener in self.listeners {
-                            listener.networkListenerDidUpdate(serialNumber: serialNumber, sharedSecret: sharedSecret)
-                        }
-                        if callback != nil {
-                            callback!(true)
-                        }
-                        return
-                    }
-                }
+            guard error == nil else {
+                os_log("Registration failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
+                callback(nil, nil, error)
+                return
             }
-            os_log("Registration failed (error=%s)", log: self.log, type: .fault, String(describing: error))
-            for listener in self.listeners {
-                listener.networkListenerFailedUpdate(registrationError: error)
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let dataString = String(bytes: data!, encoding: .utf8) else {
+                os_log("Registration failed, invalid response", log: self.log, type: .fault)
+                callback(nil, nil, NetworkError.invalidResponse)
+                return
             }
-            if callback != nil {
-                callback!(false)
+            let values = dataString.components(separatedBy: ",")
+            guard values.count >= 2, let serialNumber = SerialNumber(values[0]), let sharedSecret = SharedSecret(base64Encoded: values[1]) else {
+                os_log("Registration failed, invalid response", log: self.log, type: .fault)
+                callback(nil, nil, NetworkError.invalidResponse)
+                return
             }
+            os_log("Registration successful (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
+            callback(serialNumber, sharedSecret, nil)
         })
         task.resume()
     }
     
     // Post status
-    func postStatus(_ status: Int, device:Device, callback: ((Bool) -> Void)? = nil) {
-        os_log("Post status request (status=%u)", log: self.log, type: .debug, status)
-        guard let server = server else {
-            os_log("Post status failed, server undefined", log: self.log, type: .debug)
-            if callback != nil {
-                callback!(false)
-            }
-            return
+    func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, callback: @escaping (_ didPost: Status?, _ error: Error?) -> Void) {
+        // Create and encrypt request
+        os_log("Post status request (status=%s)", log: self.log, type: .debug, status.description)
+        let value = String(getTimestamp()) + "|" + String(status.rawValue)
+        guard let encrypted = AES.encrypt(key: sharedSecret, string: value), let encoded = encrypted.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed), let url = URL(string: settings.server() + "status?key=" + String(serialNumber) + "&value=" + encoded) else {
+            os_log("Post status failed, cannot encrypt and encode URL (value=%s)", log: self.log, type: .fault, value)
+                callback(nil, NetworkError.encryptionFailure)
+                return
         }
-        let (_, rssiHistogram, timeHistogram) = device.riskAnalysis.analyse(contactRecords: device.contactRecords, lookup: device.lookup)
-        let string = String(getTimestamp()) + "|" + String(status) + "|" + rssiHistogram.description + "|" + timeHistogram.description
-        os_log("Post status (string=%s)", log: self.log, type: .fault, string)
-        let encrypted = AES.encrypt(key: device.sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
-        let url = URL(string: server + "status?key=" + String(device.serialNumber) + "&value=" + encrypted)
-        var request = URLRequest(url: url!)
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         let task = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
-            if error == nil, let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode == 200, let dataString = String(bytes: data!, encoding: .utf8), let status = Int(dataString) {
-                    os_log("Post status successful (status=%u)", log: self.log, type: .debug, status)
-                    for listener in self.listeners {
-                        listener.networkListenerDidUpdate(status: status)
-                    }
-                    if callback != nil {
-                        callback!(true)
-                    }
-                    return
-                }
+            guard error == nil else {
+                os_log("Post status failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
+                callback(nil, error)
+                return
             }
-            os_log("Post status failed (error=%s)", log: self.log, type: .fault, String(describing: error))
-            for listener in self.listeners {
-                listener.networkListenerFailedUpdate(statusError: error)
+            guard let data = data, let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let dataString = String(bytes: data, encoding: .utf8), let statusRawValue = Int(dataString), let status = Status(rawValue: statusRawValue) else {
+                os_log("Post status failed, invalid response", log: self.log, type: .fault)
+                callback(nil, NetworkError.invalidResponse)
+                return
             }
-            if callback != nil {
-                callback!(false)
-            }
+            os_log("Post status successful (status=%s)", log: self.log, type: .debug, status.description)
+            callback(status, nil)
         })
         task.resume()
     }
+
+//    // Post status
+//    func postStatus(_ status: Int, device:Device, callback: ((Bool) -> Void)? = nil) {
+//        os_log("Post status request (status=%u)", log: self.log, type: .debug, status)
+//        let (_, rssiHistogram, timeHistogram) = device.riskAnalysis.analyse(contactRecords: device.contactRecords, lookup: device.lookup)
+//        let string = String(getTimestamp()) + "|" + String(status) + "|" + rssiHistogram.description + "|" + timeHistogram.description
+//        os_log("Post status (string=%s)", log: self.log, type: .fault, string)
+//        let encrypted = AES.encrypt(key: device.sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
+//        let url = URL(string: settings.server() + "status?key=" + String(device.serialNumber) + "&value=" + encrypted)
+//        var request = URLRequest(url: url!)
+//        request.httpMethod = "POST"
+//        let task = URLSession.shared.dataTask(with: request, completionHandler: { data, response, error in
+//            if error == nil, let httpResponse = response as? HTTPURLResponse {
+//                if httpResponse.statusCode == 200, let dataString = String(bytes: data!, encoding: .utf8), let status = Int(dataString) {
+//                    os_log("Post status successful (status=%u)", log: self.log, type: .debug, status)
+//                    for listener in self.listeners {
+//                        listener.networkListenerDidUpdate(status: status)
+//                    }
+//                    if callback != nil {
+//                        callback!(true)
+//                    }
+//                    return
+//                }
+//            }
+//            os_log("Post status failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+//            for listener in self.listeners {
+//                listener.networkListenerFailedUpdate(statusError: error)
+//            }
+//            if callback != nil {
+//                callback!(false)
+//            }
+//        })
+//        task.resume()
+//    }
     
     // Get device specific message
     public func getMessage(serialNumber: UInt64, sharedSecret: Data, callback: ((Bool) -> Void)? = nil) {
         os_log("Get message request", log: self.log, type: .debug)
-        guard let server = server else {
-            os_log("Get message failed, server undefined", log: self.log, type: .debug)
-            if callback != nil {
-                callback!(false)
-            }
-            return
-        }
         let string = String(getTimestamp())
         let encrypted = AES.encrypt(key: sharedSecret, string: string)!.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed)!
-        let url = URL(string: server + "message?key=" + String(serialNumber) + "&value=" + encrypted)
+        let url = URL(string: settings.server() + "message?key=" + String(serialNumber) + "&value=" + encrypted)
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse {
                 if httpResponse.statusCode == 200, let message = String(bytes: data!, encoding: .utf8) {
@@ -173,14 +190,7 @@ class Network {
     // Get lookup table immediately
     public func getLookupImmediately(callback: ((Bool) -> Void)? = nil) {
         os_log("Get lookup immediately request", log: self.log, type: .debug)
-        guard let server = server else {
-            os_log("Get lookup immediately failed, server undefined", log: self.log, type: .debug)
-            if callback != nil {
-                callback!(false)
-            }
-            return
-        }
-        let url = URL(string: server + "lookup")
+        let url = URL(string: settings.server() + "lookup")
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse, let lookup = data {
                 if (httpResponse.statusCode == 200) {
@@ -207,19 +217,12 @@ class Network {
     // Get lookup table in background
     public func getLookupInBackground(callback: ((Bool) -> Void)? = nil) {
         os_log("Get lookup in background request", log: self.log, type: .debug)
-        guard let server = server else {
-            os_log("Get lookup in background failed, server undefined", log: self.log, type: .debug)
-            if callback != nil {
-                callback!(false)
-            }
-            return
-        }
         guard !getLookupInBackgroundInProgress else {
             os_log("Get lookup in background in progress, skipping request", log: self.log, type: .debug)
             return
         }
         getLookupInBackgroundInProgress = true
-        let url = URL(string: server + "lookup")!
+        let url = URL(string: settings.server() + "lookup")!
         DownloadManager.shared.set() { data in
             if let lookup = data {
                 os_log("Get lookup in background successful (bytes=%u)", log: self.log, type: .debug, lookup.count)
@@ -246,14 +249,7 @@ class Network {
     // Get application parameters
     public func getParameters(callback: ((Bool) -> Void)? = nil) {
         os_log("Get parameters request", log: self.log, type: .debug)
-        guard let server = server else {
-            os_log("Get parameters failed, server undefined", log: self.log, type: .debug)
-            if callback != nil {
-                callback!(false)
-            }
-            return
-        }
-        let url = URL(string: server + "parameters")
+        let url = URL(string: settings.server() + "parameters")
         let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
             if error == nil, let httpResponse = response as? HTTPURLResponse {
                 if httpResponse.statusCode == 200 {
@@ -310,7 +306,14 @@ private class DownloadManager : NSObject, URLSessionDelegate, URLSessionDownload
     }
 }
 
-public protocol NetworkListener {
+enum NetworkError: Error {
+    case unregistered
+    case encryptionFailure
+    case invalidRequest
+    case invalidResponse
+}
+
+protocol NetworkListener {
     func networkListenerDidUpdate(serialNumber:UInt64, sharedSecret:Data)
 
     func networkListenerFailedUpdate(registrationError:Error?)

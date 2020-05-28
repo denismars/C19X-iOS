@@ -39,12 +39,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     
     func sceneWillEnterForeground(_ scene: UIScene) {
         os_log("Scene will enter foreground", log: log, type: .debug)
+        (UIApplication.shared.delegate as! AppDelegate).controller.foreground()
         (UIApplication.shared.delegate as! AppDelegate).disableBGAppRefreshTask()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
         os_log("Scene did enter background", log: log, type: .debug)
         (UIApplication.shared.delegate as! AppDelegate).enableBGAppRefreshTask()
+        (UIApplication.shared.delegate as! AppDelegate).controller.background()
     }
 
 

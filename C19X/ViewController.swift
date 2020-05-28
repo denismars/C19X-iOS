@@ -60,7 +60,6 @@ class ViewController: UIViewController, ControllerDelegate {
         os_log("View did appear", log: self.log, type: .debug)
         super.viewDidAppear(animated)
         updateViewData(status: true, contacts: true, advice: true)
-        controller.start()
     }
     
 //    private func start() {
@@ -111,25 +110,25 @@ class ViewController: UIViewController, ControllerDelegate {
     }
     
     @IBAction func statusSelectorValueChanged(_ sender: Any) {
-        os_log("Status selector value changed (selectedSegmentIndex=%d)", log: self.log, type: .debug, statusSelector.selectedSegmentIndex)
-//        if (device.isRegistered()) {
-//            device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
-//            let dialog = UIAlertController(title: "Share Infection Data", message: "Share your infection status and contact pattern anonymously to help stop the spread of COVID-19?", preferredStyle: .alert)
-//            dialog.addAction(UIAlertAction(title: "Don't Allow", style: .default, handler: nil))
-//            dialog.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
-//                if let statusSelector = self.statusSelector, let device = self.device {
-//                    device.network.postStatus(statusSelector.selectedSegmentIndex, device: device)
-//                }
-//            })
-//            present(dialog, animated: true)
-//        } else {
-//            let alert = UIAlertController(title: "Device Not Registered", message: "Status update can not be shared at this time.", preferredStyle: .alert)
-//            alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-//            self.present(alert, animated: true)
-//            statusSelector.selectedSegmentIndex = self.device.getStatus()
-//            device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
-//        }
+        guard let status = Status(rawValue: statusSelector.selectedSegmentIndex) else {
+            os_log("Status selector changed to invalid value (index=%d)", log: self.log, type: .fault, statusSelector.selectedSegmentIndex)
+            return
+        }
+        statusDescription(status)
+        os_log("Status selector value changed (status=%s)", log: self.log, type: .debug, status.description)
+        let dialog = UIAlertController(title: "Share Infection Data", message: "Share your infection status and contact pattern anonymously to help stop the spread of COVID-19?", preferredStyle: .alert)
+        dialog.addAction(UIAlertAction(title: "Don't Allow", style: .default) { _ in
+            // Revert to stored value
+            self.updateViewData(status: true)
+        })
+        dialog.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
+            // Set status locally and remotely, network response in delegate callback
+            self.controller.status(status)
+        })
+        present(dialog, animated: true)
     }
+    
+    // MARK:- Set text descriptions
     
     private func statusDescription(_ setTo: Status) {
         switch setTo {
@@ -178,11 +177,11 @@ class ViewController: UIViewController, ControllerDelegate {
     }
     
     private func notification(title: String, body: String, backgroundOnly: Bool = false) {
-        if backgroundOnly && UIApplication.shared.applicationState != .background {
-            os_log("notification denied, application active (backgroundOnly=true)", log: self.log, type: .debug)
-            return
-        }
         DispatchQueue.main.async {
+            if backgroundOnly && UIApplication.shared.applicationState != .background {
+                os_log("notification denied, application active (backgroundOnly=true)", log: self.log, type: .debug)
+                return
+            }
             if UIApplication.shared.applicationState != .background {
                 os_log("notification (method=foreground,title=%s,body=%s)", log: self.log, type: .debug, title, body)
                 let dialog = UIAlertController(title: title, message: body, preferredStyle: .alert)
@@ -230,7 +229,7 @@ class ViewController: UIViewController, ControllerDelegate {
         os_log("transceiver did update state (state=%s)", log: self.log, type: .debug, didUpdateState.description)
         switch didUpdateState {
         case .poweredOn:
-            notification(title: "Contact Tracing Enabled", body: "Turn OFF Bluetooth to pause.", backgroundOnly: true)
+//            notification(title: "Contact Tracing Enabled", body: "Turn OFF Bluetooth to pause.", backgroundOnly: true)
             break
         case .poweredOff:
             notification(title: "Contact Tracing Disabled", body: "Turn ON Bluetooth to resume.")
@@ -245,6 +244,11 @@ class ViewController: UIViewController, ControllerDelegate {
             notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
             break
         }
+    }
+    
+    func status(_ didUpdateTo: Status?, from: Status, error: Error?) {
+        os_log("Status did update (from=%s,to=%s,error=%s)", log: self.log, type: .debug, from.description, String(describing: didUpdateTo), String(describing: error))
+        updateViewData(status: true)
     }
 
 //    internal func networkListenerDidUpdate(status: Int) {
