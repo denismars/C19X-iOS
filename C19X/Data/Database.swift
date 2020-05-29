@@ -12,7 +12,6 @@ import os
 
 protocol Database {
     var contacts: [Contact] { get }
-    var delegates: [DatabaseDelegate] { get set }
     
     /**
      Add new contact record.
@@ -25,20 +24,12 @@ protocol Database {
     func remove(_ before: Date)
 }
 
-protocol DatabaseDelegate {
-    
-    func database(inserted: Contact)
-    
-    func database(loaded: [Contact])
-}
-
 class ConcreteDatabase: Database {
     private let log = OSLog(subsystem: "org.c19x.data", category: "Database")
     private var persistentContainer: NSPersistentContainer
 
     private var lock = NSLock()
     var contacts: [Contact] = []
-    var delegates: [DatabaseDelegate] = []
 
     init() {
         persistentContainer = NSPersistentContainer(name: "C19X")
@@ -71,9 +62,6 @@ class ConcreteDatabase: Database {
             object.setValue(Int32(rssi), forKey: "rssi")
             try managedContext.save()
             contacts.append(object)
-            for delegate in delegates {
-                delegate.database(inserted: object)
-            }
         } catch let error as NSError {
             os_log("insert failed (time=%s,code=%s,rssi=%d,error=%s)", log: log, type: .debug, time.description, code.description, rssi, error.description)
         }
@@ -109,9 +97,6 @@ class ConcreteDatabase: Database {
         do {
             self.contacts = try managedContext.fetch(fetchRequest)
             os_log("Loaded contacts (count=%d)", log: self.log, type: .debug, self.contacts.count)
-            for delegate in delegates {
-                delegate.database(loaded: self.contacts)
-            }
         } catch let error as NSError {
             os_log("Load contacts failed (error=%s)", log: self.log, type: .fault, error.description)
         }

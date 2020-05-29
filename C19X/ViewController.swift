@@ -83,6 +83,7 @@ class ViewController: UIViewController, ControllerDelegate {
 //    }
 //
     private func updateViewData(status: Bool = false, contacts: Bool = false, advice: Bool = false) {
+        os_log("updateViewData (status=%s,contacts=%s,advice=%s)", log: self.log, type: .debug, status.description, contacts.description, advice.description)
         if (status) {
             DispatchQueue.main.async {
                 let (value, timestamp) = self.controller.settings.status()
@@ -103,8 +104,10 @@ class ViewController: UIViewController, ControllerDelegate {
         if (advice) {
             DispatchQueue.main.async {
                 let (value, timestamp) = self.controller.settings.advice()
+                let (message, _) = self.controller.settings.message()
                 self.adviceDescription(value)
                 self.adviceLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
+                self.adviceMessage.text = message
             }
         }
     }
@@ -122,8 +125,9 @@ class ViewController: UIViewController, ControllerDelegate {
             self.updateViewData(status: true)
         })
         dialog.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
-            // Set status locally and remotely, network response in delegate callback
+            // Set status locally and remotely
             self.controller.status(status)
+            self.updateViewData(status: true)
         })
         present(dialog, animated: true)
     }
@@ -215,6 +219,15 @@ class ViewController: UIViewController, ControllerDelegate {
     
     // MARK:- ControllerDelegate
     
+    func controller(_ didUpdateState: ControllerState) {
+        os_log("controller did update state (state=%s)", log: self.log, type: .debug, didUpdateState.rawValue)
+        updateViewData(status: true, contacts: true, advice: true)
+    }
+    
+    func registration(_ serialNumber: SerialNumber) {
+        os_log("registration (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
+    }
+    
     func transceiver(_ initialised: Transceiver) {
         os_log("transceiver initialised", log: self.log, type: .debug)
         updateViewData(contacts: true)
@@ -246,9 +259,14 @@ class ViewController: UIViewController, ControllerDelegate {
         }
     }
     
-    func status(_ didUpdateTo: Status?, from: Status, error: Error?) {
-        os_log("Status did update (from=%s,to=%s,error=%s)", log: self.log, type: .debug, from.description, String(describing: didUpdateTo), String(describing: error))
-        updateViewData(status: true)
+    func message(_ didUpdateTo: Message) {
+        os_log("Message did update", log: self.log, type: .debug)
+        updateViewData(advice: true)
+    }
+    
+    func database(_ didUpdateContacts: [Contact]) {
+        os_log("Database did update", log: self.log, type: .debug)
+        updateViewData(contacts: true)
     }
 
 //    internal func networkListenerDidUpdate(status: Int) {

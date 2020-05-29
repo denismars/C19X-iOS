@@ -67,11 +67,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             task.setTaskCompleted(success: true)
         }
         transceiver.stop("BGAppRefreshTask")
-        controller.synchroniseTime() { error in
-            transceiver.start("BGAppRefreshTask|rest")
-            os_log("Background app refresh end (time=%s)", log: self.log, type: .debug, Date().description)
-            task.setTaskCompleted(success: true)
-        }
+        transceiver.start("BGAppRefreshTask")
+        os_log("Background app refresh end (time=%s)", log: self.log, type: .debug, Date().description)
+        task.setTaskCompleted(success: true)
         enableBGAppRefreshTask()
     }
     

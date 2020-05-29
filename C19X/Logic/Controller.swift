@@ -31,9 +31,9 @@ protocol Controller {
     func background()
     
     /**
-     Sychronise time with server.
+     Synchronise device data with server data.
      */
-    func synchroniseTime(callback: ((Error?) -> Void)?)
+    func synchronise()
     
     /**
      Set health status, locally and remotely.
@@ -41,12 +41,15 @@ protocol Controller {
     func status(_ setTo: Status)
 }
 
+enum ControllerState: String {
+    case foreground, background
+}
 
 class ConcreteController : Controller, ReceiverDelegate {
     private let log = OSLog(subsystem: "org.c19x.logic", category: "Controller")
     var delegates: [ControllerDelegate] = []
 
-    private let database: Database = ConcreteDatabase()
+    let database: Database = ConcreteDatabase()
     private let network: Network = ConcreteNetwork(Settings.shared)
     let settings = Settings.shared
     var transceiver: Transceiver?
@@ -57,25 +60,23 @@ class ConcreteController : Controller, ReceiverDelegate {
     
     func foreground() {
         os_log("foreground", log: self.log, type: .debug)
-        synchroniseTime()
-        synchroniseStatus()
+        checkRegistration()
         initialiseTransceiver()
+        synchronise()
+        delegates.forEach{ $0.controller(.foreground) }
     }
     
     func background() {
         os_log("background", log: self.log, type: .debug)
+        delegates.forEach{ $0.controller(.background) }
     }
     
-    func synchroniseTime(callback: ((Error?) -> Void)? = nil) {
-        os_log("Synchronise time", log: self.log, type: .debug)
-        network.synchroniseTime() { _, error  in
-            if error == nil {
-                os_log("Synchronise time successful", log: self.log, type: .debug)
-            } else {
-                os_log("Synchronise time failed (error=%s)", log: self.log, type: .fault, String(describing: error))
-            }
-            callback?(error)
-        }
+    func synchronise() {
+        os_log("synchronise", log: self.log, type: .debug)
+        synchroniseStatus()
+        synchroniseMessage()
+        synchroniseTime()
+        synchroniseSettings()
     }
     
     func status(_ setTo: Status) {
@@ -84,90 +85,144 @@ class ConcreteController : Controller, ReceiverDelegate {
         // Set status locally
         let _ = settings.status(setTo)
         // Set status remotely
-        checkRegistration(then: { serialNumber, sharedSecret in
-            guard let serialNumber = serialNumber, let sharedSecret = sharedSecret else {
-                os_log("Set status remotely failed, not registered", log: self.log, type: .fault)
-                self.delegates.forEach { $0.status(nil, from: from, error: NetworkError.unregistered) }
-                return
-            }
-            self.network.postStatus(setTo, serialNumber: serialNumber, sharedSecret: sharedSecret) { status, error in
-                if let status = status, error == nil {
-                    os_log("Set status remotely successful (from=%s,to=%s,remote=%s)", log: self.log, type: .debug, from.description, setTo.description, status.description)
-                } else {
-                    os_log("Set status remotely failed (error=%s)", log: self.log, type: .fault, String(describing: error))
-                }
-                self.delegates.forEach { $0.status(status, from: from, error: error) }
-            }
-        })
+        synchroniseStatus()
     }
     
     /**
-     Post current status to server to ensure the device and server are synchronised, and resume any failed submissions following app termination.
+     Register device if required.
      */
-    private func synchroniseStatus() {
-        let (from,timestamp) = settings.status()
-        guard timestamp != Date.distantPast else {
-            // Status was not previously shared
-            return
-        }
-        os_log("Synchronise status", log: self.log, type: .debug)
-        checkRegistration(then: { serialNumber, sharedSecret in
-            guard let serialNumber = serialNumber, let sharedSecret = sharedSecret else {
-                os_log("Synchronise status failed, not registered", log: self.log, type: .fault)
-                self.delegates.forEach { $0.status(nil, from: from, error: NetworkError.unregistered) }
-                return
-            }
-            self.network.postStatus(from, serialNumber: serialNumber, sharedSecret: sharedSecret) { status, error in
-                if error == nil {
-                    os_log("Synchronise status successful", log: self.log, type: .debug)
-                } else {
-                    os_log("Synchronise status failed (error=%s)", log: self.log, type: .fault, String(describing: error))
-                }
-                self.delegates.forEach { $0.status(status, from: from, error: error) }
-            }
-        })
-    }
-    
-    private func initialiseTransceiver() {
-        guard transceiver == nil else {
-            // Already initialised
-            return
-        }
-        os_log("Initialise transceiver", log: self.log, type: .debug)
-        checkRegistration(then: { serialNumber, sharedSecret in
-            guard let serialNumber = serialNumber, let sharedSecret = sharedSecret else {
-                os_log("Initialise transceiver failed, not registered", log: self.log, type: .fault)
-                return
-            }
-            self.transceiver = ConcreteTransceiver(sharedSecret, codeUpdateAfter: 120)
-            self.transceiver?.append(self)
-            os_log("Initialise transceiver successful (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
-            self.delegates.forEach { $0.transceiver(self.transceiver!) }
-        })
-    }
-    
-    /**
-     Check registration then execute callback.
-     */
-    private func checkRegistration(then: @escaping (SerialNumber?, SharedSecret?) -> Void) {
-        if let (serialNumber, sharedSecret) = settings.registration() {
-            then(serialNumber, sharedSecret)
+    private func checkRegistration() {
+        os_log("Registration (state=%s)", log: self.log, type: .debug, settings.registrationState().rawValue)
+        guard settings.registrationState() == .unregistered else {
             return
         }
         os_log("Registration required", log: self.log, type: .debug)
+        settings.registrationState(.registering)
         network.getRegistration { serialNumber, sharedSecret, error in
             guard let serialNumber = serialNumber, let sharedSecret = sharedSecret, error == nil else {
-                os_log("Registration failed to get shared secret (error=%s)", log: self.log, type: .fault, String(describing: error))
-                then(nil, nil)
+                os_log("Registration failed (error=%s)", log: self.log, type: .fault, String(describing: error))
                 return
             }
             guard let success = self.settings.registration(serialNumber: serialNumber, sharedSecret: sharedSecret), success else {
-                os_log("Registration failed to write to secure storage", log: self.log, type: .fault)
-                then(nil, nil)
+                os_log("Registration failed (error=secureStorageFailed)", log: self.log, type: .fault)
                 return
             }
-            os_log("Registration success (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
-            then(serialNumber, sharedSecret)
+            os_log("Registration successful (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
+            self.delegates.forEach { $0.registration(serialNumber)}
+            
+            // Tasks after registration
+            self.initialiseTransceiver()
+            self.synchroniseStatus()
+            self.synchroniseMessage()
+        }
+    }
+    
+    /**
+     Initialise transceiver.
+     */
+    private func initialiseTransceiver() {
+        guard transceiver == nil else {
+            return
+        }
+        os_log("Initialise transceiver", log: self.log, type: .debug)
+        guard let (serialNumber, sharedSecret) = settings.registration() else {
+            os_log("Initialise transceiver failed (error=unregistered)", log: self.log, type: .fault)
+            return
+        }
+        transceiver = ConcreteTransceiver(sharedSecret, codeUpdateAfter: 120)
+        transceiver?.append(self)
+        os_log("Initialise transceiver successful (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
+        delegates.forEach { $0.transceiver(self.transceiver!) }
+    }
+
+    /**
+     Synchronise time with server.
+     */
+    private func synchroniseTime() {
+        os_log("Synchronise time", log: self.log, type: .debug)
+        network.synchroniseTime() { _, error  in
+            guard error == nil else {
+                os_log("Synchronise time failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+                return
+            }
+            os_log("Synchronise time successful", log: self.log, type: .debug)
+        }
+    }
+    
+    /**
+     Synchronise settings with server.
+     */
+    private func synchroniseSettings() {
+        os_log("Synchronise settings", log: self.log, type: .debug)
+        network.getSettings() { serverSettings, error  in
+            guard let serverSettings = serverSettings, error == nil else {
+                os_log("Synchronise settings failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+                return
+            }
+            self.settings.update(serverSettings)
+            os_log("Synchronise settings successful", log: self.log, type: .debug)
+            self.applySettings()
+        }
+    }
+    
+    /**
+     Apply current settings now.
+     */
+    private func applySettings() {
+        // Enforce retention period
+        let removeBefore = Date().addingTimeInterval(-settings.retentionPeriod())
+        database.remove(removeBefore)
+        settings.contacts(database.contacts.count, lastUpdate: database.contacts.last?.time)
+        delegates.forEach { $0.database(database.contacts) }
+    }
+    
+    /**
+     Synchronise status with server.
+     */
+    private func synchroniseStatus() {
+        let (local,timestamp) = settings.status()
+        guard timestamp != Date.distantPast else {
+            // Only share authorised status data
+            return
+        }
+        os_log("Synchronise status", log: self.log, type: .debug)
+        guard let (serialNumber, sharedSecret) = settings.registration() else {
+            os_log("Synchronise status failed (error=unregistered)", log: self.log, type: .fault)
+            return
+        }
+        network.postStatus(local, serialNumber: serialNumber, sharedSecret: sharedSecret) { status, error in
+            guard error == nil else {
+                os_log("Synchronise status failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+                return
+            }
+            guard let remote = status, remote == local else {
+                os_log("Synchronise status failed (error=mismatch)", log: self.log, type: .fault)
+                return
+            }
+            os_log("Synchronise status successful (remote=%s)", log: self.log, type: .debug, remote.description)
+        }
+    }
+    
+    /**
+     Synchronise personal message with server.
+     */
+    private func synchroniseMessage() {
+        os_log("Synchronise message", log: self.log, type: .debug)
+        guard let (serialNumber, sharedSecret) = settings.registration() else {
+            os_log("Synchronise message failed (error=unregistered)", log: self.log, type: .fault)
+            return
+        }
+        network.getMessage(serialNumber: serialNumber, sharedSecret: sharedSecret) { message, error in
+            guard let message = message, error == nil else {
+                os_log("Synchronise message failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+                return
+            }
+            guard let _ = self.settings.message(message) else {
+                os_log("Synchronise message failed (error=secureStorageFailed)", log: self.log, type: .fault)
+                return
+            }
+            os_log("Synchronise message successful", log: self.log, type: .debug)
+            self.delegates.forEach { $0.message(message) }
         }
     }
 
@@ -187,11 +242,17 @@ class ConcreteController : Controller, ReceiverDelegate {
 }
 
 protocol ControllerDelegate {
+    func controller(_ didUpdateState: ControllerState)
+    
+    func registration(_ serialNumber: SerialNumber)
+    
     func transceiver(_ initialised: Transceiver)
     
     func transceiver(_ didUpdateState: CBManagerState)
     
     func transceiver(_ didDetectContactAt: Date)
     
-    func status(_ didUpdateTo: Status?, from: Status, error: Error?)
+    func message(_ didUpdateTo: Message)
+    
+    func database(_ didUpdateContacts: [Contact])
 }

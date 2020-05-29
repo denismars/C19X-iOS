@@ -8,6 +8,7 @@
 
 import Foundation
 import CoreBluetooth
+import CryptoKit
 
 /**
  CBUUID has been extended to make use of the upper and lower 64-bits for of the UUID for data transfer.
@@ -82,6 +83,18 @@ extension TimeInterval {
     static var day: TimeInterval { get { TimeInterval(86400) } }
     static var hour: TimeInterval { get { TimeInterval(3600) } }
     static var minute: TimeInterval { get { TimeInterval(60) } }
+}
+
+extension SHA256Digest {
+    /**
+     Extract Int64 / Java long value from the first eight bytes of digest data.
+     */
+    var javaLongValue: Int64 { get {
+        let data = [UInt8](self)
+        let valueData: [UInt8] = [data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]].reversed()
+        let value = valueData.withUnsafeBytes { $0.load(as: Int64.self) }
+        return value
+    } }
 }
 
 /**

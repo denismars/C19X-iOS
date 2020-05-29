@@ -86,10 +86,32 @@ class SecuredStorage {
     }
 
     /**
+     Get personal message from keychain.
+     */
+    func message() -> Message? {
+        guard let s = Keychain.shared.get("message") else {
+            return nil
+        }
+        return Message(s)
+    }
+    
+    /**
+     Set personal message in keychain.
+     */
+    func message(_ setTo: Message) -> Bool? {
+        return Keychain.shared.set("message", String(setTo))
+    }
+
+
+    /**
      Remove all app data in keychain.
      */
-    func remove() -> Bool {
-        return Keychain.shared.remove("serialNumber") && Keychain.shared.remove("sharedSecret") && Keychain.shared.remove("status") && Keychain.shared.remove("advice")
+    func remove() {
+        _ = Keychain.shared.remove("serialNumber")
+        _ = Keychain.shared.remove("sharedSecret")
+        _ = Keychain.shared.remove("status")
+        _ = Keychain.shared.remove("advice")
+        _ = Keychain.shared.remove("message")
     }
 }
 
@@ -97,6 +119,11 @@ class SecuredStorage {
  Device registration number.
  */
 typealias SerialNumber = UInt64
+
+/**
+ Personal message from server.
+ */
+typealias Message = String
 
 /**
  Health status.
