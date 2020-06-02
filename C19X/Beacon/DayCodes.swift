@@ -21,7 +21,7 @@ import os
 protocol DayCodes {
     func day() -> Day?
     func get() -> DayCode?
-    func seed() -> BeaconCodeSeed?
+    func seed() -> (BeaconCodeSeed, Day)?
 }
 
 typealias SharedSecret = Data
@@ -36,16 +36,26 @@ class ConcreteDayCodes : DayCodes {
     
     init(_ sharedSecret: SharedSecret) {
         let days = 365 * 5
-        os_log("Generating forward secure day codes (days=%d)", log: log, type: .debug, days)
+        values = ConcreteDayCodes.dayCodes(sharedSecret, days: days)
+    }
+    
+    static func dayCodes(_ sharedSecret: SharedSecret, days: Int) -> [DayCode] {
         var hash = SHA256.hash(data: sharedSecret)
-        values = [DayCode](repeating: 0, count: days)
+        var values = [DayCode](repeating: 0, count: days)
         for i in (0 ... (days - 1)).reversed() {
             values[i] = hash.javaLongValue
             let hashData = Data(hash)
             hash = SHA256.hash(data: hashData)
-//            os_log("REMOVE FROM PRODUCTION : Day code (day=%d,hash=%s,code=%s)", log: log, type: .debug, i, hashData.base64EncodedString(), values[i].description)
         }
-        os_log("Generated forward secure day codes (days=%d)", log: log, type: .debug, days)
+        return values
+    }
+    
+    static func beaconCodeSeed(_ dayCode: DayCode) -> BeaconCodeSeed {
+        let data = withUnsafeBytes(of: dayCode) { Data($0) }
+        let reversed: [UInt8] = [data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]]
+        let hash = SHA256.hash(data: reversed)
+        let seed = BeaconCodeSeed(hash.javaLongValue)
+        return seed
     }
     
     func day() -> Day? {
@@ -67,15 +77,12 @@ class ConcreteDayCodes : DayCodes {
         return values[Int(day)]
     }
     
-    func seed() -> BeaconCodeSeed? {
-        guard let dayCode = get() else {
+    func seed() -> (BeaconCodeSeed, Day)? {
+        guard let day = day(), let dayCode = get() else {
             os_log("Day out of range", log: log, type: .fault)
             return nil
         }
-        let data = withUnsafeBytes(of: dayCode) { Data($0) }
-        let reversed: [UInt8] = [data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]]
-        let hash = SHA256.hash(data: reversed)
-        let seed = BeaconCodeSeed(hash.javaLongValue)
-        return seed
+        let seed = ConcreteDayCodes.beaconCodeSeed(dayCode)
+        return (seed, day)
     }
 }

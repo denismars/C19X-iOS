@@ -28,6 +28,7 @@ typealias BeaconCode = Int64
 
 class ConcreteBeaconCodes : BeaconCodes {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "BeaconCodes")
+    static let codesPerDay = 2
     private var dayCodes: DayCodes
     private var seed: BeaconCodeSeed?
     private var values:[BeaconCode]?
@@ -39,20 +40,21 @@ class ConcreteBeaconCodes : BeaconCodes {
     
     func get() -> BeaconCode? {
         if seed == nil {
-            guard let seed = dayCodes.seed() else {
+            guard let (seed, _) = dayCodes.seed() else {
                 os_log("No seed code available", log: log, type: .fault)
                 return nil
             }
             self.seed = seed
         }
-        guard let seedToday = dayCodes.seed() else {
+        guard let (seedToday, today) = dayCodes.seed() else {
             os_log("No seed code available", log: log, type: .fault)
             return nil
         }
         if values == nil || seed != seedToday {
-            os_log("Generating beacon codes for new day", log: log, type: .debug)
+            os_log("Generating beacon codes for new day (day=%s)", log: log, type: .debug, today.description)
             seed = seedToday
-            values = ConcreteBeaconCodes.beaconCodes(seedToday)
+            values = ConcreteBeaconCodes.beaconCodes(seedToday, count: ConcreteBeaconCodes.codesPerDay)
+            os_log("Beacon codes for new day (day=%s,seed=%s,codes=%s)", log: log, type: .debug, today.description, seedToday.description, values!.description)
         }
         guard let values = values else {
             os_log("No beacon code available", log: log, type: .fault)
@@ -61,20 +63,15 @@ class ConcreteBeaconCodes : BeaconCodes {
         return values[Int.random(in: 0 ... (values.count - 1))]
     }
     
-    public static func beaconCodes(_ beaconCodeSeed: BeaconCodeSeed) -> [BeaconCode] {
-        let log = OSLog(subsystem: "org.c19x.beacon", category: "BeaconCodes")
-        let codes = 24 * 10
-        os_log("Generating forward secure beacon codes (codes=%d)", log: log, type: .debug, codes)
+    static func beaconCodes(_ beaconCodeSeed: BeaconCodeSeed, count: Int) -> [BeaconCode] {
         let data = Data(withUnsafeBytes(of: beaconCodeSeed) { Data($0) }.reversed())
         var hash = SHA256.hash(data: data)
-        var values = [BeaconCode](repeating: 0, count: codes)
-        for i in (0 ... (codes - 1)).reversed() {
+        var values = [BeaconCode](repeating: 0, count: count)
+        for i in (0 ... (count - 1)).reversed() {
             values[i] = hash.javaLongValue
             let hashData = Data(hash)
             hash = SHA256.hash(data: hashData)
-//            os_log("REMOVE FROM PRODUCTION : Beacon code (seed=%s,number=%d,hash=%s,code=%s)", log: log, type: .debug, beaconCodeSeed.description,  i, hashData.base64EncodedString(), values[i].description)
         }
-        os_log("Generated forward secure beacon codes (codes=%d)", log: log, type: .debug, codes)
         return values
     }
 

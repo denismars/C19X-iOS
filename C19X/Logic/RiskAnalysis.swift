@@ -10,118 +10,107 @@ import Foundation
 import os
 
 protocol RiskAnalysis {
-    func risk(afterContactWith: [Contact], accordingTo: InfectionReports)
+    func advice(contacts: [Contact], settings: Settings) -> (advice: Advice, contactStatus: Status)
 }
 
-typealias InfectionReports = Data
+/// Beacon code and status, expanded from beacon code seeds and status.
+typealias MatchingData = [BeaconCode:Status]
+
+typealias ExposurePeriod = Int
+typealias ExposureOverTime = [ExposurePeriod:RSSI]
+typealias ExposureProximity = [RSSI:Int]
 typealias Histogram = [Int:Int]
+typealias Probability = Double
 
 class ConcreteRiskAnalysis : RiskAnalysis {
     private let log = OSLog(subsystem: "org.C19X.logic", category: "RiskAnalysis")
-    private let settings: Settings
-    public var listeners: [RiskAnalysisListener] = []
     
-    init(_ settings: Settings) {
-        self.settings = settings
+    func advice(contacts: [Contact], settings: Settings) -> (advice: Advice, contactStatus: Status) {
+        let (status,_,_) = settings.status()
+        let (defaultAdvice,_,_) = settings.advice()
+        let exposureThreshold = settings.exposure()
+        let symptomatic = exposure(contacts, withStatus: .symptomatic, settings: settings)
+        let confirmedDiagnosis = exposure(contacts, withStatus: .confirmedDiagnosis, settings: settings)
+        let exposureTotal = symptomatic + confirmedDiagnosis
+        let advice = (status != .healthy ? Advice.selfIsolation : (exposureTotal < exposureThreshold ? defaultAdvice : Advice.selfIsolation))
+        let contactStatus = (confirmedDiagnosis > 0 ? Status.confirmedDiagnosis : (symptomatic > 0 ? Status.symptomatic : Status.healthy))
+        os_log("Advice (advice=%s,default=%s,status=%s,contactStatus=%s,symptomatic=%s,confirmedDiagnosis=%s)", log: self.log, type: .debug, advice.description, defaultAdvice.description, status.description, contactStatus.description, symptomatic.description, confirmedDiagnosis.description)
+        return (advice, contactStatus)
     }
     
-    func risk(afterContactWith: [Contact], accordingTo: InfectionReports) {
-        
+    /// Regenerate beacon codes for beacon code seeds on device
+    private func beaconCodes(_ infectionData: InfectionData) -> MatchingData {
+        var data = MatchingData()
+        infectionData.forEach() { beaconCodeSeed, status in
+            let beaconCodes = ConcreteBeaconCodes.beaconCodes(beaconCodeSeed, count: ConcreteBeaconCodes.codesPerDay)
+            beaconCodes.forEach() { beaconCode in
+                guard data[beaconCode] == nil || data[beaconCode] == status else {
+                    let from = data[beaconCode]!
+                    if (status.rawValue > from.rawValue) {
+                        data[beaconCode] = status
+                    }
+                    os_log("Beacon code collision (code=%s,from=%s,to=%s)", log: self.log, type: .fault, beaconCode.description, from.description, status.description)
+                    return
+                }
+                data[beaconCode] = status
+            }
+        }
+        return data
     }
-//    
-//    private func filter(records: [ContactRecord], lookup: Data, infectious: Bool) -> [ContactRecord] {
-//        let range = UInt64(lookup.count * 8)
-//        return records.filter { record in
-//            let index = record.beacon % range
-//            return get(lookup, index: index) == infectious
-//        }
-//    }
-//    
-//    private func rssi(contacts: [Contact]) -> Histogram {
-//        var histogram: Histogram = [:]
-//        contacts.forEach() { contact in
-//            let rssi = Int(contact.rssi)
-//            histogram[rssi] = (histogram[rssi] ?? 0) + 1
-//        }
-//        return histogram
-//    }
-//    
-//    private func timeHistogram(records: [ContactRecord]) -> Histogram {
-//        var histogram: [Int:Int] = [:]
-//        let now = Date()
-//        let daySeconds:UInt64 = 24*60*60
-//        let (today,_) = UInt64(now.timeIntervalSince1970).dividedReportingOverflow(by: daySeconds)
-//        records.forEach() { record in
-//            let (day,_) = UInt64(record.time.timeIntervalSince1970).dividedReportingOverflow(by: daySeconds)
-//            let delta = abs(Int(today - day))
-//            if histogram[delta] == nil {
-//                histogram[delta] = 1
-//            } else {
-//                histogram[delta]! += 1
-//            }
-//        }
-//        return histogram
-//    }
-//    
-//    private func multiply(_ counts:[Int:Int], _ weights:[Int:Double]) -> Double {
-//        var sumWeight = Double.zero
-//        weights.values.forEach() { weight in sumWeight += weight }
-//        guard !sumWeight.isZero else {
-//            // Unweighted
-//            var sumCount = 0
-//            counts.values.forEach() { count in sumCount += count }
-//            return (sumCount == 0 ? Double.zero : Double(1))
-//        }
-//        // Weighted
-//        var product = Double.zero
-//        counts.forEach() { key, value in
-//            if let weight = weights[key] {
-//                product += (Double(value) * weight)
-//            }
-//        }
-//        return product / sumWeight
-//    }
-//    
-//    public func analyse(contactRecords: ContactRecords, lookup: Data) -> (infectious:[ContactRecord], rssiHistogram:[Int:Int], timeHistogram:[Int:Int]) {
-//        let infectious = filter(records: contactRecords.records, lookup: lookup, infectious: true)
-//        let rssiCounts = rssiHistogram(records: infectious)
-//        let timeCounts = timeHistogram(records: infectious)
-//        return (infectious, rssiCounts, timeCounts)
-//    }
-//    
-//    private func analyse(contactRecords: ContactRecords, lookup: Data, rssiWeights: [Int : Double], timeWeights: [Int : Double]) -> (infectious: Int, risk: Double) {
-//        let (infectious, rssiHistogram, timeHistogram) = analyse(contactRecords: contactRecords, lookup: lookup)
-//        let rssiValue = multiply(rssiHistogram, rssiWeights)
-//        let timeValue = multiply(timeHistogram, timeWeights)
-//        os_log("Analysis data (infectious=%d,rssiValue=%f,timeValue=%f)", log: self.log, type: .debug, infectious.count, rssiValue, timeValue)
-//        return (infectious.count, rssiValue * timeValue)
-//    }
-//    
-//    public func update(status: Int, contactRecords: ContactRecords, parameters: Parameters, lookup: Data) {
-//        let previousContactStatus = contact
-//        let previousAdvice = advice
-//        let contactCount = contactRecords.records.count
-//        let (infectiousCount, infectionRisk) = analyse(contactRecords: contactRecords, lookup: lookup, rssiWeights: parameters.getRssiHistogram(), timeWeights: parameters.getTimeHistogram())
-//        
-//        if (status != Device.statusNormal) {
-//            advice = RiskAnalysis.adviceSelfIsolate;
-//        } else {
-//            contact = (infectiousCount == 0 ? RiskAnalysis.contactOk : RiskAnalysis.contactInfectious)
-//            advice = (infectionRisk.isZero ? parameters.getGovernmentAdvice() :
-//                RiskAnalysis.adviceSelfIsolate)
-//        }
-//        os_log("Analysis updated (contactCount=%u,infectiousCount=%u,contact=%d,advice=%d,risk=%f)", log: self.log, type: .debug, contactCount, infectiousCount, contact, advice, infectionRisk)
-//        for listener in listeners {
-//            listener.riskAnalysisDidUpdate(previousContactStatus: previousContactStatus, currentContactStatus: contact, previousAdvice: previousAdvice, currentAdvice: advice, contactCount: contactCount)
-//        }
-//    }
-//    
-//    private func get(_ data: Data, index: UInt64) -> Bool {
-//        let block = Int(index / 8)
-//        let bit = Int(index % 8)
-//        return ((data[block] >> bit) & 1) != 0;
-//    }
     
+    /**
+     Match contacts with infection data to establish exposure proximity, showing number of exposure periods for each RSSI value.
+     */
+    private func match(_ contacts: [Contact], withStatus: Status, infectionData: InfectionData) -> ExposureProximity {
+        let matchingData = beaconCodes(infectionData)
+        var exposureOverTime = ExposureOverTime()
+        contacts.forEach() { contact in
+            let beaconCode = BeaconCode(contact.code)
+            guard let status = matchingData[beaconCode], status == withStatus, let time = contact.time else {
+                return
+            }
+            let period = ExposurePeriod(lround(time.timeIntervalSinceNow / TimeInterval.minute))
+            let rssi = RSSI(contact.rssi)
+            if exposureOverTime[period] == nil || exposureOverTime[period]! < rssi {
+                exposureOverTime[period] = rssi
+            }
+        }
+        let exposureProximity = proximity(exposureOverTime)
+        return exposureProximity
+    }
+    
+    /**
+     Histogram of exposure proximity
+     */
+    private func proximity(_ exposure: ExposureOverTime) -> ExposureProximity {
+        var proximity = ExposureProximity()
+        exposure.forEach() { _, rssi in
+            guard let count = proximity[rssi] else {
+                proximity[rssi] = 1
+                return
+            }
+            proximity[rssi] = count + 1
+        }
+        return proximity
+    }
+    
+    /**
+     Calculate exposure period.
+     */
+    private func exposure(_ contacts: [Contact], withStatus: Status, settings: Settings) -> ExposurePeriod {
+        let (infectionData, _) = settings.infectionData()
+        let proximity = settings.proximity()
+        let exposureProximity = match(contacts, withStatus: withStatus, infectionData: infectionData)
+        var sum: ExposurePeriod = 0
+        exposureProximity.forEach() { rssi, count in
+            guard rssi >= proximity else {
+                return
+            }
+            sum += count
+        }
+        os_log("Exposure (status=%s,sum=%s)", log: self.log, type: .debug, withStatus.description, sum.description)
+        return sum
+    }
 }
 
 protocol RiskAnalysisListener {

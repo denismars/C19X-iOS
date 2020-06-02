@@ -54,6 +54,8 @@ class ViewController: UIViewController, ControllerDelegate {
         
         adviceMessage.numberOfLines = 0
         adviceMessage.sizeToFit()
+        
+        enableImmediateUpdate()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -61,32 +63,12 @@ class ViewController: UIViewController, ControllerDelegate {
         super.viewDidAppear(animated)
         updateViewData(status: true, contacts: true, advice: true)
     }
-    
-//    private func start() {
-//        controller.start()
-//
-//        //transmitter.delegates.append(database)
-//        //receiver.delegates.append(transmitter as! ConcreteTransmitter)
-//        //receiver.delegates.append(database)
-//
-//        //enableImmediateLookupUpdate()
-//
-////        device.network.listeners.append(self)
-////        device.beaconReceiver.listeners.append(self)
-////        device.beaconTransmitter.listeners.append(self)
-////        device.riskAnalysis.listeners.append(self)
-//        //device.start()
-//
-//        //refreshLastUpdateLabelsAndScheduleAgain()
-//
-////        device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
-//    }
-//
+
     private func updateViewData(status: Bool = false, contacts: Bool = false, advice: Bool = false) {
         os_log("updateViewData (status=%s,contacts=%s,advice=%s)", log: self.log, type: .debug, status.description, contacts.description, advice.description)
         if (status) {
             DispatchQueue.main.async {
-                let (value, timestamp) = self.controller.settings.status()
+                let (value, timestamp, _) = self.controller.settings.status()
                 self.statusSelector.selectedSegmentIndex = value.rawValue
                 self.statusDescription(value)
                 self.statusLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
@@ -103,8 +85,9 @@ class ViewController: UIViewController, ControllerDelegate {
         }
         if (advice) {
             DispatchQueue.main.async {
-                let (value, timestamp) = self.controller.settings.advice()
-                let (message, _) = self.controller.settings.message()
+                let (_, value, adviceTimestamp) = self.controller.settings.advice()
+                let (message, messageTimestamp) = self.controller.settings.message()
+                let timestamp = (adviceTimestamp > messageTimestamp ? adviceTimestamp : messageTimestamp)
                 self.adviceDescription(value)
                 self.adviceLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
                 self.adviceMessage.text = message
@@ -268,77 +251,22 @@ class ViewController: UIViewController, ControllerDelegate {
         os_log("Database did update", log: self.log, type: .debug)
         updateViewData(contacts: true)
     }
+    
+    func advice(_ didUpdateTo: Advice, _ contactStatus: Status) {
+        os_log("Advice did update", log: self.log, type: .debug)
+        updateViewData(contacts: true, advice: true)
+    }
 
-//    internal func networkListenerDidUpdate(status: Int) {
-//        debugPrint("Network (status=\(status))")
-//        device.parameters.set(statusUpdate: Date())
-//        DispatchQueue.main.async {
-//            if (self.statusSelector != nil) {
-//                self.statusSelector.selectedSegmentIndex = status
-//                self.statusDescriptionUpdate()
-//            }
-//            self.updateLastUpdateLabels()
-//        }
-//    }
-//
-//    internal func networkListenerFailedUpdate(statusError: Error?) {
-//        debugPrint("Network failure (statusError=\(String(describing: statusError))")
-//        DispatchQueue.main.async {
-//            self.updateLastUpdateLabels()
-//            // Present alert
-//            let alert = UIAlertController(title: "Server Not Available", message: "Status update can not be shared at this time.", preferredStyle: .alert)
-//            alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-//            self.present(alert, animated: true)
-//
-//            if let statusSelector = self.statusSelector, let device = self.device {
-//                statusSelector.selectedSegmentIndex = device.getStatus()
-//                device.riskAnalysis.update(status: statusSelector.selectedSegmentIndex, contactRecords: device.contactRecords, parameters: device.parameters, lookup: device.lookup)
-//            }
-//        }
-//    }
-//
-//    internal func networkListenerDidUpdate(message: String) {
-//        DispatchQueue.main.async {
-//            if (self.adviceMessage.text != message) {
-//                self.adviceMessage.text = message
-//                self.notification(title: "Information Update", body: "You have a new message.")
-//            }
-//        }
-//    }
-//
-//    internal func networkListenerDidUpdate(parameters: [String:String]) {
-//    }
-//
-//    internal func networkListenerDidUpdate(lookup: Data) {
-//    }
-//
-//    internal func networkListenerFailedUpdate(registrationError: Error?) {
-//    }
-//
-//    internal func riskAnalysisDidUpdate(previousContactStatus:Int, currentContactStatus:Int, previousAdvice:Int, currentAdvice:Int, contactCount:Int) {
-//        device.parameters.set(adviceUpdate: Date())
-//        DispatchQueue.main.async {
-//            self.updateContactValue(contactCount)
-//            self.updateContactDescription(currentContactStatus)
-//            self.updateAdviceDescription(currentAdvice)
-//            if (currentAdvice != previousAdvice) {
-//                self.notification(title: "Information Update", body: "You have received new advice.")
-//            }
-//        }
-//    }
+    @objc func adviceUpdateLabelTapped(_ sender: UITapGestureRecognizer) {
+        os_log("Advice update label tapped", log: self.log, type: .debug)
+        controller.synchronise(true)
+    }
 
-//    @objc func adviceUpdateLabelTapped(_ sender: UITapGestureRecognizer) {
-//        os_log("Lookup update immediately requested", log: self.log, type: .debug)
-//        self.device.network.getLookupImmediately() { _ in
-//            os_log("Lookup update immediately completed", log: self.log, type: .debug)
-//        }
-//    }
-//
-//    private func enableImmediateLookupUpdate() {
-//        let labelTap = UITapGestureRecognizer(target: self, action: #selector(self.adviceUpdateLabelTapped(_:)))
-//        self.adviceLastUpdate.isUserInteractionEnabled = true
-//        self.adviceLastUpdate.addGestureRecognizer(labelTap)
-//    }
+    private func enableImmediateUpdate() {
+        let labelTap = UITapGestureRecognizer(target: self, action: #selector(self.adviceUpdateLabelTapped(_:)))
+        self.adviceLastUpdate.isUserInteractionEnabled = true
+        self.adviceLastUpdate.addGestureRecognizer(labelTap)
+    }
     
 
 }

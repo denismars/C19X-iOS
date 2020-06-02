@@ -21,6 +21,11 @@ protocol Controller {
     var delegates: [ControllerDelegate] { get set }
     
     /**
+     Reset all application data.
+     */
+    func reset()
+    
+    /**
      Notify controller that app has entered foreground mode.
      */
     func foreground()
@@ -33,7 +38,7 @@ protocol Controller {
     /**
      Synchronise device data with server data.
      */
-    func synchronise()
+    func synchronise(_ immediately: Bool)
     
     /**
      Set health status, locally and remotely.
@@ -49,19 +54,31 @@ class ConcreteController : Controller, ReceiverDelegate {
     private let log = OSLog(subsystem: "org.c19x.logic", category: "Controller")
     var delegates: [ControllerDelegate] = []
 
-    let database: Database = ConcreteDatabase()
+    private let database: Database = ConcreteDatabase()
     private let network: Network = ConcreteNetwork(Settings.shared)
+    private let riskAnalysis: RiskAnalysis = ConcreteRiskAnalysis()
     let settings = Settings.shared
     var transceiver: Transceiver?
     
     init() {
-        _ = settings.reset()
+        if settings.registrationState() == .registering {
+            settings.registrationState(.unregistered)
+        }
+        
+        // REMOVE FOR PRODUCTION : Delete app to achieve the same in production
+        //reset()
+    }
+    
+    func reset() {
+        settings.reset()
+        database.remove(Date().advanced(by: TimeInterval.day))
     }
     
     func foreground() {
         os_log("foreground", log: self.log, type: .debug)
         checkRegistration()
         initialiseTransceiver()
+        applySettings()
         synchronise()
         delegates.forEach{ $0.controller(.foreground) }
     }
@@ -71,19 +88,21 @@ class ConcreteController : Controller, ReceiverDelegate {
         delegates.forEach{ $0.controller(.background) }
     }
     
-    func synchronise() {
+    func synchronise(_ immmediately: Bool = false) {
         os_log("synchronise", log: self.log, type: .debug)
+        synchroniseTime(immmediately)
         synchroniseStatus()
-        synchroniseMessage()
-        synchroniseTime()
-        synchroniseSettings()
+        synchroniseMessage(immmediately)
+        synchroniseSettings(immmediately)
+        synchroniseInfectionData(immmediately)
     }
     
     func status(_ setTo: Status) {
-        let (from, _) = settings.status()
+        let (from, _, _) = settings.status()
         os_log("Set status (from=%s,to=%s)", log: self.log, type: .debug, from.description, setTo.description)
         // Set status locally
         let _ = settings.status(setTo)
+        applySettings()
         // Set status remotely
         synchroniseStatus()
     }
@@ -136,53 +155,36 @@ class ConcreteController : Controller, ReceiverDelegate {
     }
 
     /**
-     Synchronise time with server.
+     Synchronise time with server (once a day)
      */
-    private func synchroniseTime() {
+    private func synchroniseTime(_ immediately: Bool = false) {
+        let (_,timestamp) = settings.timeDelta()
+        guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
+            os_log("Synchronise time deferred (timestamp=%s,elapsed=%s)", log: self.log, type: .debug, timestamp.description)
+            return
+        }
         os_log("Synchronise time", log: self.log, type: .debug)
-        network.synchroniseTime() { _, error  in
-            guard error == nil else {
+        network.synchroniseTime() { timeDelta, error  in
+            guard let timeDelta = timeDelta, error == nil else {
                 os_log("Synchronise time failed (error=%s)", log: self.log, type: .fault, String(describing: error))
                 return
             }
             os_log("Synchronise time successful", log: self.log, type: .debug)
+            self.settings.timeDelta(timeDelta)
         }
     }
     
     /**
-     Synchronise settings with server.
-     */
-    private func synchroniseSettings() {
-        os_log("Synchronise settings", log: self.log, type: .debug)
-        network.getSettings() { serverSettings, error  in
-            guard let serverSettings = serverSettings, error == nil else {
-                os_log("Synchronise settings failed (error=%s)", log: self.log, type: .fault, String(describing: error))
-                return
-            }
-            self.settings.update(serverSettings)
-            os_log("Synchronise settings successful", log: self.log, type: .debug)
-            self.applySettings()
-        }
-    }
-    
-    /**
-     Apply current settings now.
-     */
-    private func applySettings() {
-        // Enforce retention period
-        let removeBefore = Date().addingTimeInterval(-settings.retentionPeriod())
-        database.remove(removeBefore)
-        settings.contacts(database.contacts.count, lastUpdate: database.contacts.last?.time)
-        delegates.forEach { $0.database(database.contacts) }
-    }
-    
-    /**
-     Synchronise status with server.
+     Synchronise status with server
      */
     private func synchroniseStatus() {
-        let (local,timestamp) = settings.status()
+        let (local,timestamp,remoteTimestamp) = settings.status()
         guard timestamp != Date.distantPast else {
             // Only share authorised status data
+            return
+        }
+        guard remoteTimestamp < timestamp else {
+            // Synchronised already
             return
         }
         os_log("Synchronise status", log: self.log, type: .debug)
@@ -200,13 +202,19 @@ class ConcreteController : Controller, ReceiverDelegate {
                 return
             }
             os_log("Synchronise status successful (remote=%s)", log: self.log, type: .debug, remote.description)
+            self.settings.statusDidUpdateAtServer()
         }
     }
     
     /**
-     Synchronise personal message with server.
+     Synchronise personal message with server (once a day)
      */
-    private func synchroniseMessage() {
+    private func synchroniseMessage(_ immediately: Bool = false) {
+        let (_, timestamp) = settings.message()
+        guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
+            os_log("Synchronise message deferred (timestamp=%s)", log: self.log, type: .debug, timestamp.description)
+            return
+        }
         os_log("Synchronise message", log: self.log, type: .debug)
         guard let (serialNumber, sharedSecret) = settings.registration() else {
             os_log("Synchronise message failed (error=unregistered)", log: self.log, type: .fault)
@@ -226,12 +234,71 @@ class ConcreteController : Controller, ReceiverDelegate {
         }
     }
 
+    /**
+     Synchronise settings with server (once a day)
+     */
+    private func synchroniseSettings(_ immediately: Bool = false) {
+        let (_, timestamp) = settings.get()
+        guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
+            os_log("Synchronise settings deferred (timestamp=%s)", log: self.log, type: .debug, timestamp.description)
+            return
+        }
+        os_log("Synchronise settings", log: self.log, type: .debug)
+        network.getSettings() { serverSettings, error  in
+            guard let serverSettings = serverSettings, error == nil else {
+                os_log("Synchronise settings failed (error=%s)", log: self.log, type: .fault, String(describing: error))
+                return
+            }
+            self.settings.set(serverSettings)
+            os_log("Synchronise settings successful", log: self.log, type: .debug)
+            self.applySettings()
+        }
+    }
+    
+    /**
+     Synchronise infection data with server (once a day)
+     */
+    private func synchroniseInfectionData(_ immediately: Bool = false) {
+        let (_, timestamp) = settings.infectionData()
+        guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
+            os_log("Synchronise infection data deferred (timestamp=%s)", log: self.log, type: .debug, timestamp.description)
+            return
+        }
+        os_log("Synchronise infection data", log: self.log, type: .debug)
+        network.getInfectionData() { infectionData, error  in
+            guard let infectionData = infectionData, error == nil else {
+                os_log("Synchronise infection data (error=%s)", log: self.log, type: .fault, String(describing: error))
+                return
+            }
+            self.settings.infectionData(infectionData)
+            os_log("Synchronise infection data successful", log: self.log, type: .debug)
+            self.applySettings()
+        }
+    }
+    
+    /**
+     Apply current settings now.
+     */
+    private func applySettings() {
+        // Enforce retention period
+        let removeBefore = Date().addingTimeInterval(-settings.retentionPeriod())
+        database.remove(removeBefore)
+        settings.contacts(database.contacts.count, lastUpdate: database.contacts.last?.time)
+        delegates.forEach { $0.database(database.contacts) }
+        
+        // Conduct risk analysis
+        let (advice, contactStatus) = riskAnalysis.advice(contacts: database.contacts, settings: settings)
+        let _ = settings.advice(advice)
+        let _ = settings.contacts(contactStatus)
+        delegates.forEach { $0.advice(advice, contactStatus) }
+    }
+    
     // MARK:- ReceiverDelegate
     
     func receiver(didDetect: BeaconCode, rssi: RSSI) {
         database.insert(time: Date(), code: didDetect, rssi: rssi)
         let timestamp = settings.contacts(database.contacts.count)
-        os_log("Contact logged (count=%d,timestamp=%s)", log: log, type: .debug, database.contacts.count, timestamp.description)
+        os_log("Contact logged (code=%s,rssi=%s,count=%d,timestamp=%s)", log: log, type: .debug, didDetect.description, rssi.description, database.contacts.count, timestamp.description)
         delegates.forEach { $0.transceiver(timestamp) }
     }
     
@@ -255,4 +322,6 @@ protocol ControllerDelegate {
     func message(_ didUpdateTo: Message)
     
     func database(_ didUpdateContacts: [Contact])
+    
+    func advice(_ didUpdateTo: Advice, _ contactStatus: Status)
 }

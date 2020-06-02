@@ -31,7 +31,7 @@ struct AES {
         }
         
         guard ivResult == errSecSuccess else {
-            debugPrint("Error: Failed to generate IV data. Status \(ivResult)")
+            // Error: Failed to generate IV data
             return nil
         }
         
@@ -46,7 +46,7 @@ struct AES {
         }
         
         guard UInt32(status) == UInt32(kCCSuccess) else {
-            debugPrint("Error: Failed to crypt data. Status \(status)")
+            // Error: Failed to encrypt data
             return nil
         }
         

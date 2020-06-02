@@ -14,7 +14,7 @@ protocol Network {
     /**
      Synchronise time with server to enable authenticated messaging.
      */
-    func synchroniseTime(_ callback: ((_ timeDelta: TimeMillis, Error?) -> Void)?)
+    func synchroniseTime(_ callback: ((TimeMillis?, Error?) -> Void)?)
     
     /**
      Get registration data from central server.
@@ -35,6 +35,11 @@ protocol Network {
      Get personal message from central server.
      */
     func getMessage(serialNumber: SerialNumber, sharedSecret: SharedSecret, callback: ((Message?, Error?) -> Void)?)
+    
+    /**
+     Get infection data [BeaconCodeSeed:Status] for on-device matching.
+     */
+    func getInfectionData(callback: ((InfectionData?, Error?) -> Void)?)
 }
 
 /**
@@ -44,48 +49,47 @@ typealias TimeMillis = Int64
 
 class ConcreteNetwork: Network {
     private let log = OSLog(subsystem: "org.C19X.logic", category: "Network")
+    private let backgroundDownload = BackgroundDownload("org.C19X.logic.ConcreteNetwork")
     private let settings: Settings
-    private var timeDelta: TimeMillis = 0
-    private var getLookupInBackgroundInProgress = false
-    public var listeners: [NetworkListener] = []
         
     init(_ settings: Settings) {
         self.settings = settings
     }
     
-    // Get timestamp that is synchronised with server
+    /// Get timestamp that is synchronised with server
     private func getTimestamp() -> Int64 {
-        Int64(NSDate().timeIntervalSince1970 * 1000) + timeDelta
+        let (timeDelta,_) = settings.timeDelta()
+        return Int64(NSDate().timeIntervalSince1970 * 1000) + timeDelta
     }
     
-    // Get time and adjust delta to synchronise with server
-    func synchroniseTime(_ callback: ((_ timeDelta: TimeMillis, Error?) -> Void)?) {
+    /// Get time and adjust delta to synchronise with server
+    func synchroniseTime(_ callback: ((TimeMillis?, Error?) -> Void)?) {
         os_log("Synchronise time request", log: self.log, type: .debug)
         let clientTime = Int64(NSDate().timeIntervalSince1970 * 1000)
         guard let url = URL(string: settings.server() + "time") else {
             os_log("Synchronise time failed, invalid request", log: self.log, type: .fault)
-            callback?(timeDelta, NetworkError.invalidRequest)
+            callback?(nil, NetworkError.invalidRequest)
             return
         }
         let task = URLSession.shared.dataTask(with: url, completionHandler: { data, response, error in
             guard error == nil else {
                 os_log("Synchronise time failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
-                callback?(self.timeDelta, error)
+                callback?(nil, error)
                 return
             }
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let data = data, let dataString = String(bytes: data, encoding: .utf8), let serverTime = Int64(dataString) else {
                 os_log("Synchronise time failed, invalid response", log: self.log, type: .fault)
-                callback?(self.timeDelta, NetworkError.invalidResponse)
+                callback?(nil, NetworkError.invalidResponse)
                 return
             }
-            self.timeDelta = clientTime - serverTime
-            os_log("Synchronised time with server (delta=%d)", log: self.log, type: .debug, self.timeDelta)
-            callback?(self.timeDelta, nil)
+            let timeDelta = clientTime - serverTime
+            os_log("Synchronised time with server (delta=%d)", log: self.log, type: .debug, timeDelta)
+            callback?(timeDelta, nil)
         })
         task.resume()
     }
     
-    // Get registration serial number and key
+    /// Get registration serial number and key
     func getRegistration(_ callback: ((SerialNumber?, SharedSecret?, Error?) -> Void)?) {
         os_log("Registration request", log: self.log, type: .debug)
         guard let url = URL(string: settings.server() + "registration") else {
@@ -116,7 +120,7 @@ class ConcreteNetwork: Network {
         task.resume()
     }
     
-    // Get application parameters
+    /// Get application parameters
     public func getSettings(callback: ((ServerSettings?, Error?) -> Void)?) {
         os_log("Get settings request", log: self.log, type: .debug)
         guard let url = URL(string: settings.server() + "parameters") else {
@@ -141,7 +145,7 @@ class ConcreteNetwork: Network {
         task.resume()
     }
 
-    // Post status
+    /// Post status
     func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, _ callback: ((_ didPost: Status?, _ error: Error?) -> Void)?) {
         // Create and encrypt request
         os_log("Post status request (status=%s)", log: self.log, type: .debug, status.description)
@@ -170,7 +174,7 @@ class ConcreteNetwork: Network {
         task.resume()
     }
     
-    // Get device specific message
+    /// Get device specific message
     func getMessage(serialNumber: SerialNumber, sharedSecret: SharedSecret, callback: ((Message?, Error?) -> Void)?) {
         os_log("Get message request", log: self.log, type: .debug)
         let value = String(getTimestamp())
@@ -197,78 +201,50 @@ class ConcreteNetwork: Network {
         task.resume()
     }
     
-    // Get lookup table immediately
-    public func getLookupImmediately(callback: ((Bool) -> Void)? = nil) {
-        os_log("Get lookup immediately request", log: self.log, type: .debug)
-        let url = URL(string: settings.server() + "lookup")
-        let task = URLSession.shared.dataTask(with: url!, completionHandler: { data, response, error in
-            if error == nil, let httpResponse = response as? HTTPURLResponse, let lookup = data {
-                if (httpResponse.statusCode == 200) {
-                    os_log("Get lookup immediately successful (bytes=%u)", log: self.log, type: .debug, lookup.count)
-                    for listener in self.listeners {
-                        listener.networkListenerDidUpdate(lookup: lookup)
-                    }
-                    if callback != nil {
-                        callback!(true)
-                    }
-                    return
-                }
-            }
-            os_log("Get lookup immediately failed (error=%s)", log: self.log, type: .fault, String(describing: error))
-            if callback != nil {
-                callback!(false)
-            }
-        })
-        task.resume()
-    }
-    
-    
-    
-    // Get lookup table in background
-    public func getLookupInBackground(callback: ((Bool) -> Void)? = nil) {
-        os_log("Get lookup in background request", log: self.log, type: .debug)
-        guard !getLookupInBackgroundInProgress else {
-            os_log("Get lookup in background in progress, skipping request", log: self.log, type: .debug)
+    /// Get infection data for on-device matching
+    func getInfectionData(callback: ((InfectionData?, Error?) -> Void)?) {
+        os_log("Get infection data request", log: self.log, type: .debug)
+        guard let url = URL(string: settings.server() + "infectionData") else {
+            os_log("Get infection data request failed (error=badRequest)", log: self.log, type: .fault)
             return
         }
-        getLookupInBackgroundInProgress = true
-        let url = URL(string: settings.server() + "lookup")!
-        DownloadManager.shared.set() { data in
-            if let lookup = data {
-                os_log("Get lookup in background successful (bytes=%u)", log: self.log, type: .debug, lookup.count)
-                for listener in self.listeners {
-                    listener.networkListenerDidUpdate(lookup: lookup)
-                }
-                if callback != nil {
-                    callback!(true)
-                }
-            } else {
-                os_log("Get lookup in background failed", log: self.log, type: .fault)
-                if callback != nil {
-                    callback!(false)
-                }
+        backgroundDownload.get(url) { data, error in
+            guard error == nil else {
+                os_log("Get infection data failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
+                callback?(nil, error)
+                return
             }
-            self.getLookupInBackgroundInProgress = false
+            guard let data = data, let json = try? JSONSerialization.jsonObject(with: data, options: []), let dictionary = json as? [String:String] else {
+                os_log("Get infection data failed, invalid response", log: self.log, type: .fault)
+                callback?(nil, NetworkError.invalidResponse)
+                return
+            }
+            var infectionData = InfectionData()
+            dictionary.forEach { key, value in
+                guard let beaconCodeSeed = BeaconCodeSeed(key), let rawValue = Int(value), let status = Status(rawValue: rawValue) else {
+                    os_log("Parse infection data failed (key=%s,value=%s)", log: self.log, type: .fault, key, value)
+                    return
+                }
+                infectionData[beaconCodeSeed] = status
+            }
+            callback?(infectionData, nil)
+            os_log("Get infection data successful", log: self.log, type: .debug)
         }
-        let backgroundTask = DownloadManager.shared.session.downloadTask(with: url)
-        backgroundTask.countOfBytesClientExpectsToSend = 200
-        backgroundTask.countOfBytesClientExpectsToReceive = 67108864 / 8
-        backgroundTask.resume()
     }
-    
 }
 
-// Download manager for background download of lookup table
-private class DownloadManager : NSObject, URLSessionDelegate, URLSessionDownloadDelegate {
-    static var shared = DownloadManager()
-    private var callback: ((Data?) -> Void)?
-    public var session : URLSession!
-    
-    override init() {
-        super.init()
-        let config = URLSessionConfiguration.background(withIdentifier: "C19XBackgroundDownloadManager")
+/// Background download manager
+private class BackgroundDownload : NSObject, URLSessionDelegate, URLSessionDownloadDelegate {
+    private let log = OSLog(subsystem: "org.C19X.logic", category: "BackgroundDownload")
+    private var session: URLSession!
+    private var isDownloading = false
+    private var delegate: ((Data?, Error?) -> Void)?
+
+    init(_ identifier: String) {
+        let config = URLSessionConfiguration.background(withIdentifier: identifier)
         config.isDiscretionary = true
         config.sessionSendsLaunchEvents = true
+        super.init()
         session = URLSession(configuration: config, delegate: self, delegateQueue: OperationQueue())
     }
     
@@ -276,55 +252,36 @@ private class DownloadManager : NSObject, URLSessionDelegate, URLSessionDownload
         session.finishTasksAndInvalidate()
     }
     
-    func set(callback: ((Data?) -> Void)? = nil) {
-        self.callback = callback
+    func get(_ url: URL, callback: ((Data?, Error?) -> Void)?) {
+        guard !isDownloading else {
+            os_log("Get failed (error=inProgress)", log: self.log, type: .fault)
+            callback?(nil, NetworkError.inProgress)
+            return
+        }
+        isDownloading = true
+        delegate = callback
+        let backgroundTask = session.downloadTask(with: url)
+        backgroundTask.resume()
     }
-
+    
+    // MARK:- URLSessionDelegate
+    
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        if callback != nil {
-            let data = try? Data(NSData(contentsOfFile: location.path))
-            callback!(data)
+        if let data = try? Data(NSData(contentsOfFile: location.path)) {
+            delegate?(data, nil)
+        } else {
+            delegate?(nil, NetworkError.invalidResponse)
         }
         try? FileManager.default.removeItem(at: location)
+        isDownloading = false
+        delegate = nil
     }
 }
 
 enum NetworkError: Error {
     case unregistered
+    case inProgress
     case encryptionFailure
     case invalidRequest
     case invalidResponse
-}
-
-protocol NetworkListener {
-    func networkListenerDidUpdate(serialNumber:UInt64, sharedSecret:Data)
-
-    func networkListenerFailedUpdate(registrationError:Error?)
-
-    func networkListenerDidUpdate(status:Int)
-    
-    func networkListenerFailedUpdate(statusError:Error?)
-
-    func networkListenerDidUpdate(message:String)
-
-    func networkListenerDidUpdate(parameters:[String:String])
-
-    func networkListenerDidUpdate(lookup:Data)
-
-}
-
-public class AbstractNetworkListener: NetworkListener {
-    public func networkListenerDidUpdate(serialNumber:UInt64, sharedSecret:Data) {}
-
-    public func networkListenerFailedUpdate(registrationError:Error?) {}
-
-    public func networkListenerDidUpdate(status:Int) {}
-    
-    public func networkListenerFailedUpdate(statusError:Error?) {}
-
-    public func networkListenerDidUpdate(message:String) {}
-
-    public func networkListenerDidUpdate(parameters:[String:String]) {}
-
-    public func networkListenerDidUpdate(lookup:Data) {}
 }
