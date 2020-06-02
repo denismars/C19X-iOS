@@ -13,12 +13,9 @@
 		B60779252458381E00479C78 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B60779232458381E00479C78 /* Main.storyboard */; };
 		B60779272458382700479C78 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B60779262458382700479C78 /* Assets.xcassets */; };
 		B607792A2458382700479C78 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B60779282458382700479C78 /* LaunchScreen.storyboard */; };
-		B60779322458397100479C78 /* Beacon.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779312458397100479C78 /* Beacon.swift */; };
 		B60779342458397F00479C78 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779332458397F00479C78 /* Network.swift */; };
 		B60779362458398700479C78 /* AES.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779352458398700479C78 /* AES.swift */; };
-		B60779382458399000479C78 /* Utility.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779372458399000479C78 /* Utility.swift */; };
 		B607793C24583D5B00479C78 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B607793A24583D5200479C78 /* CoreBluetooth.framework */; };
-		B607794124584A2100479C78 /* Device.swift in Sources */ = {isa = PBXBuildFile; fileRef = B607794024584A2100479C78 /* Device.swift */; };
 		B6077946245986DD00479C78 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = B6077945245986DD00479C78 /* BigInt */; };
 		B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60B5BC3247503B300EBEE47 /* Transceiver.swift */; };
 		B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B60C0A112462941D002BA6A0 /* CoreData.framework */; };
@@ -57,13 +54,10 @@
 		B60779262458382700479C78 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B60779292458382700479C78 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		B607792B2458382700479C78 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		B60779312458397100479C78 /* Beacon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Beacon.swift; sourceTree = "<group>"; };
 		B60779332458397F00479C78 /* Network.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Network.swift; sourceTree = "<group>"; };
 		B60779352458398700479C78 /* AES.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AES.swift; sourceTree = "<group>"; };
-		B60779372458399000479C78 /* Utility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utility.swift; sourceTree = "<group>"; };
 		B607793A24583D5200479C78 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		B607793F24583D7700479C78 /* C19X.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = C19X.entitlements; sourceTree = "<group>"; };
-		B607794024584A2100479C78 /* Device.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Device.swift; sourceTree = "<group>"; };
 		B60B5BC3247503B300EBEE47 /* Transceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transceiver.swift; sourceTree = "<group>"; };
 		B60C0A112462941D002BA6A0 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = C19X.xcdatamodel; sourceTree = "<group>"; };
@@ -139,9 +133,6 @@
 				B60779262458382700479C78 /* Assets.xcassets */,
 				B60779282458382700479C78 /* LaunchScreen.storyboard */,
 				B607792B2458382700479C78 /* Info.plist */,
-				B60779312458397100479C78 /* Beacon.swift */,
-				B60779372458399000479C78 /* Utility.swift */,
-				B607794024584A2100479C78 /* Device.swift */,
 			);
 			path = C19X;
 			sourceTree = "<group>";
@@ -317,15 +308,12 @@
 				B6439C17247D2F4F004338A6 /* SecuredStorage.swift in Sources */,
 				B6B7D9532469A60E009874F1 /* Transmitter.swift in Sources */,
 				B6439C15247D2A16004338A6 /* Settings.swift in Sources */,
-				B60779382458399000479C78 /* Utility.swift in Sources */,
 				B6439C1B247D2FD8004338A6 /* DataUtilities.swift in Sources */,
 				B6439C19247D2F68004338A6 /* Keychain.swift in Sources */,
-				B60779322458397100479C78 /* Beacon.swift in Sources */,
 				B60779342458397F00479C78 /* Network.swift in Sources */,
 				B60779362458398700479C78 /* AES.swift in Sources */,
 				B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */,
 				B635CFE5247907F400873E20 /* Controller.swift in Sources */,
-				B607794124584A2100479C78 /* Device.swift in Sources */,
 				B60779222458381E00479C78 /* ViewController.swift in Sources */,
 				B607791E2458381E00479C78 /* AppDelegate.swift in Sources */,
 				B60779202458381E00479C78 /* SceneDelegate.swift in Sources */,
