@@ -18,12 +18,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let statisticsBGAppRefreshTask = TimeIntervalSample()
     var controller: Controller!
     
-    //var device: Device!
-    
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         os_log("Application will finishing launching", log: log, type: .debug)
         controller = ConcreteController()
-        //device = Device()
         
         // Schedule regular background task to stop - rest - start beacon to keep it running indefinitely
         // State preservation and restoration work most of the time. It can handle bluetooth off/on reliably,
@@ -67,6 +64,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             task.setTaskCompleted(success: true)
         }
         transceiver.stop("BGAppRefreshTask")
+        controller.synchronise(false)
         transceiver.start("BGAppRefreshTask")
         os_log("Background app refresh end (time=%s)", log: self.log, type: .debug, Date().description)
         task.setTaskCompleted(success: true)

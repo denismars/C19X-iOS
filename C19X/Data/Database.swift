@@ -48,7 +48,7 @@ class ConcreteDatabase: Database {
                 fatalError("Unable to load persistent stores: \(error)")
             }
         }
-        loadContacts()
+        load()
     }
     
     func insert(time: Date, code: BeaconCode, rssi: RSSI) {
@@ -83,22 +83,22 @@ class ConcreteDatabase: Database {
                 }
             }
             try managedContext.save()
-            loadContacts()
+            load()
         } catch let error as NSError {
             os_log("Remove failed (error=%s)", log: self.log, type: .fault, error.description)
         }
         lock.unlock()
     }
     
-    private func loadContacts() {
-        os_log("Load contacts", log: self.log, type: .debug)
+    private func load() {
+        os_log("Load", log: self.log, type: .debug)
         let managedContext = persistentContainer.viewContext
         let fetchRequest = NSFetchRequest<Contact>(entityName: "Contact")
         do {
             self.contacts = try managedContext.fetch(fetchRequest)
-            os_log("Loaded contacts (count=%d)", log: self.log, type: .debug, self.contacts.count)
+            os_log("Loaded (count=%d)", log: self.log, type: .debug, self.contacts.count)
         } catch let error as NSError {
-            os_log("Load contacts failed (error=%s)", log: self.log, type: .fault, error.description)
+            os_log("Load failed (error=%s)", log: self.log, type: .fault, error.description)
         }
     }
 }
