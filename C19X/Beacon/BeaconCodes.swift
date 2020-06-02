@@ -8,7 +8,6 @@
 
 import Foundation
 import CryptoKit
-import BigInt
 import os
 
 /**

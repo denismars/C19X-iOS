@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 50;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -16,7 +16,6 @@
 		B60779342458397F00479C78 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779332458397F00479C78 /* Network.swift */; };
 		B60779362458398700479C78 /* AES.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779352458398700479C78 /* AES.swift */; };
 		B607793C24583D5B00479C78 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B607793A24583D5200479C78 /* CoreBluetooth.framework */; };
-		B6077946245986DD00479C78 /* BigInt in Frameworks */ = {isa = PBXBuildFile; productRef = B6077945245986DD00479C78 /* BigInt */; };
 		B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60B5BC3247503B300EBEE47 /* Transceiver.swift */; };
 		B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B60C0A112462941D002BA6A0 /* CoreData.framework */; };
 		B60C0A1524629441002BA6A0 /* C19X.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */; };
@@ -85,7 +84,6 @@
 			files = (
 				B607793C24583D5B00479C78 /* CoreBluetooth.framework in Frameworks */,
 				B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */,
-				B6077946245986DD00479C78 /* BigInt in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -208,7 +206,6 @@
 			);
 			name = C19X;
 			packageProductDependencies = (
-				B6077945245986DD00479C78 /* BigInt */,
 			);
 			productName = C19X;
 			productReference = B607791A2458381E00479C78 /* C19X.app */;
@@ -262,7 +259,6 @@
 			);
 			mainGroup = B60779112458381E00479C78;
 			packageReferences = (
-				B6077944245986DD00479C78 /* XCRemoteSwiftPackageReference "BigInt" */,
 			);
 			productRefGroup = B607791B2458381E00479C78 /* Products */;
 			projectDirPath = "";
@@ -587,25 +583,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		B6077944245986DD00479C78 /* XCRemoteSwiftPackageReference "BigInt" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/attaswift/BigInt.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 5.1.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		B6077945245986DD00479C78 /* BigInt */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B6077944245986DD00479C78 /* XCRemoteSwiftPackageReference "BigInt" */;
-			productName = BigInt;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */ = {

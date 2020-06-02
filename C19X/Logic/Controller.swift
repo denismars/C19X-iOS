@@ -160,7 +160,7 @@ class ConcreteController : Controller, ReceiverDelegate {
     private func synchroniseTime(_ immediately: Bool = false) {
         let (_,timestamp) = settings.timeDelta()
         guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
-            os_log("Synchronise time deferred (timestamp=%s,elapsed=%s)", log: self.log, type: .debug, timestamp.description)
+            os_log("Synchronise time deferred (timestamp=%s)", log: self.log, type: .debug, timestamp.description)
             return
         }
         os_log("Synchronise time", log: self.log, type: .debug)

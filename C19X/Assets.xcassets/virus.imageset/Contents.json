@@ -1,10 +1,12 @@
 {
   "images" : [
     {
+      "filename" : "virus-2.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
+      "filename" : "virus-1.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
