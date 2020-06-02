@@ -289,8 +289,8 @@ class Settings {
      */
     func server() -> ServerAddress {
         guard let server = userDefaults.string(forKey: keySettingsServer) else {
-            return "https://c19x-dev.servehttp.com/"
-//            return "https://preprod.c19x.org/"
+//            return "https://c19x-dev.servehttp.com/"
+            return "https://preprod.c19x.org/"
         }
         return server
     }
