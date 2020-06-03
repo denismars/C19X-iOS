@@ -289,10 +289,11 @@ class ConcreteController : Controller, ReceiverDelegate {
         delegates.forEach { $0.database(database.contacts) }
         
         // Conduct risk analysis
-        let (advice, contactStatus) = riskAnalysis.advice(contacts: database.contacts, settings: settings)
-        let _ = settings.advice(advice)
-        let _ = settings.contacts(contactStatus)
-        delegates.forEach { $0.advice(advice, contactStatus) }
+        riskAnalysis.advice(contacts: database.contacts, settings: settings) { advice, contactStatus, exposureOverTime, exposureProximity in
+            let _ = self.settings.advice(advice)
+            let _ = self.settings.contacts(contactStatus)
+            self.delegates.forEach { $0.advice(advice, contactStatus) }
+        }
     }
     
     // MARK:- ReceiverDelegate

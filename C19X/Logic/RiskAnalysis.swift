@@ -10,73 +10,93 @@ import Foundation
 import os
 
 protocol RiskAnalysis {
-    func advice(contacts: [Contact], settings: Settings) -> (advice: Advice, contactStatus: Status)
+    func advice(contacts: [Contact], settings: Settings, callback: ((Advice, Status, ExposureOverTime, ExposureProximity) -> Void)?)
 }
-
-/// Beacon code and status, expanded from beacon code seeds and status.
-typealias MatchingData = [BeaconCode:Status]
 
 typealias ExposurePeriod = Int
 typealias ExposureOverTime = [ExposurePeriod:RSSI]
 typealias ExposureProximity = [RSSI:Int]
-typealias Histogram = [Int:Int]
-typealias Probability = Double
 
 class ConcreteRiskAnalysis : RiskAnalysis {
     private let log = OSLog(subsystem: "org.C19X.logic", category: "RiskAnalysis")
+    private let queue = DispatchQueue(label: "org.c19x.logic.RiskAnalysis", qos: .background)
     
-    func advice(contacts: [Contact], settings: Settings) -> (advice: Advice, contactStatus: Status) {
+    func advice(contacts: [Contact], settings: Settings, callback: ((Advice, Status, ExposureOverTime, ExposureProximity) -> Void)?) {
+        // Get status and default advice
         let (status,_,_) = settings.status()
         let (defaultAdvice,_,_) = settings.advice()
         let exposureThreshold = settings.exposure()
-        let symptomatic = exposure(contacts, withStatus: .symptomatic, settings: settings)
-        let confirmedDiagnosis = exposure(contacts, withStatus: .confirmedDiagnosis, settings: settings)
-        let exposureTotal = symptomatic + confirmedDiagnosis
-        let advice = (status != .healthy ? Advice.selfIsolation : (exposureTotal < exposureThreshold ? defaultAdvice : Advice.selfIsolation))
-        let contactStatus = (confirmedDiagnosis > 0 ? Status.confirmedDiagnosis : (symptomatic > 0 ? Status.symptomatic : Status.healthy))
-        os_log("Advice (advice=%s,default=%s,status=%s,contactStatus=%s,symptomatic=%s,confirmedDiagnosis=%s)", log: self.log, type: .debug, advice.description, defaultAdvice.description, status.description, contactStatus.description, symptomatic.description, confirmedDiagnosis.description)
-        return (advice, contactStatus)
-    }
-    
-    /// Regenerate beacon codes for beacon code seeds on device
-    private func beaconCodes(_ infectionData: InfectionData) -> MatchingData {
-        var data = MatchingData()
-        infectionData.forEach() { beaconCodeSeed, status in
-            let beaconCodes = ConcreteBeaconCodes.beaconCodes(beaconCodeSeed, count: ConcreteBeaconCodes.codesPerDay)
-            beaconCodes.forEach() { beaconCode in
-                guard data[beaconCode] == nil || data[beaconCode] == status else {
-                    let from = data[beaconCode]!
-                    if (status.rawValue > from.rawValue) {
-                        data[beaconCode] = status
-                    }
-                    os_log("Beacon code collision (code=%s,from=%s,to=%s)", log: self.log, type: .fault, beaconCode.description, from.description, status.description)
-                    return
-                }
-                data[beaconCode] = status
-            }
+        // Match in background
+        queue.async {
+            let (exposurePeriod, exposureOverTime, exposureProximity) = self.match(contacts, settings)
+            let advice = (status != .healthy ? Advice.selfIsolation : (exposurePeriod < exposureThreshold ? defaultAdvice : Advice.selfIsolation))
+            let contactStatus = (exposurePeriod == 0 ? Status.healthy : Status.infectious)
+            os_log("Advice (advice=%s,default=%s,status=%s,contactStatus=%s,exposure=%s,proximity=%s)", log: self.log, type: .debug, advice.description, defaultAdvice.description, status.description, contactStatus.description, exposurePeriod.description, exposureProximity.description)
+            callback?(advice, contactStatus, exposureOverTime, exposureProximity)
         }
-        return data
+    }
+
+    /**
+     Match contacts against infection data.
+     */
+    private func match(_ contacts: [Contact], _ settings: Settings) -> (ExposurePeriod, ExposureOverTime, ExposureProximity) {
+        let (infectionData, _) = settings.infectionData()
+        let rssiThreshold = settings.proximity()
+        let beaconsForMatching = beacons(contacts)
+        let exposureOverTime = exposure(beaconsForMatching, infectionData)
+        let exposureProximity = proximity(exposureOverTime)
+        let exposurePeriod = period(exposureProximity, threshold: rssiThreshold)
+        return (exposurePeriod, exposureOverTime, exposureProximity)
     }
     
     /**
-     Match contacts with infection data to establish exposure proximity, showing number of exposure periods for each RSSI value.
+     Create map of beacon codes for matching.
      */
-    private func match(_ contacts: [Contact], withStatus: Status, infectionData: InfectionData) -> ExposureProximity {
-        let matchingData = beaconCodes(infectionData)
-        var exposureOverTime = ExposureOverTime()
+    private func beacons(_ contacts: [Contact]) -> [BeaconCode:[Contact]] {
+        var beacons: [BeaconCode:[Contact]] = [:]
         contacts.forEach() { contact in
             let beaconCode = BeaconCode(contact.code)
-            guard let status = matchingData[beaconCode], status == withStatus, let time = contact.time else {
-                return
-            }
-            let period = ExposurePeriod(lround(time.timeIntervalSinceNow / TimeInterval.minute))
-            let rssi = RSSI(contact.rssi)
-            if exposureOverTime[period] == nil || exposureOverTime[period]! < rssi {
-                exposureOverTime[period] = rssi
+            if beacons[beaconCode] == nil {
+                beacons[beaconCode] = [contact]
+            } else {
+                beacons[beaconCode]!.append(contact)
             }
         }
-        let exposureProximity = proximity(exposureOverTime)
-        return exposureProximity
+        return beacons
+    }
+    
+    /**
+     Regenerate beacon codes from infection data for matching to establish exposure over time.
+     */
+    private func exposure(_ beacons: [BeaconCode:[Contact]], _ infectionData: InfectionData) -> ExposureOverTime {
+        var exposureOverTime = ExposureOverTime()
+        infectionData.forEach() { beaconCodeSeed, status in
+            guard status != .healthy else {
+                // Matching symptomatic or confirmed diagnosis only
+                return
+            }
+            // Regenerate beacon codes based on seed
+            let beaconCodesForMatching = ConcreteBeaconCodes.beaconCodes(beaconCodeSeed, count: ConcreteBeaconCodes.codesPerDay)
+            beaconCodesForMatching.forEach() { beaconCode in
+                guard let contacts = beacons[beaconCode] else {
+                    // Unmatched
+                    return
+                }
+                contacts.forEach() { contact in
+                    guard let time = contact.time else {
+                        // No time stamp
+                        return
+                    }
+                    let exposurePeriod = ExposurePeriod(lround(time.timeIntervalSinceNow / TimeInterval.minute))
+                    let exposureProximity = RSSI(contact.rssi)
+                    // Identify nearest encounter for each exposure period
+                    if exposureOverTime[exposurePeriod] == nil || exposureOverTime[exposurePeriod]! < exposureProximity {
+                        exposureOverTime[exposurePeriod] = exposureProximity
+                    }
+                }
+            }
+        }
+        return exposureOverTime
     }
     
     /**
@@ -97,19 +117,15 @@ class ConcreteRiskAnalysis : RiskAnalysis {
     /**
      Calculate exposure period.
      */
-    private func exposure(_ contacts: [Contact], withStatus: Status, settings: Settings) -> ExposurePeriod {
-        let (infectionData, _) = settings.infectionData()
-        let proximity = settings.proximity()
-        let exposureProximity = match(contacts, withStatus: withStatus, infectionData: infectionData)
-        var sum: ExposurePeriod = 0
-        exposureProximity.forEach() { rssi, count in
-            guard rssi >= proximity else {
+    private func period(_ proximity: ExposureProximity, threshold: RSSI) -> ExposurePeriod {
+        var period: ExposurePeriod = 0
+        proximity.forEach() { rssi, count in
+            guard rssi >= threshold else {
                 return
             }
-            sum += count
+            period += count
         }
-        os_log("Exposure (status=%s,sum=%s)", log: self.log, type: .debug, withStatus.description, sum.description)
-        return sum
+        return period
     }
 }
 

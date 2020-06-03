@@ -128,6 +128,8 @@ class ViewController: UIViewController, ControllerDelegate {
         case .confirmedDiagnosis:
             statusDescription.text = "I have a confirmed diagnosis of Coronavirus (COVID-19)."
             break
+        default:
+            break
         }
         statusDescription.numberOfLines = 0
         statusDescription.sizeToFit()
@@ -257,15 +259,18 @@ class ViewController: UIViewController, ControllerDelegate {
         updateViewData(contacts: true, advice: true)
     }
 
-    @objc func adviceUpdateLabelTapped(_ sender: UITapGestureRecognizer) {
-        os_log("Advice update label tapped", log: self.log, type: .debug)
+    // MARK:- Enable immediate update by double tapping on advice view
+    
+    @objc func immediateUpdate(_ sender: UITapGestureRecognizer) {
+        os_log("Immediate update requested", log: self.log, type: .debug)
         controller.synchronise(true)
     }
 
     private func enableImmediateUpdate() {
-        let labelTap = UITapGestureRecognizer(target: self, action: #selector(self.adviceUpdateLabelTapped(_:)))
-        self.adviceLastUpdate.isUserInteractionEnabled = true
-        self.adviceLastUpdate.addGestureRecognizer(labelTap)
+        let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.immediateUpdate(_:)))
+        doubleTapGestureRecognizer.numberOfTapsRequired = 2
+        self.adviceView.isUserInteractionEnabled = true
+        self.adviceView.addGestureRecognizer(doubleTapGestureRecognizer)
     }
     
 

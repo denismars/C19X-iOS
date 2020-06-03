@@ -134,9 +134,10 @@ enum Status: Int {
         case .healthy: return ".healthy"
         case .symptomatic: return ".symptomatic"
         case .confirmedDiagnosis: return ".confirmedDiagnosis"
+        case .infectious: return ".infectious"
         }
     }}
-    case healthy = 0, symptomatic, confirmedDiagnosis
+    case healthy = 0, symptomatic, confirmedDiagnosis, infectious
 }
 
 /**
