@@ -7,12 +7,13 @@
 //
 
 import UIKit
+import CoreBluetooth
 import os
 
-class ViewController: UIViewController, BeaconListener, NetworkListener {
+class ViewController: UIViewController, ControllerDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "ViewController")
     private let appDelegate = UIApplication.shared.delegate as! AppDelegate
-    private var device: Device!
+    private var controller: Controller!
     
     @IBOutlet weak var statusView: UIView!
     @IBOutlet weak var statusSelector: UISegmentedControl!
@@ -21,59 +22,111 @@ class ViewController: UIViewController, BeaconListener, NetworkListener {
     
     @IBOutlet weak var contactView: UIView!
     @IBOutlet weak var contactDescription: UILabel!
+    @IBOutlet weak var contactDescriptionStatus: UIImageView!
     @IBOutlet weak var contactLastUpdate: UILabel!
-    @IBOutlet weak var contactTimeValue: UILabel!
-    @IBOutlet weak var contactTimeUnit: UILabel!
-    @IBOutlet weak var contactTimeBarchart: UIProgressView!
+    @IBOutlet weak var contactValue: UILabel!
+    @IBOutlet weak var contactValueUnit: UILabel!
+    
+    @IBOutlet weak var adviceView: UIView!
+    @IBOutlet weak var adviceDescription: UILabel!
+    @IBOutlet weak var adviceDescriptionStatus: UIImageView!
+    @IBOutlet weak var adviceMessage: UILabel!
+    @IBOutlet weak var adviceLastUpdate: UILabel!
     
     private weak var refreshLastUpdateLabelsTimer: Timer!
-    private var statusLastUpdateTimestamp: Date!
-    private var contactLastUpdateTimestamp: Date!
     
     override func viewDidLoad() {
         os_log("View did load", log: self.log, type: .debug)
         super.viewDidLoad()
+        controller = appDelegate.controller
+        controller.delegates.append(self)
         
-        device = appDelegate.device
-        
-        device.beacon.listeners.append(self)
-        device.network.listeners.append(self)
-
+        // UI tweaks
         statusView.layer.cornerRadius = 10
         contactView.layer.cornerRadius = 10
+        adviceView.layer.cornerRadius = 10
 
-        let now = Date();
-        statusLastUpdateTimestamp = now
-        contactLastUpdateTimestamp = now
-        
-        statusSelector.selectedSegmentIndex = device.getStatus()
-        updateStatusDescriptionText()
-        
-        beaconListenerDidUpdate(beaconCode: 0, rssi: 0)
         contactDescription.numberOfLines = 0
         contactDescription.sizeToFit()
+        
+        adviceDescription.numberOfLines = 0
+        adviceDescription.sizeToFit()
+        
+        adviceMessage.numberOfLines = 0
+        adviceMessage.sizeToFit()
+        
+        enableImmediateUpdate()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        os_log("View did appear", log: self.log, type: .debug)
+        super.viewDidAppear(animated)
+        updateViewData(status: true, contacts: true, advice: true)
+    }
 
-        refreshLastUpdateLabelsAndScheduleAgain()
-        refreshContactTimeAndScheduleAgain()
+    private func updateViewData(status: Bool = false, contacts: Bool = false, advice: Bool = false) {
+        os_log("updateViewData (status=%s,contacts=%s,advice=%s)", log: self.log, type: .debug, status.description, contacts.description, advice.description)
+        if (status) {
+            DispatchQueue.main.async {
+                let (value, timestamp, _) = self.controller.settings.status()
+                self.statusSelector.selectedSegmentIndex = value.rawValue
+                self.statusDescription(value)
+                self.statusLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
+            }
+        }
+        if (contacts) {
+            DispatchQueue.main.async {
+                let (value, status, timestamp) = self.controller.settings.contacts()
+                self.contactValue.text = String(value)
+                self.contactValueUnit.text = (value < 2 ? "contact" : "contacts") + " tracked"
+                self.contactDescription(status)
+                self.contactLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
+            }
+        }
+        if (advice) {
+            DispatchQueue.main.async {
+                let (_, value, adviceTimestamp) = self.controller.settings.advice()
+                let (message, messageTimestamp) = self.controller.settings.message()
+                let timestamp = (adviceTimestamp > messageTimestamp ? adviceTimestamp : messageTimestamp)
+                self.adviceDescription(value)
+                self.adviceLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
+                self.adviceMessage.text = message
+            }
+        }
     }
     
     @IBAction func statusSelectorValueChanged(_ sender: Any) {
-        os_log("Status selector value changed (selectedSegmentIndex=%d)", log: self.log, type: .debug, statusSelector.selectedSegmentIndex)
-        statusSelector.isEnabled = false
-        updateStatusDescriptionText()
-        device.network.postStatus(statusSelector.selectedSegmentIndex)
+        guard let status = Status(rawValue: statusSelector.selectedSegmentIndex) else {
+            os_log("Status selector changed to invalid value (index=%d)", log: self.log, type: .fault, statusSelector.selectedSegmentIndex)
+            return
+        }
+        statusDescription(status)
+        os_log("Status selector value changed (status=%s)", log: self.log, type: .debug, status.description)
+        let dialog = UIAlertController(title: "Share Infection Data", message: "Share your infection status and contact pattern anonymously to help stop the spread of COVID-19?", preferredStyle: .alert)
+        dialog.addAction(UIAlertAction(title: "Don't Allow", style: .default) { _ in
+            // Revert to stored value
+            self.updateViewData(status: true)
+        })
+        dialog.addAction(UIAlertAction(title: "Allow", style: .default) { _ in
+            // Set status locally and remotely
+            self.controller.status(status)
+            self.updateViewData(status: true)
+        })
+        present(dialog, animated: true)
     }
     
-    private func updateStatusDescriptionText() {
-        switch statusSelector.selectedSegmentIndex {
-        case 0:
-            statusDescription.text = "I do not have a high temperature or a new continuous cough"
+    // MARK:- Set text descriptions
+    
+    private func statusDescription(_ setTo: Status) {
+        switch setTo {
+        case .healthy:
+            statusDescription.text = "I do not have a high temperature or a new continuous cough."
             break
-        case 1:
-            statusDescription.text = "I have a high temperature and/or a new continuous cough"
+        case .symptomatic:
+            statusDescription.text = "I have a high temperature and/or a new continuous cough."
             break
-        case 2:
-            statusDescription.text = "I have a confirmed diagnosis of Coronavirus (COVID-19)"
+        case .confirmedDiagnosis:
+            statusDescription.text = "I have a confirmed diagnosis of Coronavirus (COVID-19)."
             break
         default:
             break
@@ -82,96 +135,143 @@ class ViewController: UIViewController, BeaconListener, NetworkListener {
         statusDescription.sizeToFit()
     }
     
-    private func updateLastUpdateLabels() {
-        statusLastUpdate.text = "Shared " + statusLastUpdateTimestamp.elapsed()
-        contactLastUpdate.text = "Updated " + contactLastUpdateTimestamp.elapsed()
-        os_log("Refresh last update labels (status=%s,contact=%s)", log: self.log, type: .debug, statusLastUpdate.text!, contactLastUpdate.text!)
-    }
-    
-    private func refreshLastUpdateLabelsAndScheduleAgain() {
-        updateLastUpdateLabels()
-        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now().advanced(by: .seconds(120))) {
-            self.refreshLastUpdateLabelsAndScheduleAgain()
+    private func contactDescription(_ setTo: Status) {
+        switch setTo {
+        case .healthy:
+            contactDescription.text = "No report of COVID-19 symptoms or diagnosis has been shared."
+            contactDescriptionStatus.backgroundColor = .systemGreen
+            break
+        default:
+            contactDescription.text = "Report of COVID-19 symptoms or diagnosis has been shared."
+            contactDescriptionStatus.backgroundColor = .systemRed
+            break
         }
-    }
-    
-    private func updateContactTime() {
-        let (value, unit, time) = device.contactRecords.descriptionForToday()
-        self.contactTimeValue.text = value
-        self.contactTimeUnit.text = unit
-        self.contactLastUpdate.text = "Updated " + self.contactLastUpdateTimestamp.elapsed()
-        
-        var progress = Float(time) / Float(self.device.parameters.exposureDurationThreshold)
-        if (progress > 1) {
-            progress = 1
-        }
-        self.contactTimeBarchart.progress = progress
-        if (self.device.riskAnalysis.contact == RiskAnalysis.contactInfectious) {
-            self.contactTimeBarchart.tintColor = UIColor.systemRed
-        } else if (time < self.device.parameters.exposureDurationThreshold) {
-            self.contactTimeBarchart.tintColor = UIColor.systemGreen
-        } else {
-            self.contactTimeBarchart.tintColor = UIColor.systemOrange
-        }
-        os_log("Update contact time labels (value=%s,unit=%s)", log: self.log, type: .debug, value, unit)
-    }
-    
-    private func refreshContactTimeAndScheduleAgain() {
-        updateContactTime()
-        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now().advanced(by: .seconds(120))) {
-            self.refreshContactTimeAndScheduleAgain()
-        }
-    }
-    
-    internal func beaconListenerDidUpdate(beaconCode: Int64, rssi: Int) {
-        contactLastUpdateTimestamp = Date()
-        updateContactTime()
     }
 
-    func networkListenerDidUpdate(serialNumber: UInt64, sharedSecret: Data) {
+    private func adviceDescription(_ setTo: Advice) {
+        switch setTo {
+        case .normal:
+            self.adviceDescription.text = "No restriction. COVID-19 is now under control, you can safely return to your normal activities."
+            self.adviceDescriptionStatus.backgroundColor = .systemGreen
+            break
+        case .stayAtHome:
+            self.adviceDescription.text = "Stay at home. Everyone must stay at home to help stop the spread of COVID-19."
+            self.adviceDescriptionStatus.backgroundColor = .systemOrange
+            break
+        case .selfIsolation:
+            self.adviceDescription.text = "Self-isolation. Do not leave your home if you have symptoms or confirmed diagnosis of COVID-19 or been in prolonged close contact with someone who does."
+            self.adviceDescriptionStatus.backgroundColor = .systemRed
+            break
+        }
     }
     
-    func networkListenerDidUpdate(status: Int) {
-        debugPrint("Network (status=\(status))")
-        statusLastUpdateTimestamp = Date()
+    private func notification(title: String, body: String, backgroundOnly: Bool = false) {
         DispatchQueue.main.async {
-            if (self.statusSelector != nil) {
-                self.statusSelector.selectedSegmentIndex = status
-                self.updateStatusDescriptionText()
-                self.statusSelector.isEnabled = true
+            if backgroundOnly && UIApplication.shared.applicationState != .background {
+                os_log("notification denied, application active (backgroundOnly=true)", log: self.log, type: .debug)
+                return
             }
-            self.statusLastUpdate.text = "Shared " + self.statusLastUpdateTimestamp.elapsed()
+            if UIApplication.shared.applicationState != .background {
+                os_log("notification (method=foreground,title=%s,body=%s)", log: self.log, type: .debug, title, body)
+                let dialog = UIAlertController(title: title, message: body, preferredStyle: .alert)
+                dialog.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+                self.present(dialog, animated: true)
+            } else {
+                // Request authorisation for notification
+                let center = UNUserNotificationCenter.current()
+                center.requestAuthorization(options: [.alert]) { granted, error in
+                    if let error = error {
+                        os_log("notification denied, authorisation failed (error=%s)", log: self.log, type: .fault, error.localizedDescription)
+                    } else if granted {
+                        // Raise notification
+                        os_log("notification (method=background,title=%s,body=%s)", log: self.log, type: .debug, title, body)
+                        let identifier = "org.C19X.notification"
+                        let content = UNMutableNotificationContent()
+                        content.title = title
+                        content.body = body
+                        content.sound = UNNotificationSound.default
+                        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+                        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+                        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+                        center.add(request)
+                    } else {
+                        os_log("notification denied, authorisation denied", log: self.log, type: .fault)
+                    }
+                }
+            }
         }
     }
-
-    func networkListenerFailedUpdate(statusError: Error?) {
-        debugPrint("Network failure (statusError=\(String(describing: statusError))")
-        DispatchQueue.main.async {
-            // Present alert
-            let alert = UIAlertController(title: "Server Not Available", message: "Status update can not be shared at this time.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-            self.present(alert, animated: true)
-
-            if (self.statusSelector != nil) {
-                self.statusSelector.selectedSegmentIndex = self.device.getStatus()
-                self.updateStatusDescriptionText()
-                self.statusSelector.isEnabled = true
-            }
-            self.statusLastUpdate.text = "Shared " + self.statusLastUpdateTimestamp.elapsed()
+    
+    // MARK:- ControllerDelegate
+    
+    func controller(_ didUpdateState: ControllerState) {
+        os_log("controller did update state (state=%s)", log: self.log, type: .debug, didUpdateState.rawValue)
+        updateViewData(status: true, contacts: true, advice: true)
+    }
+    
+    func registration(_ serialNumber: SerialNumber) {
+        os_log("registration (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
+    }
+    
+    func transceiver(_ initialised: Transceiver) {
+        os_log("transceiver initialised", log: self.log, type: .debug)
+        updateViewData(contacts: true)
+    }
+    
+    func transceiver(_ didDetectContactAt: Date) {
+        os_log("transceiver did detect contact (timestamp=%s)", log: self.log, type: .debug, didDetectContactAt.description)
+        updateViewData(contacts: true)
+    }
+    
+    func transceiver(_ didUpdateState: CBManagerState) {
+        os_log("transceiver did update state (state=%s)", log: self.log, type: .debug, didUpdateState.description)
+        switch didUpdateState {
+        case .poweredOn:
+//            notification(title: "Contact Tracing Enabled", body: "Turn OFF Bluetooth to pause.", backgroundOnly: true)
+            break
+        case .poweredOff:
+            notification(title: "Contact Tracing Disabled", body: "Turn ON Bluetooth to resume.")
+            break
+        case .unauthorized:
+            notification(title: "Contact Tracing Disabled", body: "Allow Bluetooth access in Settings > C19X to enable.")
+            break
+        case .unsupported:
+            notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
+            break
+        default:
+            notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
+            break
         }
     }
+    
+    func message(_ didUpdateTo: Message) {
+        os_log("Message did update", log: self.log, type: .debug)
+        updateViewData(advice: true)
+    }
+    
+    func database(_ didUpdateContacts: [Contact]) {
+        os_log("Database did update", log: self.log, type: .debug)
+        updateViewData(contacts: true)
+    }
+    
+    func advice(_ didUpdateTo: Advice, _ contactStatus: Status) {
+        os_log("Advice did update", log: self.log, type: .debug)
+        updateViewData(contacts: true, advice: true)
+    }
 
-    func networkListenerDidUpdate(message: String) {
+    // MARK:- Enable immediate update by double tapping on advice view
+    
+    @objc func immediateUpdate(_ sender: UITapGestureRecognizer) {
+        os_log("Immediate update requested", log: self.log, type: .debug)
+        controller.synchronise(true)
+    }
+
+    private func enableImmediateUpdate() {
+        let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.immediateUpdate(_:)))
+        doubleTapGestureRecognizer.numberOfTapsRequired = 2
+        self.adviceView.isUserInteractionEnabled = true
+        self.adviceView.addGestureRecognizer(doubleTapGestureRecognizer)
     }
     
-    func networkListenerDidUpdate(parameters: Parameters) {
-    }
-    
-    func networkListenerDidUpdate(lookup: Data) {
-    }
-    
-    func networkListenerFailedUpdate(registrationError: Error?) {
-    }
 
 }
-

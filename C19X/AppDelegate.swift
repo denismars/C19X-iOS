@@ -13,98 +13,87 @@ import os
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "App")
-    public let device = Device()
-    private var beaconTaskLastTimestamp = Date()
-    private var updateTaskLastTimestamp = Date()
-
+    private let permittedBGAppRefreshTaskIdentifier = "org.c19x.BGAppRefreshTask"
+    private let permittedBGProcessingTaskIdentifier = "org.c19x.BGProcessingTask"
+    private let statisticsBGAppRefreshTask = TimeIntervalSample()
+    var controller: Controller!
+    
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        os_log("Application finished launching", log: log, type: .debug)
+        os_log("Application will finishing launching", log: log, type: .debug)
+        controller = ConcreteController()
         
-        BGTaskScheduler.shared.cancelAllTaskRequests()
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: "org.C19X.beacon", using: DispatchQueue.global(qos: .utility)) { task in
-            self.handleBeaconTask(task: task)
-        }
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: "org.C19X.update", using: DispatchQueue.global(qos: .background)) { task in
-            self.handleUpdateTask(task: task)
-        }
+        // Schedule regular background task to stop - rest - start beacon to keep it running indefinitely
+        // State preservation and restoration work most of the time. It can handle bluetooth off/on reliably,
+        // and it can handle airplane mode on/off most of the time, especially when bluetooth off period
+        // isn't too long. CoreBluetooth struggles the most in situations where a connected peripheral goes
+        // out of range and returns, when both devices are in background mode the whole time. Bringing the
+        // app back to foreground instantly resumes the connection but that's not great.
+        //
+        // Test procedure for background task during development
+        // 1. Run app, send it to background mode (sleep button or de-focus app)
+        // 2. Pause app in Xcode, log should show "[App] Schedule background task"
+        // 3. On the (lldb) prompt, run:
+        //    e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"org.c19x.BGAppRefreshTask"]
+        //    ... should respond with "Simulating launch for task with identifier org.c19x.BGAppRefreshTask"
+        // 4. Resume app in Xcode, log should show "[App] Background app refresh start"
+        //
+        // To test early termination of background task
+        // 5. While the background task is running, pause app in Xcode
+        // 6. On the (lldb) prompt, run:
+        //    e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateExpirationForTaskWithIdentifier:@"org.c19x.BGAppRefreshTask"]
+        //    ... should respond with "Simulating expiration for task with identifier org.c19x.BGAppRefreshTask"
+        // 7. Resume app in Xcode, log should show "[App] Background app refresh expired"
         
-        // Override point for customization after application launch.
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: permittedBGAppRefreshTaskIdentifier, using: nil) { task in
+            self.handle(task: task as! BGAppRefreshTask)
+        }
         return true
     }
     
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        os_log("Application entered background", log: log, type: .debug)
-        scheduleBeaconTask()
-        scheduleUpdateTask()
-    }
-    
-    private func scheduleBeaconTask() {
-        os_log("Scheduling beacon task", log: log, type: .debug)
-        let request = BGProcessingTaskRequest(identifier: "org.C19X.beacon")
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 60)
-//        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval(device.parameters.beaconReceiverOffDuration / 1000))
-        do {
-            try BGTaskScheduler.shared.submit(request)
-            os_log("Scheduled beacon task successful (date=%s)", log: log, type: .fault, request.earliestBeginDate!.description)
-        } catch {
-            os_log("Schedule beacon task failed (error=%s)", log: log, type: .fault, String(describing: error))
+    func handle(task: BGAppRefreshTask) {
+        statisticsBGAppRefreshTask.add()
+        os_log("Background app refresh start (time=%s,statistics=%s)", log: log, type: .debug, Date().description, statisticsBGAppRefreshTask.description)
+        guard let transceiver = controller.transceiver else {
+            task.setTaskCompleted(success: true)
+            os_log("Background app refresh end, transceiver has not been initialised yet (time=%s)", log: log, type: .debug, Date().description)
+            return
         }
-    }
-
-    private func scheduleUpdateTask() {
-        os_log("Scheduling update task", log: log, type: .debug)
-        let request = BGAppRefreshTaskRequest(identifier: "org.C19X.update")
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 60)
-        do {
-            try BGTaskScheduler.shared.submit(request)
-            os_log("Scheduled update task successful (date=%s)", log: log, type: .fault, request.earliestBeginDate!.description)
-        } catch {
-            os_log("Schedule update task failed (error=%s)", log: log, type: .fault, String(describing: error))
-        }
-        
-    }
-
-    private func handleBeaconTask(task: BGTask) {
-        os_log("Handling beacon task (time=%s)", log: log, type: .debug, Date().description)
-        if (!beaconTaskLastTimestamp.distance(to: Date()).isLess(than: Double(device.parameters.beaconTransmitterCodeDuration / 1000))) {
-            device.beacon.setBeaconCode(beaconCode: (device.codes!.get( device.parameters.retentionPeriod)))
-        }
-        
         task.expirationHandler = {
-            self.device.beacon.stopReceiver()
-            os_log("Handle beacon task failed, expired (time=%s)", log: self.log, type: .fault, Date().description)
-            task.setTaskCompleted(success: false)
-        }
-
-        if (device.beacon.startReceiver()) {
-            Timer.scheduledTimer(withTimeInterval: TimeInterval(device.parameters.beaconReceiverOnDuration / 1000), repeats: false) { _ in
-                self.device.beacon.stopReceiver()
-                os_log("Handle beacon task successful (time=%s)", log: self.log, type: .debug, Date().description)
-                task.setTaskCompleted(success: true)
-            }
-        } else {
-            os_log("Handle beacon task successful, bluetooth is off (time=%s)", log: log, type: .debug, Date().description)
+            transceiver.start("BGAppRefreshTask|expiration")
+            os_log("Background app refresh expired (time=%s)", log: self.log, type: .fault, Date().description)
             task.setTaskCompleted(success: true)
         }
-
-        scheduleBeaconTask()
-    }
-
-    private func handleUpdateTask(task: BGTask) {
-        os_log("Handling update task (time=%s)", log: log, type: .debug, Date().description)
-        device.network.getTimeFromServerAndSynchronise()
-        device.network.getParameters()
-        device.network.getLookupInBackground()
-        
-        task.expirationHandler = {
-            os_log("Handle update task failed, expired (time=%s)", log: self.log, type: .fault, Date().description)
-        }
-
+        transceiver.stop("BGAppRefreshTask")
+        controller.synchronise(false)
+        transceiver.start("BGAppRefreshTask")
+        os_log("Background app refresh end (time=%s)", log: self.log, type: .debug, Date().description)
         task.setTaskCompleted(success: true)
-        scheduleUpdateTask()
-        os_log("Handle update task successful (time=%s)", log: log, type: .debug, Date().description)
+        enableBGAppRefreshTask()
     }
     
+    /**
+     Enable background app refresh task for resetting and resting the beacon at regular intervals.
+     This should be called from SceneDelegate:sceneDidEnterBackground.
+     */
+    func enableBGAppRefreshTask() {
+        let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.hour)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            os_log("Background app refresh task enabled (time=%s)", log: log, type: .fault, Date().description)
+        } catch {
+            os_log("Background app refresh task enable failed (error=%s)", log: log, type: .fault, String(describing: error))
+        }
+    }
+    
+    /**
+     Disable background app refresh task for resetting and resting the beacon at regular intervals.
+     This should be called from SceneDelegate:sceneDidEnterForeground.
+     */
+    func disableBGAppRefreshTask() {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: permittedBGAppRefreshTaskIdentifier)
+        os_log("Background app refresh task disabled (time=%s)", log: log, type: .fault, Date().description)
+    }
     
     // MARK: UISceneSession Lifecycle
     
