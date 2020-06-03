@@ -119,10 +119,12 @@ class ConcreteController : Controller, ReceiverDelegate {
         settings.registrationState(.registering)
         network.getRegistration { serialNumber, sharedSecret, error in
             guard let serialNumber = serialNumber, let sharedSecret = sharedSecret, error == nil else {
+                self.settings.registrationState(.unregistered)
                 os_log("Registration failed (error=%s)", log: self.log, type: .fault, String(describing: error))
                 return
             }
             guard let success = self.settings.registration(serialNumber: serialNumber, sharedSecret: sharedSecret), success else {
+                self.settings.registrationState(.unregistered)
                 os_log("Registration failed (error=secureStorageFailed)", log: self.log, type: .fault)
                 return
             }

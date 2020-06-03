@@ -27,7 +27,7 @@ typealias BeaconCode = Int64
 
 class ConcreteBeaconCodes : BeaconCodes {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "BeaconCodes")
-    static let codesPerDay = 2
+    static let codesPerDay = 240
     private var dayCodes: DayCodes
     private var seed: BeaconCodeSeed?
     private var values:[BeaconCode]?
