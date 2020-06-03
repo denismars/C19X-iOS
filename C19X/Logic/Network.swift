@@ -29,7 +29,7 @@ protocol Network {
     /**
      Post health status to central server for sharing.
      */
-    func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, _ callback: ((_ didPost: Status?, _ error: Error?) -> Void)?)
+    func postStatus(_ status: Status, pattern: ContactPattern, serialNumber: SerialNumber, sharedSecret: SharedSecret, _ callback: ((_ didPost: Status?, _ error: Error?) -> Void)?)
     
     /**
      Get personal message from central server.
@@ -146,10 +146,10 @@ class ConcreteNetwork: Network {
     }
 
     /// Post status
-    func postStatus(_ status: Status, serialNumber: SerialNumber, sharedSecret: SharedSecret, _ callback: ((_ didPost: Status?, _ error: Error?) -> Void)?) {
+    func postStatus(_ status: Status, pattern: ContactPattern, serialNumber: SerialNumber, sharedSecret: SharedSecret, _ callback: ((_ didPost: Status?, _ error: Error?) -> Void)?) {
         // Create and encrypt request
         os_log("Post status request (status=%s)", log: self.log, type: .debug, status.description)
-        let value = String(getTimestamp()) + "|" + String(status.rawValue)
+        let value = String(getTimestamp()) + "|" + String(status.rawValue) + "|" + pattern.description
         guard let encrypted = AES.encrypt(key: sharedSecret, string: value), let encoded = encrypted.addingPercentEncoding(withAllowedCharacters: .urlPasswordAllowed), let url = URL(string: settings.server() + "status?key=" + String(serialNumber) + "&value=" + encoded) else {
             os_log("Post status failed, cannot encrypt and encode URL (value=%s)", log: self.log, type: .fault, value)
                 callback?(nil, NetworkError.encryptionFailure)

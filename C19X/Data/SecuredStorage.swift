@@ -52,6 +52,24 @@ class SecuredStorage {
     }
     
     /**
+     Get contact pattern from keychain.
+     */
+    func pattern() -> ContactPattern? {
+        guard let s = Keychain.shared.get("pattern") else {
+            return nil
+        }
+        return ContactPattern(s)
+    }
+    
+    /**
+     Set contact pattern in keychain.
+     */
+    func pattern(_ setTo: ContactPattern) -> Bool? {
+        return Keychain.shared.set("pattern", setTo.description)
+    }
+    
+
+    /**
      Get health status of contacts from keychain.
      */
     func contactStatus() -> Status? {
@@ -110,6 +128,7 @@ class SecuredStorage {
         _ = Keychain.shared.remove("serialNumber")
         _ = Keychain.shared.remove("sharedSecret")
         _ = Keychain.shared.remove("status")
+        _ = Keychain.shared.remove("pattern")
         _ = Keychain.shared.remove("advice")
         _ = Keychain.shared.remove("message")
     }
@@ -124,6 +143,11 @@ typealias SerialNumber = UInt64
  Personal message from server.
  */
 typealias Message = String
+
+/**
+ Contact pattern.
+ */
+typealias ContactPattern = String
 
 /**
  Health status.

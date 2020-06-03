@@ -183,6 +183,23 @@ class Settings {
     }
     
     /**
+     Set contact pattern.
+     */
+    func pattern(_ setTo: ContactPattern) -> Bool? {
+        return securedStorage.pattern(setTo)
+    }
+    
+    /**
+     Get contact pattern.
+     */
+    func pattern() -> ContactPattern {
+        guard let pattern = securedStorage.pattern() else {
+            return ""
+        }
+        return pattern
+    }
+    
+    /**
      Set contacts count and last update timestamp
      */
     func contacts(_ setTo: Int) -> Date {

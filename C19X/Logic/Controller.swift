@@ -181,6 +181,7 @@ class ConcreteController : Controller, ReceiverDelegate {
      */
     private func synchroniseStatus() {
         let (local,timestamp,remoteTimestamp) = settings.status()
+        let pattern = settings.pattern()
         guard timestamp != Date.distantPast else {
             // Only share authorised status data
             return
@@ -194,7 +195,7 @@ class ConcreteController : Controller, ReceiverDelegate {
             os_log("Synchronise status failed (error=unregistered)", log: self.log, type: .fault)
             return
         }
-        network.postStatus(local, serialNumber: serialNumber, sharedSecret: sharedSecret) { status, error in
+        network.postStatus(local, pattern: pattern, serialNumber: serialNumber, sharedSecret: sharedSecret) { status, error in
             guard error == nil else {
                 os_log("Synchronise status failed (error=%s)", log: self.log, type: .fault, String(describing: error))
                 return
@@ -292,6 +293,8 @@ class ConcreteController : Controller, ReceiverDelegate {
         riskAnalysis.advice(contacts: database.contacts, settings: settings) { advice, contactStatus, exposureOverTime, exposureProximity in
             let _ = self.settings.advice(advice)
             let _ = self.settings.contacts(contactStatus)
+            let pattern = ContactPattern(exposureProximity.description.replacingOccurrences(of: " ", with: ""))
+            let _ = self.settings.pattern(pattern)
             self.delegates.forEach { $0.advice(advice, contactStatus) }
         }
     }
