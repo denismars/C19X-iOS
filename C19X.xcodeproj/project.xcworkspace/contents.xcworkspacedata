@@ -2,6 +2,9 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:/Users/Fred/Documents/Software/C19X/iOS/C19X/C19X/C19X.entitlements">
+   </FileRef>
+   <FileRef
       location = "self:">
    </FileRef>
 </Workspace>

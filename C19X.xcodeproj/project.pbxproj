@@ -56,7 +56,6 @@
 		B60779332458397F00479C78 /* Network.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Network.swift; sourceTree = "<group>"; };
 		B60779352458398700479C78 /* AES.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AES.swift; sourceTree = "<group>"; };
 		B607793A24583D5200479C78 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
-		B607793F24583D7700479C78 /* C19X.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = C19X.entitlements; sourceTree = "<group>"; };
 		B60B5BC3247503B300EBEE47 /* Transceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transceiver.swift; sourceTree = "<group>"; };
 		B60C0A112462941D002BA6A0 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = C19X.xcdatamodel; sourceTree = "<group>"; };
@@ -72,6 +71,7 @@
 		B6BC9E2E246A99C00017B281 /* Receiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Receiver.swift; sourceTree = "<group>"; };
 		B6BC9E30246D1C9C0017B281 /* BeaconUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconUtilities.swift; sourceTree = "<group>"; };
 		B6BC9E33246D1E820017B281 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
+		B6C1110E24881B5E00E00C74 /* C19X.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = C19X.entitlements; path = /Users/Fred/Documents/Software/C19X/iOS/C19X/C19X/C19X.entitlements; sourceTree = "<absolute>"; };
 		B6CFE79724858E2B007D3B6F /* C19XTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = C19XTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6CFE79B24858E2B007D3B6F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B6CFE7A1248590D8007D3B6F /* DayCodesTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCodesTest.swift; sourceTree = "<group>"; };
@@ -123,8 +123,8 @@
 				B6439C13247D298A004338A6 /* Logic */,
 				B6BC9E32246D1E440017B281 /* Data */,
 				B6B7D9492469831B009874F1 /* Beacon */,
-				B607793F24583D7700479C78 /* C19X.entitlements */,
 				B607791D2458381E00479C78 /* AppDelegate.swift */,
+				B6C1110E24881B5E00E00C74 /* C19X.entitlements */,
 				B607791F2458381E00479C78 /* SceneDelegate.swift */,
 				B60779212458381E00479C78 /* ViewController.swift */,
 				B60779232458381E00479C78 /* Main.storyboard */,
