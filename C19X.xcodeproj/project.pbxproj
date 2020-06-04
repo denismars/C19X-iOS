@@ -65,6 +65,16 @@
 		B6439C16247D2F4F004338A6 /* SecuredStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuredStorage.swift; sourceTree = "<group>"; };
 		B6439C18247D2F68004338A6 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		B6439C1A247D2FD8004338A6 /* DataUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataUtilities.swift; sourceTree = "<group>"; };
+		B64DA1D92488F5D100ED589B /* AppStore-iPhone-6_5-01.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPhone-6_5-01.png"; sourceTree = "<group>"; };
+		B64DA1DA2488F5D100ED589B /* AppStore-iPhone-6_5-03.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPhone-6_5-03.png"; sourceTree = "<group>"; };
+		B64DA1DB2488F5D200ED589B /* AppStore-iPhone-5_5-03.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPhone-5_5-03.png"; sourceTree = "<group>"; };
+		B64DA1DC2488F5D200ED589B /* AppStore-iPad-12_9-02.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPad-12_9-02.png"; sourceTree = "<group>"; };
+		B64DA1DD2488F5D200ED589B /* AppStore-iPhone-5_5-02.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPhone-5_5-02.png"; sourceTree = "<group>"; };
+		B64DA1DE2488F5D200ED589B /* AppStore-iPad-12_9-01.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPad-12_9-01.png"; sourceTree = "<group>"; };
+		B64DA1DF2488F5D200ED589B /* AppStore-iPhone-5_5-01.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPhone-5_5-01.png"; sourceTree = "<group>"; };
+		B64DA1E02488F5D200ED589B /* AppStore-iPhone-6_5-02.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPhone-6_5-02.png"; sourceTree = "<group>"; };
+		B64DA1E12488F5D200ED589B /* AppStore-iPad-12_9-03.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppStore-iPad-12_9-03.png"; sourceTree = "<group>"; };
+		B64DA1E22488F5D300ED589B /* Icon.pxd */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Icon.pxd; sourceTree = "<group>"; };
 		B6B7D94A24698334009874F1 /* DayCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCodes.swift; sourceTree = "<group>"; };
 		B6B7D94C246983C3009874F1 /* BeaconCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconCodes.swift; sourceTree = "<group>"; };
 		B6B7D9522469A60E009874F1 /* Transmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transmitter.swift; sourceTree = "<group>"; };
@@ -103,6 +113,7 @@
 				B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */,
 				B607791C2458381E00479C78 /* C19X */,
 				B6CFE79824858E2B007D3B6F /* C19XTests */,
+				B64DA1D72488F4D000ED589B /* Resources */,
 				B607791B2458381E00479C78 /* Products */,
 				B607793924583D5200479C78 /* Frameworks */,
 			);
@@ -153,6 +164,31 @@
 				B60C5837247EB9C100665748 /* RiskAnalysis.swift */,
 			);
 			path = Logic;
+			sourceTree = "<group>";
+		};
+		B64DA1D72488F4D000ED589B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B64DA1D82488F4E800ED589B /* images */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		B64DA1D82488F4E800ED589B /* images */ = {
+			isa = PBXGroup;
+			children = (
+				B64DA1DE2488F5D200ED589B /* AppStore-iPad-12_9-01.png */,
+				B64DA1DC2488F5D200ED589B /* AppStore-iPad-12_9-02.png */,
+				B64DA1E12488F5D200ED589B /* AppStore-iPad-12_9-03.png */,
+				B64DA1DF2488F5D200ED589B /* AppStore-iPhone-5_5-01.png */,
+				B64DA1DD2488F5D200ED589B /* AppStore-iPhone-5_5-02.png */,
+				B64DA1DB2488F5D200ED589B /* AppStore-iPhone-5_5-03.png */,
+				B64DA1D92488F5D100ED589B /* AppStore-iPhone-6_5-01.png */,
+				B64DA1E02488F5D200ED589B /* AppStore-iPhone-6_5-02.png */,
+				B64DA1DA2488F5D100ED589B /* AppStore-iPhone-6_5-03.png */,
+				B64DA1E22488F5D300ED589B /* Icon.pxd */,
+			);
+			path = images;
 			sourceTree = "<group>";
 		};
 		B6B7D9492469831B009874F1 /* Beacon */ = {
