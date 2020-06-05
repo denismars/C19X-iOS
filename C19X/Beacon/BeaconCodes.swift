@@ -53,7 +53,6 @@ class ConcreteBeaconCodes : BeaconCodes {
             os_log("Generating beacon codes for new day (day=%s)", log: log, type: .debug, today.description)
             seed = seedToday
             values = ConcreteBeaconCodes.beaconCodes(seedToday, count: ConcreteBeaconCodes.codesPerDay)
-            os_log("Beacon codes for new day (day=%s,seed=%s,codes=%s)", log: log, type: .debug, today.description, seedToday.description, values!.description)
         }
         guard let values = values else {
             os_log("No beacon code available", log: log, type: .fault)

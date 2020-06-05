@@ -334,7 +334,7 @@ class Settings {
             setTo.forEach() { beaconCodeSeed, status in
                 json[beaconCodeSeed.description] = status.rawValue.description
             }
-            try JSONSerialization.data(withJSONObject: json).write(to: fileURL)
+            try JSONSerialization.data(withJSONObject: json).write(to: fileURL, options: .completeFileProtectionUntilFirstUserAuthentication)
             let timestamp = Date()
             userDefaults.set(timestamp, forKey: keyTimestampInfectionData)
         } catch {
