@@ -133,7 +133,7 @@
                                             <constraint firstItem="t64-bY-uEe" firstAttribute="top" secondItem="3gO-vx-PHX" secondAttribute="bottom" multiplier="1.05" constant="8" symbolic="YES" id="ihI-R8-T63"/>
                                             <constraint firstItem="NxY-z7-n4V" firstAttribute="leading" secondItem="3gO-vx-PHX" secondAttribute="leading" id="nrs-Wv-TxJ"/>
                                             <constraint firstItem="Zg6-oL-dCk" firstAttribute="centerY" secondItem="awp-fq-TFj" secondAttribute="centerY" id="ret-Wh-IKK"/>
-                                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="3gO-vx-PHX" secondAttribute="trailing" constant="223.5" id="tuI-1V-6OT"/>
+                                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="3gO-vx-PHX" secondAttribute="trailing" constant="20" symbolic="YES" id="tuI-1V-6OT"/>
                                             <constraint firstItem="awp-fq-TFj" firstAttribute="leading" secondItem="3gO-vx-PHX" secondAttribute="leading" id="u8h-1r-Myf"/>
                                             <constraint firstItem="tyb-Tp-Ysc" firstAttribute="leading" secondItem="t64-bY-uEe" secondAttribute="leading" constant="-8" id="uY4-yz-IYH"/>
                                         </constraints>
