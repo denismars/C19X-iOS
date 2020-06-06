@@ -25,23 +25,23 @@ This app does not use the Apple - Google Contact Tracing API.
 ## Features
 
 - Bluetooth beacon
-  - Works across iOS (13+) and Android (24+) without software update to latest version
-  - Works well under iOS and Android background mode
-  - Low energy usage and minimal bluetooth data exchange
+  - Works across iOS (13+) and Android (24+) without software update to latest version.
+  - Works well under iOS and Android background mode.
+  - Low energy usage and minimal bluetooth data exchange.
 - Security
-  - HTTPS for all network traffic
-  - AES encrypted message for submitting status updates 
-  - Sensitive data encrypted on-device
+  - HTTPS for all network traffic.
+  - AES encrypted message for submitting status updates.
+  - Sensitive data encrypted on-device.
 - Privacy
-  - No user or device data is ever collected
-  - One-time download of shared secret on registration via HTTPS
-  - Published beacon code seeds cannot be traced back to device
+  - No user or device data is ever collected.
+  - One-time download of shared secret on registration via HTTPS.
+  - Published beacon code seeds cannot be traced back to device.
 
 ## Building the code
 
-1. Install the latest Xcode developer tools from Apple
-2. Clone the repository
-3. Build and run project
+1. Install the latest Xcode developer tools from Apple.
+2. Clone the repository.
+3. Build and run project.
 
 ## Testing the app
 
