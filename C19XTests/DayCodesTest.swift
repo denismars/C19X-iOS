@@ -35,13 +35,13 @@ class DayCodesTest: XCTestCase {
         }
     }
     
-    func testDay153Codes() throws {
+    func testTodayCodes() throws {
         let sharedSecret = SharedSecret([0])
         let dayCodes = ConcreteDayCodes.dayCodes(sharedSecret, days: 365 * 5)
-        let today = 153
+        let today = 156
         let dayCode = dayCodes[today]
         let beaconCodeSeed = ConcreteDayCodes.beaconCodeSeed(dayCode)
-        let beaconCodes = ConcreteBeaconCodes.beaconCodes(beaconCodeSeed, count: 2)
+        let beaconCodes = ConcreteBeaconCodes.beaconCodes(beaconCodeSeed, count: 1)
         for j in 0...beaconCodes.count-1 {
             let beaconCode = beaconCodes[j]
             print("\(today):\(j) dayCode=\(dayCode), beaconCodeSeed=\(beaconCodeSeed), beaconCode=\(beaconCode)")

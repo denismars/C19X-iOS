@@ -549,7 +549,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             let (upper,beaconCode) = characteristic.uuid.values
             if upper == characteristicCBUUIDUpper {
                 let notifies = characteristic.properties.contains(.notify)
-                os_log("didDiscoverCharacteristicsFor, found beacon characteristic (peripheral=%s,beaconCode=%s,notifies=%s)", log: log, type: .debug, uuid, beaconCode.description, (notifies ? "true" : "false"))
+                os_log("didDiscoverCharacteristicsFor, found beacon characteristic (peripheral=%s,beaconCode=%s,notifies=%s,os=%s)", log: log, type: .debug, uuid, beaconCode.description, (notifies ? "true" : "false"), (notifies ? "ios" : "android"))
                 beacon.code = beaconCode
                 // Characteristic notifies -> Operating system is iOS, else Android
                 beacon.operatingSystem = (notifies ? .ios : .android)
