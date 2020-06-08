@@ -77,7 +77,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
      */
     func enableBGAppRefreshTask() {
         let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.hour)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.minute * 5)
         do {
             try BGTaskScheduler.shared.submit(request)
             os_log("Background app refresh task enabled (time=%s)", log: log, type: .fault, Date().description)

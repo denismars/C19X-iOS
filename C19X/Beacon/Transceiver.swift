@@ -39,15 +39,6 @@ import os
  */
 protocol Transceiver {
     /**
-     Beacon transmitter.
-     */
-    var transmitter : Transmitter { get set }
-    /**
-     Beacon receiver.
-     */
-    var receiver: Receiver { get set }
-
-    /**
      Start transmitter and receiver to follow Bluetooth state changes to start and stop advertising and scanning.
      */
     func start(_ source: String)
@@ -65,8 +56,8 @@ class ConcreteTransceiver : Transceiver {
     private let dayCodes: DayCodes
     private let beaconCodes: BeaconCodes
     private let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
-    var transmitter : Transmitter
-    var receiver: Receiver
+    private var transmitter : Transmitter
+    private var receiver: Receiver
     
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
         dayCodes = ConcreteDayCodes(sharedSecret)

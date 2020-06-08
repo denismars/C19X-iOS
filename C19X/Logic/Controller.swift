@@ -44,6 +44,11 @@ protocol Controller {
      Set health status, locally and remotely.
      */
     func status(_ setTo: Status)
+    
+    /**
+     Export contacts.
+     */
+    func export()
 }
 
 enum ControllerState: String {
@@ -297,6 +302,30 @@ class ConcreteController : Controller, ReceiverDelegate {
             let _ = self.settings.pattern(pattern)
             self.delegates.forEach { $0.advice(advice, contactStatus) }
         }
+    }
+    
+    func export() {
+        do {
+            let fileURL = try FileManager.default
+                .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                .appendingPathComponent("contacts.csv")
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            var string = ""
+            database.contacts.forEach() { contact in
+                guard let time = contact.time else {
+                    return
+                }
+                let timestamp = dateFormatter.string(from: time)
+                let row = timestamp + "," + contact.rssi.description + "\n"
+                string.append(row)
+            }
+            try string.write(to: fileURL, atomically: true, encoding: .utf8)
+            os_log("export", log: log, type: .debug)
+        } catch {
+            os_log("Failed to export contacts to storage (error=%s)", log: log, type: .fault, String(describing: error))
+        }
+
     }
     
     // MARK:- ReceiverDelegate

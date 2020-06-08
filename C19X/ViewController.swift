@@ -56,6 +56,7 @@ class ViewController: UIViewController, ControllerDelegate {
         adviceMessage.sizeToFit()
         
         enableImmediateUpdate()
+        enableExportContacts()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -273,5 +274,18 @@ class ViewController: UIViewController, ControllerDelegate {
         self.adviceView.addGestureRecognizer(doubleTapGestureRecognizer)
     }
     
+    // MARK:- Enable export by double tapping on contact view
+    
+    @objc func exportContacts(_ sender: UITapGestureRecognizer) {
+        os_log("Export requested", log: self.log, type: .debug)
+        controller.export()
+    }
+
+    private func enableExportContacts() {
+        let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.exportContacts(_:)))
+        doubleTapGestureRecognizer.numberOfTapsRequired = 2
+        self.contactView.isUserInteractionEnabled = true
+        self.contactView.addGestureRecognizer(doubleTapGestureRecognizer)
+    }
 
 }

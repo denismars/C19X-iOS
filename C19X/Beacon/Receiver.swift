@@ -141,7 +141,7 @@ class Beacon {
         return createdOnDay == today
     } }
     var isExpired: Bool { get {
-        Date().timeIntervalSince(lastUpdatedAt) > TimeInterval.hour
+        Date().timeIntervalSince(lastUpdatedAt) > (3 * TimeInterval.minute)
     } }
     
     init(peripheral: CBPeripheral) {
@@ -244,7 +244,8 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             let uuid = peripheral.identifier.uuidString
             if beacons[uuid] == nil {
                 os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
-                beacons[uuid] = Beacon(peripheral: peripheral)
+                disconnect("scan|unknown", peripheral)
+//                beacons[uuid] = Beacon(peripheral: peripheral)
             }
         }
         // All peripherals -> Discard expired beacons
@@ -267,7 +268,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 if beacon.peripheral.state == .connected {
                     wakeTransmitter("scan|ios", beacon)
                 }
-                    // iOS peripherals (Not connected) -> Connect
+                // iOS peripherals (Not connected) -> Connect
                 else {
                     connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
                 }
