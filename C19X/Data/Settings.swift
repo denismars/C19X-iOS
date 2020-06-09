@@ -228,9 +228,13 @@ class Settings {
         guard securedStorage.contactStatus(setTo) ?? false else {
             return nil
         }
-        let timestamp = Date()
-        userDefaults.set(timestamp, forKey: keyTimestampContact)
+        guard let timestamp = userDefaults.object(forKey: keyTimestampContact) as? Date else {
+            return Date.distantPast
+        }
         return timestamp
+//        let timestamp = Date()
+//        userDefaults.set(timestamp, forKey: keyTimestampContact)
+//        return timestamp
     }
     
     /**

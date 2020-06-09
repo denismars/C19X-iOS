@@ -275,7 +275,7 @@ class ConcreteController : Controller, ReceiverDelegate {
         os_log("Synchronise infection data", log: self.log, type: .debug)
         network.getInfectionData() { infectionData, error  in
             guard let infectionData = infectionData, error == nil else {
-                os_log("Synchronise infection data (error=%s)", log: self.log, type: .fault, String(describing: error))
+                os_log("Synchronise infection data failed (error=%s)", log: self.log, type: .fault, String(describing: error))
                 return
             }
             self.settings.infectionData(infectionData)
