@@ -63,9 +63,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             os_log("Background app refresh expired (time=%s)", log: self.log, type: .fault, Date().description)
             task.setTaskCompleted(success: true)
         }
-        transceiver.stop("BGAppRefreshTask")
-        controller.synchronise(false)
         transceiver.start("BGAppRefreshTask")
+        controller.synchronise(false)
         os_log("Background app refresh end (time=%s)", log: self.log, type: .debug, Date().description)
         task.setTaskCompleted(success: true)
         enableBGAppRefreshTask()

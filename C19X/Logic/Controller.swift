@@ -325,7 +325,6 @@ class ConcreteController : Controller, ReceiverDelegate {
         } catch {
             os_log("Failed to export contacts to storage (error=%s)", log: log, type: .fault, String(describing: error))
         }
-
     }
     
     // MARK:- ReceiverDelegate

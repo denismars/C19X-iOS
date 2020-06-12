@@ -80,8 +80,10 @@ class ViewController: UIViewController, ControllerDelegate {
                 let (value, status, timestamp) = self.controller.settings.contacts()
                 self.contactValue.text = String(value)
                 self.contactValueUnit.text = (value < 2 ? "contact" : "contacts") + " tracked"
-                self.contactDescription(status)
                 self.contactLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
+                if self.contactDescription(status) {
+                    self.notification(title: "Recent Contacts Updated", body: "Open C19X app to review update.", backgroundOnly: true)
+                }
             }
         }
         if (advice) {
@@ -89,9 +91,13 @@ class ViewController: UIViewController, ControllerDelegate {
                 let (_, value, adviceTimestamp) = self.controller.settings.advice()
                 let (message, messageTimestamp) = self.controller.settings.message()
                 let timestamp = (adviceTimestamp > messageTimestamp ? adviceTimestamp : messageTimestamp)
-                self.adviceDescription(value)
                 self.adviceLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
-                self.adviceMessage.text = message
+                if self.adviceDescription(value) {
+                    self.notification(title: "Advice Updated", body: "Open C19X app to review update.", backgroundOnly: true)
+                }
+                if self.adviceMessage(message) {
+                    self.notification(title: "Message Received", body: "Open C19X app to view message.", backgroundOnly: true)
+                }
             }
         }
     }
@@ -136,7 +142,8 @@ class ViewController: UIViewController, ControllerDelegate {
         statusDescription.sizeToFit()
     }
     
-    private func contactDescription(_ setTo: Status) {
+    private func contactDescription(_ setTo: Status) -> Bool {
+        let text = contactDescription.text
         switch setTo {
         case .healthy:
             contactDescription.text = "No report of COVID-19 symptoms or diagnosis has been shared."
@@ -147,23 +154,32 @@ class ViewController: UIViewController, ControllerDelegate {
             contactDescriptionStatus.backgroundColor = .systemRed
             break
         }
+        return text != contactDescription.text
     }
 
-    private func adviceDescription(_ setTo: Advice) {
+    private func adviceDescription(_ setTo: Advice) -> Bool {
+        let text = adviceDescription.text
         switch setTo {
         case .normal:
-            self.adviceDescription.text = "No restriction. COVID-19 is now under control, you can safely return to your normal activities."
-            self.adviceDescriptionStatus.backgroundColor = .systemGreen
+            adviceDescription.text = "No restriction. COVID-19 is now under control, you can safely return to your normal activities."
+            adviceDescriptionStatus.backgroundColor = .systemGreen
             break
         case .stayAtHome:
-            self.adviceDescription.text = "Stay at home. Everyone must stay at home to help stop the spread of COVID-19."
-            self.adviceDescriptionStatus.backgroundColor = .systemOrange
+            adviceDescription.text = "Stay at home. Everyone must stay at home to help stop the spread of COVID-19."
+            adviceDescriptionStatus.backgroundColor = .systemOrange
             break
         case .selfIsolation:
-            self.adviceDescription.text = "Self-isolation. Do not leave your home if you have symptoms or confirmed diagnosis of COVID-19 or been in prolonged close contact with someone who does."
-            self.adviceDescriptionStatus.backgroundColor = .systemRed
+            adviceDescription.text = "Self-isolation. Do not leave your home if you have symptoms or confirmed diagnosis of COVID-19 or been in prolonged close contact with someone who does."
+            adviceDescriptionStatus.backgroundColor = .systemRed
             break
         }
+        return text != adviceDescription.text
+    }
+    
+    private func adviceMessage(_ setTo: Message) -> Bool {
+        let text = adviceMessage.text
+        adviceMessage.text = setTo
+        return text != adviceMessage.text
     }
     
     private func notification(title: String, body: String, backgroundOnly: Bool = false) {
@@ -237,10 +253,10 @@ class ViewController: UIViewController, ControllerDelegate {
             notification(title: "Contact Tracing Disabled", body: "Allow Bluetooth access in Settings > C19X to enable.")
             break
         case .unsupported:
-            notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
+//            notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
             break
         default:
-            notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
+//            notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
             break
         }
     }

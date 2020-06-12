@@ -202,9 +202,11 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     
     func start(_ source: String) {
         os_log("start (source=%s)", log: log, type: .debug, source)
-        guard !central.isScanning else {
-            os_log("start denied, already started (source=%s)", log: log, type: .fault, source)
-            return
+        if central.isScanning {
+            // Stop scanning
+            scanTimer?.cancel()
+            scanTimer = nil
+            central.stopScan()
         }
         // Start scanning
         if central.state == .poweredOn {

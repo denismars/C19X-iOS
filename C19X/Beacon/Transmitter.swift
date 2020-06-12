@@ -133,9 +133,10 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     
     func start(_ source: String) {
         os_log("start (source=%s)", log: log, type: .debug, source)
-        guard !peripheral.isAdvertising else {
-            os_log("start denied, already started (source=%s)", log: log, type: .fault, source)
-            return
+        if peripheral.isAdvertising {
+            peripheral.stopAdvertising()
+            notifyTimer?.cancel()
+            notifyTimer = nil
         }
         if let (_,beaconCode) = beaconCharacteristic?.uuid.values {
             peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]])
