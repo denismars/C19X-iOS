@@ -239,23 +239,20 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             os_log("scan failed, bluetooth is not powered on", log: log, type: .fault)
             return
         }
-        // Scan for peripherals -> didDiscover
-        central.scanForPeripherals(withServices: [beaconServiceCBUUID])
-        // Connected peripherals -> Check registration
-        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
-            let uuid = peripheral.identifier.uuidString
-            if beacons[uuid] == nil {
-                os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
-                disconnect("scan|unknown", peripheral)
-//                beacons[uuid] = Beacon(peripheral: peripheral)
-            }
-        }
         // All peripherals -> Discard expired beacons
         beacons.values.filter{$0.isExpired}.forEach { beacon in
             let uuid = beacon.uuidString
             os_log("scan found expired peripheral (peripheral=%s)", log: log, type: .debug, uuid)
             disconnect("scan|expired", beacon.peripheral)
             beacons[uuid] = nil
+        }
+        // Connected peripherals -> Check registration
+        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
+            let uuid = peripheral.identifier.uuidString
+            if beacons[uuid] == nil {
+                os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
+                disconnect("scan|unknown", peripheral)
+            }
         }
         // All peripherals -> Check pending actions
         beacons.values.forEach() { beacon in
@@ -281,6 +278,8 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 beacon.peripheral.delegate = self
             }
         }
+        // Scan for peripherals -> didDiscover
+        central.scanForPeripherals(withServices: [beaconServiceCBUUID])
     }
     
     /**
@@ -525,6 +524,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         os_log("didDiscoverServices (peripheral=%s,error=%s)", log: log, type: .debug, uuid, String(describing: error))
         guard let services = peripheral.services else {
             disconnect("didDiscoverServices|serviceEmpty", peripheral)
+            beacons[uuid] = nil
             return
         }
         for service in services {
@@ -545,6 +545,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         os_log("didDiscoverCharacteristicsFor (peripheral=%s,error=%s)", log: log, type: .debug, uuid, String(describing: error))
         guard let beacon = beacons[uuid], let characteristics = service.characteristics else {
             disconnect("didDiscoverCharacteristicsFor|characteristicEmpty", peripheral)
+            beacons[uuid] = nil
             return
         }
         for characteristic in characteristics {
@@ -573,7 +574,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         if let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
             wakeTransmitter("didDiscoverCharacteristicsFor", beacon)
         }
-            // Android -> Disconnect
+        // Android -> Disconnect
         else {
             disconnect("didDiscoverCharacteristicsFor", peripheral)
         }
