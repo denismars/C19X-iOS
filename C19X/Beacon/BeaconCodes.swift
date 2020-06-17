@@ -50,7 +50,7 @@ class ConcreteBeaconCodes : BeaconCodes {
             return nil
         }
         if values == nil || seed != seedToday {
-            os_log("Generating beacon codes for new day (day=%s)", log: log, type: .debug, today.description)
+            os_log("Generating beacon codes for new day (day=%s,seed=%s)", log: log, type: .debug, today.description, seedToday.description)
             seed = seedToday
             values = ConcreteBeaconCodes.beaconCodes(seedToday, count: ConcreteBeaconCodes.codesPerDay)
         }

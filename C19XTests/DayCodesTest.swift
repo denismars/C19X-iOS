@@ -38,7 +38,7 @@ class DayCodesTest: XCTestCase {
     func testTodayCodes() throws {
         let sharedSecret = SharedSecret([0])
         let dayCodes = ConcreteDayCodes.dayCodes(sharedSecret, days: 365 * 5)
-        let today = 156
+        let today = 168
         let dayCode = dayCodes[today]
         let beaconCodeSeed = ConcreteDayCodes.beaconCodeSeed(dayCode)
         let beaconCodes = ConcreteBeaconCodes.beaconCodes(beaconCodeSeed, count: 1)
