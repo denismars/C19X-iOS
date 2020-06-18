@@ -31,6 +31,7 @@
 		B6BC9E2F246A99C00017B281 /* Receiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E2E246A99C00017B281 /* Receiver.swift */; };
 		B6BC9E31246D1C9C0017B281 /* BeaconUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E30246D1C9C0017B281 /* BeaconUtilities.swift */; };
 		B6BC9E34246D1E820017B281 /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BC9E33246D1E820017B281 /* Database.swift */; };
+		B6CF0EBA249B4C5600073F43 /* ControllerTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6CF0EB9249B4C5600073F43 /* ControllerTest.swift */; };
 		B6CFE7A2248590D8007D3B6F /* DayCodesTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6CFE7A1248590D8007D3B6F /* DayCodesTest.swift */; };
 /* End PBXBuildFile section */
 
@@ -82,6 +83,7 @@
 		B6BC9E30246D1C9C0017B281 /* BeaconUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconUtilities.swift; sourceTree = "<group>"; };
 		B6BC9E33246D1E820017B281 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
 		B6C1110E24881B5E00E00C74 /* C19X.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = C19X.entitlements; path = /Users/Fred/Documents/Software/C19X/iOS/C19X/C19X/C19X.entitlements; sourceTree = "<absolute>"; };
+		B6CF0EB9249B4C5600073F43 /* ControllerTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerTest.swift; sourceTree = "<group>"; };
 		B6CFE79724858E2B007D3B6F /* C19XTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = C19XTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6CFE79B24858E2B007D3B6F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B6CFE7A1248590D8007D3B6F /* DayCodesTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCodesTest.swift; sourceTree = "<group>"; };
@@ -219,6 +221,7 @@
 		B6CFE79824858E2B007D3B6F /* C19XTests */ = {
 			isa = PBXGroup;
 			children = (
+				B6CF0EB9249B4C5600073F43 /* ControllerTest.swift */,
 				B6CFE7A1248590D8007D3B6F /* DayCodesTest.swift */,
 				B6CFE79B24858E2B007D3B6F /* Info.plist */,
 			);
@@ -358,6 +361,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B6CFE7A2248590D8007D3B6F /* DayCodesTest.swift in Sources */,
+				B6CF0EBA249B4C5600073F43 /* ControllerTest.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

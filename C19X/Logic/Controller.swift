@@ -166,7 +166,7 @@ class ConcreteController : Controller, ReceiverDelegate {
      */
     private func synchroniseTime(_ immediately: Bool = false) {
         let (_,timestamp) = settings.timeDelta()
-        guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
+        guard immediately || oncePerDay(timestamp) else {
             os_log("Synchronise time deferred (timestamp=%s)", log: self.log, type: .debug, timestamp.description)
             return
         }
@@ -219,7 +219,7 @@ class ConcreteController : Controller, ReceiverDelegate {
      */
     private func synchroniseMessage(_ immediately: Bool = false) {
         let (_, timestamp) = settings.message()
-        guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
+        guard immediately || oncePerDay(timestamp) else {
             os_log("Synchronise message deferred (timestamp=%s)", log: self.log, type: .debug, timestamp.description)
             return
         }
@@ -247,7 +247,7 @@ class ConcreteController : Controller, ReceiverDelegate {
      */
     private func synchroniseSettings(_ immediately: Bool = false) {
         let (_, timestamp) = settings.get()
-        guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
+        guard immediately || oncePerDay(timestamp) else {
             os_log("Synchronise settings deferred (timestamp=%s)", log: self.log, type: .debug, timestamp.description)
             return
         }
@@ -268,7 +268,7 @@ class ConcreteController : Controller, ReceiverDelegate {
      */
     private func synchroniseInfectionData(_ immediately: Bool = false) {
         let (_, timestamp) = settings.infectionData()
-        guard immediately || -timestamp.timeIntervalSinceNow > TimeInterval.day else {
+        guard immediately || oncePerDay(timestamp) else {
             os_log("Synchronise infection data deferred (timestamp=%s)", log: self.log, type: .debug, timestamp.description)
             return
         }
@@ -282,6 +282,29 @@ class ConcreteController : Controller, ReceiverDelegate {
             os_log("Synchronise infection data successful", log: self.log, type: .debug)
             self.applySettings()
         }
+    }
+    
+    /**
+     Tests whether daily update should be executed.
+     */
+    func oncePerDay(_ lastUpdate: Date, now: Date = Date()) -> Bool {
+        // Must update if over one day has elapsed
+        if (lastUpdate.timeIntervalSince(now) > TimeInterval.day) {
+            return true
+        }
+        // Otherwise update overnight only
+        let (windowStart, windowEnd) = (0, 6)
+        let hour = Calendar.current.component(Calendar.Component.hour, from: now)
+        guard hour >= windowStart && hour < windowEnd else {
+            return false
+        }
+        // Ensure update wasn't completely recently
+        let window = TimeInterval((windowEnd - windowStart) * 60 * 60)
+        let elapsed = abs(lastUpdate.timeIntervalSince(now))
+        guard elapsed > window else {
+            return false
+        }
+        return true
     }
     
     /**
