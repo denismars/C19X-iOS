@@ -47,6 +47,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: permittedBGAppRefreshTaskIdentifier, using: nil) { task in
             self.handle(task: task as! BGAppRefreshTask)
         }
+        enableBGAppRefreshTask()
         return true
     }
     

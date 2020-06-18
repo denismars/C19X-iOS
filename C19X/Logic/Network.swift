@@ -121,7 +121,7 @@ class ConcreteNetwork: Network {
     }
     
     /// Get application parameters
-    public func getSettings(callback: ((ServerSettings?, Error?) -> Void)?) {
+    func getSettings(callback: ((ServerSettings?, Error?) -> Void)?) {
         os_log("Get settings request", log: self.log, type: .debug)
         guard let url = URL(string: settings.server() + "parameters") else {
             os_log("Get settings failed, invalid request", log: self.log, type: .fault)
@@ -203,7 +203,11 @@ class ConcreteNetwork: Network {
     
     /// Get infection data for on-device matching
     func getInfectionData(callback: ((InfectionData?, Error?) -> Void)?) {
-        os_log("Get infection data request", log: self.log, type: .debug)
+        getInfectionDataImmediately(callback: callback)
+    }
+    
+    private func getInfectionDataInBackground(callback: ((InfectionData?, Error?) -> Void)?) {
+        os_log("Get infection data request (background)", log: self.log, type: .debug)
         guard let url = URL(string: settings.server() + "infectionData") else {
             os_log("Get infection data request failed (error=badRequest)", log: self.log, type: .fault)
             return
@@ -231,6 +235,39 @@ class ConcreteNetwork: Network {
             os_log("Get infection data successful", log: self.log, type: .debug)
         }
     }
+    
+    /// Get infection data for on-device matching immediately
+    private func getInfectionDataImmediately(callback: ((InfectionData?, Error?) -> Void)?) {
+        os_log("Get infection data request (immediate)", log: self.log, type: .debug)
+        guard let url = URL(string: settings.server() + "infectionData") else {
+            os_log("Get infection data request failed (error=badRequest)", log: self.log, type: .fault)
+            return
+        }
+        let task = URLSession.shared.dataTask(with: url, completionHandler: { data, response, error in
+            guard error == nil else {
+                os_log("Get infection data failed, network error (error=%s)", log: self.log, type: .fault, String(describing: error))
+                callback?(nil, error)
+                return
+            }
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200, let data = data, let json = try? JSONSerialization.jsonObject(with: data, options: []), let dictionary = json as? [String:String] else {
+                os_log("Get infection data failed, invalid response", log: self.log, type: .fault)
+                callback?(nil, NetworkError.invalidResponse)
+                return
+            }
+            var infectionData = InfectionData()
+            dictionary.forEach { key, value in
+                guard let beaconCodeSeed = BeaconCodeSeed(key), let rawValue = Int(value), let status = Status(rawValue: rawValue) else {
+                    os_log("Parse infection data failed (key=%s,value=%s)", log: self.log, type: .fault, key, value)
+                    return
+                }
+                infectionData[beaconCodeSeed] = status
+            }
+            callback?(infectionData, nil)
+            os_log("Get infection data successful", log: self.log, type: .debug)
+        })
+        task.resume()
+    }
+
 }
 
 /// Background download manager

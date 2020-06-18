@@ -57,6 +57,9 @@ class ViewController: UIViewController, ControllerDelegate {
         
         enableImmediateUpdate()
         enableExportContacts()
+
+        // Initialise view data, hence suppress notification
+        updateViewData(status: true, contacts: true, advice: true, suppressNotification: true)
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -65,8 +68,8 @@ class ViewController: UIViewController, ControllerDelegate {
         updateViewData(status: true, contacts: true, advice: true)
     }
 
-    private func updateViewData(status: Bool = false, contacts: Bool = false, advice: Bool = false) {
-        os_log("updateViewData (status=%s,contacts=%s,advice=%s)", log: self.log, type: .debug, status.description, contacts.description, advice.description)
+    private func updateViewData(status: Bool = false, contacts: Bool = false, advice: Bool = false, suppressNotification: Bool = false) {
+        os_log("updateViewData (status=%s,contacts=%s,advice=%s,suppressNotification=%s)", log: self.log, type: .debug, status.description, contacts.description, advice.description, suppressNotification.description)
         if (status) {
             DispatchQueue.main.async {
                 let (value, timestamp, _) = self.controller.settings.status()
@@ -81,7 +84,7 @@ class ViewController: UIViewController, ControllerDelegate {
                 self.contactValue.text = String(value)
                 self.contactValueUnit.text = (value < 2 ? "contact" : "contacts") + " tracked"
                 self.contactLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
-                if self.contactDescription(status) {
+                if self.contactDescription(status) && !suppressNotification {
                     self.notification(title: "Recent Contacts Updated", body: "Open C19X app to review update.", backgroundOnly: true)
                 }
             }
@@ -92,10 +95,10 @@ class ViewController: UIViewController, ControllerDelegate {
                 let (message, messageTimestamp) = self.controller.settings.message()
                 let timestamp = (adviceTimestamp > messageTimestamp ? adviceTimestamp : messageTimestamp)
                 self.adviceLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
-                if self.adviceDescription(value) {
+                if self.adviceDescription(value) && !suppressNotification {
                     self.notification(title: "Advice Updated", body: "Open C19X app to review update.", backgroundOnly: true)
                 }
-                if self.adviceMessage(message) {
+                if self.adviceMessage(message) && !suppressNotification {
                     self.notification(title: "Message Received", body: "Open C19X app to view message.", backgroundOnly: true)
                 }
             }
