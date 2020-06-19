@@ -86,6 +86,9 @@ class ConcreteController : Controller, ReceiverDelegate {
         applySettings()
         synchronise()
         delegates.forEach{ $0.controller(.foreground) }
+        // REMOVE FOR PRODUCTION
+        // Marker (RSSS=-20000) for foreground start calls
+        database.insert(time: Date(), code: BeaconCode(0), rssi: RSSI(-20000))
     }
     
     func background() {
@@ -94,7 +97,7 @@ class ConcreteController : Controller, ReceiverDelegate {
     }
     
     func synchronise(_ immmediately: Bool = false) {
-        os_log("synchronise", log: self.log, type: .debug)
+        os_log("synchronise (immediately=%s)", log: self.log, type: .debug, immmediately.description)
         synchroniseTime(immmediately)
         synchroniseStatus()
         synchroniseMessage(immmediately)
@@ -334,7 +337,7 @@ class ConcreteController : Controller, ReceiverDelegate {
                 .appendingPathComponent("contacts.csv")
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            var string = ""
+            var string = "timestamp,rssi\n"
             database.contacts.forEach() { contact in
                 guard let time = contact.time else {
                     return

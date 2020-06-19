@@ -58,7 +58,8 @@ class ConcreteTransceiver : Transceiver {
     private let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
     private var transmitter : Transmitter
     private var receiver: Receiver
-    
+    private var delegates: [ReceiverDelegate] = []
+
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
         dayCodes = ConcreteDayCodes(sharedSecret)
         beaconCodes = ConcreteBeaconCodes(dayCodes)
@@ -69,6 +70,9 @@ class ConcreteTransceiver : Transceiver {
     func start(_ source: String) {
         transmitter.start(source)
         receiver.start(source)
+        // REMOVE FOR PRODUCTION
+        // Marker (RSSS=-10000) for transceiver start calls
+        delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10000)) }
     }
 
     func stop(_ source: String) {
@@ -77,6 +81,7 @@ class ConcreteTransceiver : Transceiver {
     }
     
     func append(_ delegate: ReceiverDelegate) {
+        delegates.append(delegate)
         receiver.delegates.append(delegate)
         transmitter.delegates.append(delegate)
     }
