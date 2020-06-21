@@ -28,12 +28,12 @@ protocol Controller {
     /**
      Notify controller that app has entered foreground mode.
      */
-    func foreground()
+    func foreground(_ source: String)
     
     /**
      Notify controller that app has entered background mode.
      */
-    func background()
+    func background(_ source: String)
     
     /**
      Synchronise device data with server data.
@@ -72,6 +72,7 @@ class ConcreteController : Controller, ReceiverDelegate {
         
         // REMOVE FOR PRODUCTION : Delete app to achieve the same in production
         //reset()
+//        database.remove(Date().advanced(by: TimeInterval.day))
     }
     
     func reset() {
@@ -79,20 +80,17 @@ class ConcreteController : Controller, ReceiverDelegate {
         database.remove(Date().advanced(by: TimeInterval.day))
     }
     
-    func foreground() {
-        os_log("foreground", log: self.log, type: .debug)
+    func foreground(_ source: String) {
+        os_log("foreground (source=%s)", log: self.log, type: .debug, source)
         checkRegistration()
         initialiseTransceiver()
         applySettings()
         synchronise()
         delegates.forEach{ $0.controller(.foreground) }
-        // REMOVE FOR PRODUCTION
-        // Marker (RSSS=-20000) for foreground start calls
-        database.insert(time: Date(), code: BeaconCode(0), rssi: RSSI(-20000))
     }
     
-    func background() {
-        os_log("background", log: self.log, type: .debug)
+    func background(_ source: String) {
+        os_log("background (source=%s)", log: self.log, type: .debug, source)
         delegates.forEach{ $0.controller(.background) }
     }
     

@@ -189,12 +189,12 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     }
     
     /**
-     Generate updateValue notification after 8 seconds to notify all subscribers and keep the iOS receivers awake.
+     Generate updateValue notification after about 8 seconds to notify all subscribers and keep the iOS receivers awake.
      */
     private func notifySubscribers(_ source: String) {
         notifyTimer?.cancel()
         notifyTimer = DispatchSource.makeTimerSource(queue: notifyTimerQueue)
-        notifyTimer?.schedule(deadline: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(8)))
+        notifyTimer?.schedule(deadline: DispatchTime.now().advanced(by: transceiverNotificationDelay))
         notifyTimer?.setEventHandler { [weak self] in
             guard let s = self, let beaconCharacteristic = s.beaconCharacteristic else {
                 return

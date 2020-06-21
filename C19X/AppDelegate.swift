@@ -64,7 +64,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: - Schedule background tasks
     
     func scheduleAppRefreshTask() {
-        os_log("scheduleAppRefreshTask (time=%s)", log: log, type: .fault, Date().description)
+        os_log("scheduleAppRefreshTask (time=%s)", log: log, type: .debug, Date().description)
         let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.minute * 5)
         do {
@@ -75,9 +75,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     func scheduleProcessingTask() {
-        os_log("scheduleProcessingTask (time=%s)", log: log, type: .fault, Date().description)
+        os_log("scheduleProcessingTask (time=%s)", log: log, type: .debug, Date().description)
         let request = BGProcessingTaskRequest(identifier: permittedBGProcessingTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.minute * 10)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.minute * 30)
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
         do {
@@ -91,7 +91,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func handleAppRefresh(task: BGAppRefreshTask) {
         scheduleAppRefreshTask()
-        os_log("handleAppRefresh start (time=%s)", log: log, type: .fault, Date().description)
+        os_log("handleAppRefresh start (time=%s)", log: log, type: .debug, Date().description)
         let operationQueue = OperationQueue()
         operationQueue.maxConcurrentOperationCount = 1
         let operation = TransceiverStartOperation(controller.transceiver)
@@ -100,7 +100,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             operationQueue.cancelAllOperations()
         }
         operation.completionBlock = {
-            os_log("handleAppRefresh end (time=%s,expired=%s)", log: self.log, type: .fault, Date().description, operation.isCancelled.description)
+            os_log("handleAppRefresh end (time=%s,expired=%s)", log: self.log, type: .debug, Date().description, operation.isCancelled.description)
             task.setTaskCompleted(success: operation.isCancelled)
         }
         operationQueue.addOperations([operation], waitUntilFinished: false)
@@ -108,7 +108,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func handleProcessing(task: BGProcessingTask) {
         scheduleProcessingTask()
-        os_log("handleProcessing start (time=%s)", log: log, type: .fault, Date().description)
+        os_log("handleProcessing start (time=%s)", log: log, type: .debug, Date().description)
         let operationQueue = OperationQueue()
         operationQueue.maxConcurrentOperationCount = 1
         let operation = ForegroundOperation(controller)
@@ -117,7 +117,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             operationQueue.cancelAllOperations()
         }
         operation.completionBlock = {
-            os_log("handleProcessing end (time=%s,expired=%s)", log: self.log, type: .fault, Date().description, operation.isCancelled.description)
+            os_log("handleProcessing end (time=%s,expired=%s)", log: self.log, type: .debug, Date().description, operation.isCancelled.description)
             task.setTaskCompleted(success: operation.isCancelled)
         }
         operationQueue.addOperations([operation], waitUntilFinished: false)
@@ -169,7 +169,7 @@ class TransceiverStartOperation : Operation {
         os_log("TransceiverStartOperation (state=start)", log: log, type: .debug)
         transceiver.start("BGAppRefreshTask")
         os_log("TransceiverStartOperation (state=started)", log: log, type: .debug)
-        for i in (1...10).reversed() {
+        for i in (1...4).reversed() {
             guard !isCancelled else {
                 os_log("TransceiverStartOperation (state=cancelled)", log: log, type: .debug)
                 return
@@ -197,9 +197,9 @@ class ForegroundOperation : Operation {
     
     override func main() {
         os_log("ForegroundOperation (state=start)", log: log, type: .debug)
-        controller.foreground()
+        controller.foreground("BGAppRefresh")
         os_log("ForegroundOperation (state=started)", log: log, type: .debug)
-        for i in (1...10).reversed() {
+        for i in (1...4).reversed() {
             guard !isCancelled else {
                 os_log("ForegroundOperation (state=cancelled)", log: log, type: .debug)
                 return

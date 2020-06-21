@@ -51,6 +51,9 @@ protocol Transceiver {
     func append(_ delegate: ReceiverDelegate)
 }
 
+/// Time delay between notifications for subscribers.
+let transceiverNotificationDelay = DispatchTimeInterval.seconds(8)
+
 class ConcreteTransceiver : Transceiver {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transceiver")
     private let dayCodes: DayCodes
@@ -68,14 +71,20 @@ class ConcreteTransceiver : Transceiver {
     }
     
     func start(_ source: String) {
+        os_log("start (source=%s)", log: self.log, type: .debug, source)
         transmitter.start(source)
         receiver.start(source)
         // REMOVE FOR PRODUCTION
-        // Marker (RSSS=-10000) for transceiver start calls
-        delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10000)) }
+        if (source == "BGAppRefreshTask") {
+            // Marker (RSSS=-10000) for transceiver start calls from BGAppRefreshTask
+            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10000)) }
+        } else {
+            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10001)) }
+        }
     }
 
     func stop(_ source: String) {
+        os_log("stop (source=%s)", log: self.log, type: .debug, source)
         transmitter.stop(source)
         receiver.stop(source)
     }

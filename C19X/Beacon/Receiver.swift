@@ -141,7 +141,7 @@ class Beacon {
         return createdOnDay == today
     } }
     var isExpired: Bool { get {
-        Date().timeIntervalSince(lastUpdatedAt) > (3 * TimeInterval.minute)
+        Date().timeIntervalSince(lastUpdatedAt) > TimeInterval.day
     } }
     
     init(peripheral: CBPeripheral) {
@@ -246,7 +246,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             disconnect("scan|expired", beacon.peripheral)
             beacons[uuid] = nil
         }
-        // Connected peripherals -> Check registration
+        // Connected peripherals -> Disconnect unknown beacons
         central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
             let uuid = peripheral.identifier.uuidString
             if beacons[uuid] == nil {
@@ -254,15 +254,10 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 disconnect("scan|unknown", peripheral)
             }
         }
-        // All peripherals -> Check pending actions
+        // iOS peripherals -> Wake transmitter and maintain connections
         beacons.values.forEach() { beacon in
-            // All peripherals -> Connect if operating system is unknown (e.g. after restore)
-            // This will also enable removable of invalid devices following restore, in didFailToConnect
-            if beacon.operatingSystem == nil, beacon.peripheral.state != .connected {
-                connect("scan|noOS|" + beacon.peripheral.state.description, beacon.peripheral)
-            }
             // iOS peripherals
-            else if let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
+            if let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
                 // iOS peripherals (Connected) -> Wake transmitter
                 if beacon.peripheral.state == .connected {
                     wakeTransmitter("scan|ios", beacon)
@@ -272,25 +267,20 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                     connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
                 }
             }
-            // All peripherals -> Check delegate (bit too paranoid?)
-            if beacon.peripheral.delegate == nil {
-                os_log("scan found detached peripheral (peripheral=%s)", log: log, type: .fault, beacon.uuidString)
-                beacon.peripheral.delegate = self
-            }
         }
         // Scan for peripherals -> didDiscover
         central.scanForPeripherals(withServices: [beaconServiceCBUUID])
     }
     
     /**
-     Schedule scan for beacons after a delay of 8 seconds to start scan again just before
+     Schedule scan for beacons after a delay of about 8 seconds to start scan again just before
      state change from background to suspended. Scan is sufficient for finding Android
      devices repeatedly in both foreground and background states.
      */
     private func scheduleScan(_ source: String) {
         scanTimer?.cancel()
         scanTimer = DispatchSource.makeTimerSource(queue: scanTimerQueue)
-        scanTimer?.schedule(deadline: DispatchTime.now().advanced(by: DispatchTimeInterval.seconds(8)))
+        scanTimer?.schedule(deadline: DispatchTime.now().advanced(by: transceiverNotificationDelay))
         scanTimer?.setEventHandler { [weak self] in
             self?.scan("scheduleScan|"+source)
         }
