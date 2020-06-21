@@ -206,7 +206,9 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             // Stop scanning
             scanTimer?.cancel()
             scanTimer = nil
-            central.stopScan()
+            queue.async {
+                self.central.stopScan()
+            }
         }
         // Start scanning
         if central.state == .poweredOn {
@@ -223,7 +225,9 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         // Stop scanning
         scanTimer?.cancel()
         scanTimer = nil
-        central.stopScan()
+        queue.async {
+            self.central.stopScan()
+        }
         // Cancel all connections, the resulting didDisconnect and didFailToConnect
         beacons.values.forEach() { beacon in
             if beacon.peripheral.state != .disconnected {
@@ -269,7 +273,9 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             }
         }
         // Scan for peripherals -> didDiscover
-        central.scanForPeripherals(withServices: [beaconServiceCBUUID])
+        queue.async {
+            self.central.scanForPeripherals(withServices: [beaconServiceCBUUID])
+        }
     }
     
     /**
@@ -300,7 +306,10 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             return
         }
         scheduleScan("connect")
-        central.connect(peripheral)
+        queue.async {
+            self.central.stopScan()
+            self.central.connect(peripheral)
+        }
     }
     
     /**
@@ -312,7 +321,9 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     private func disconnect(_ source: String, _ peripheral: CBPeripheral) {
         let uuid = peripheral.identifier.uuidString
         os_log("disconnect (source=%s,peripheral=%s)", log: log, type: .debug, source, uuid)
-        central.cancelPeripheralConnection(peripheral)
+        queue.async {
+            self.central.cancelPeripheralConnection(peripheral)
+        }
     }
     
     /// Read RSSI

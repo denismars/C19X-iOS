@@ -134,12 +134,12 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     func start(_ source: String) {
         os_log("start (source=%s)", log: log, type: .debug, source)
         if peripheral.isAdvertising {
-            peripheral.stopAdvertising()
+            queue.async { self.peripheral.stopAdvertising() }
             notifyTimer?.cancel()
             notifyTimer = nil
         }
         if let (_,beaconCode) = beaconCharacteristic?.uuid.values {
-            peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]])
+            queue.async { self.peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]]) }
             os_log("start successful, for existing beacon code (source=%s,code=%s)", log: log, type: .debug, source, beaconCode.description)
         } else {
             updateBeaconCode()
@@ -154,7 +154,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
             os_log("stop denied, already stopped (source=%s)", log: log, type: .fault, source)
             return
         }
-        peripheral.stopAdvertising()
+        queue.async { self.peripheral.stopAdvertising() }
         notifyTimer?.cancel()
         notifyTimer = nil
     }
@@ -179,11 +179,13 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
 
         // Replace advertised service to broadcast new beacon code
         if peripheral.isAdvertising {
-            peripheral.stopAdvertising()
+            queue.async { self.peripheral.stopAdvertising() }
         }
-        peripheral.removeAllServices()
-        peripheral.add(beaconService)
-        peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]])
+        queue.async {
+            self.peripheral.removeAllServices()
+            self.peripheral.add(beaconService)
+            self.peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]])
+        }
         codeUpdatedAt = Date()
         os_log("updateBeaconCode successful (code=%s,characteristic=%s)", log: self.log, type: .debug, beaconCode.description, beaconCharacteristicCBUUID.uuidString)
     }
@@ -200,7 +202,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
                 return
             }
             os_log("Notify subscribers (source=%s)", log: s.log, type: .debug, source)
-            s.peripheral.updateValue(s.emptyData, for: beaconCharacteristic, onSubscribedCentrals: nil)
+            s.queue.async { s.peripheral.updateValue(s.emptyData, for: beaconCharacteristic, onSubscribedCentrals: nil) }            
             let updateCodeInterval = Date().timeIntervalSince(s.codeUpdatedAt)
             if updateCodeInterval > s.updateCodeAfter {
                 os_log("Automatic beacon code update (lastUpdate=%s,elapsed=%s)", log: s.log, type: .debug, s.codeUpdatedAt.description, updateCodeInterval.description)

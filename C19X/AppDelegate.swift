@@ -66,7 +66,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func scheduleAppRefreshTask() {
         os_log("scheduleAppRefreshTask (time=%s)", log: log, type: .debug, Date().description)
         let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.minute * 5)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.minute * 10)
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {
