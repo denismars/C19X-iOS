@@ -295,7 +295,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     private func connect(_ source: String, _ peripheral: CBPeripheral) {
         let uuid = peripheral.identifier.uuidString
         os_log("connect (source=%s,peripheral=%s)", log: log, type: .debug, source, uuid)
-        guard central.state == .poweredOn, central.isScanning else {
+        guard central.state == .poweredOn else {
             os_log("connect denied, central stopped (source=%s,peripheral=%s)", log: log, type: .fault, source, uuid)
             return
         }

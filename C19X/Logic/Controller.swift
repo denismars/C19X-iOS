@@ -72,7 +72,7 @@ class ConcreteController : Controller, ReceiverDelegate {
         
         // REMOVE FOR PRODUCTION : Delete app to achieve the same in production
         //reset()
-//        database.remove(Date().advanced(by: TimeInterval.day))
+        //database.remove(Date().advanced(by: TimeInterval.day))
     }
     
     func reset() {

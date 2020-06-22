@@ -66,7 +66,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func scheduleAppRefreshTask() {
         os_log("scheduleAppRefreshTask (time=%s)", log: log, type: .debug, Date().description)
         let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.minute * 10)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.hour * 1)
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {
@@ -77,7 +77,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func scheduleProcessingTask() {
         os_log("scheduleProcessingTask (time=%s)", log: log, type: .debug, Date().description)
         let request = BGProcessingTaskRequest(identifier: permittedBGProcessingTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.minute * 30)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.hour * 2)
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
         do {
