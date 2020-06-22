@@ -133,11 +133,11 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     
     func start(_ source: String) {
         os_log("start (source=%s)", log: log, type: .debug, source)
-        if peripheral.isAdvertising {
-            queue.async { self.peripheral.stopAdvertising() }
-            notifyTimer?.cancel()
-            notifyTimer = nil
-        }
+//        if peripheral.isAdvertising {
+//            queue.async { self.peripheral.stopAdvertising() }
+//            notifyTimer?.cancel()
+//            notifyTimer = nil
+//        }
         if let (_,beaconCode) = beaconCharacteristic?.uuid.values {
             queue.async { self.peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]]) }
             os_log("start successful, for existing beacon code (source=%s,code=%s)", log: log, type: .debug, source, beaconCode.description)
@@ -178,9 +178,9 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         beaconService.characteristics = [beaconCharacteristic!]
 
         // Replace advertised service to broadcast new beacon code
-        if peripheral.isAdvertising {
-            queue.async { self.peripheral.stopAdvertising() }
-        }
+//        if peripheral.isAdvertising {
+//            queue.async { self.peripheral.stopAdvertising() }
+//        }
         queue.async {
             self.peripheral.removeAllServices()
             self.peripheral.add(beaconService)
@@ -191,7 +191,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     }
     
     /**
-     Generate updateValue notification after about 8 seconds to notify all subscribers and keep the iOS receivers awake.
+     Generate updateValue notification after 8 seconds to notify all subscribers and keep the iOS receivers awake.
      */
     private func notifySubscribers(_ source: String) {
         notifyTimer?.cancel()

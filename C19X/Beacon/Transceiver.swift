@@ -58,8 +58,7 @@ class ConcreteTransceiver : Transceiver {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transceiver")
     private let dayCodes: DayCodes
     private let beaconCodes: BeaconCodes
-    private let transmitterQueue = DispatchQueue(label: "org.c19x.beacon.Transmitter")
-    private let receiverQueue = DispatchQueue(label: "org.c19x.beacon.Receiver")
+    private let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
     private var transmitter : Transmitter
     private var receiver: Receiver
     private var delegates: [ReceiverDelegate] = []
@@ -67,8 +66,8 @@ class ConcreteTransceiver : Transceiver {
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
         dayCodes = ConcreteDayCodes(sharedSecret)
         beaconCodes = ConcreteBeaconCodes(dayCodes)
-        transmitter = ConcreteTransmitter(queue: transmitterQueue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter)
-        receiver = ConcreteReceiver(queue: receiverQueue)
+        transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter)
+        receiver = ConcreteReceiver(queue: queue)
     }
     
     func start(_ source: String) {

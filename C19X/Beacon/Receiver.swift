@@ -202,12 +202,6 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     
     func start(_ source: String) {
         os_log("start (source=%s)", log: log, type: .debug, source)
-        if central.isScanning {
-            // Stop scanning
-            scanTimer?.cancel()
-            scanTimer = nil
-            queue.async { self.central.stopScan() }
-        }
         // Start scanning
         if central.state == .poweredOn {
             scan("start|" + source)
@@ -239,6 +233,17 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             os_log("scan failed, bluetooth is not powered on", log: log, type: .fault)
             return
         }
+        // Scan for peripherals -> didDiscover
+        queue.async { self.central.scanForPeripherals(withServices: [beaconServiceCBUUID]) }
+        // Connected peripherals -> Check registration
+        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
+            let uuid = peripheral.identifier.uuidString
+            if beacons[uuid] == nil {
+                os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
+//                disconnect("scan|unknown", peripheral)
+                beacons[uuid] = Beacon(peripheral: peripheral)
+            }
+        }
         // All peripherals -> Discard expired beacons
         beacons.values.filter{$0.isExpired}.forEach { beacon in
             let uuid = beacon.uuidString
@@ -246,15 +251,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             disconnect("scan|expired", beacon.peripheral)
             beacons[uuid] = nil
         }
-        // Connected peripherals -> Disconnect unknown beacons
-        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
-            let uuid = peripheral.identifier.uuidString
-            if beacons[uuid] == nil {
-                os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
-                disconnect("scan|unknown", peripheral)
-            }
-        }
-        // iOS peripherals -> Wake transmitter and maintain connections
+        // All peripherals -> Check pending actions
         beacons.values.forEach() { beacon in
             // iOS peripherals
             if let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
@@ -267,13 +264,16 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                     connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
                 }
             }
+            // All peripherals -> Check delegate (bit too paranoid?)
+            if beacon.peripheral.delegate == nil {
+                os_log("scan found detached peripheral (peripheral=%s)", log: log, type: .fault, beacon.uuidString)
+                beacon.peripheral.delegate = self
+            }
         }
-        // Scan for peripherals -> didDiscover
-        queue.async { self.central.scanForPeripherals(withServices: [beaconServiceCBUUID]) }
     }
     
     /**
-     Schedule scan for beacons after a delay of about 8 seconds to start scan again just before
+     Schedule scan for beacons after a delay of 8 seconds to start scan again just before
      state change from background to suspended. Scan is sufficient for finding Android
      devices repeatedly in both foreground and background states.
      */
@@ -300,10 +300,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             return
         }
         scheduleScan("connect")
-        queue.async {
-            self.central.stopScan()
-            self.central.connect(peripheral)
-        }
+        queue.async { self.central.connect(peripheral) }
     }
     
     /**
@@ -517,7 +514,6 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         os_log("didDiscoverServices (peripheral=%s,error=%s)", log: log, type: .debug, uuid, String(describing: error))
         guard let services = peripheral.services else {
             disconnect("didDiscoverServices|serviceEmpty", peripheral)
-            beacons[uuid] = nil
             return
         }
         for service in services {
