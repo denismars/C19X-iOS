@@ -298,8 +298,22 @@ class ViewController: UIViewController, ControllerDelegate {
     @objc func exportContacts(_ sender: UITapGestureRecognizer) {
         os_log("Export requested", log: self.log, type: .debug)
         controller.export()
+        resetContacts()
     }
 
+    private func resetContacts() {
+        let dialog = UIAlertController(title: "Delete contacts", message: "Remove all contact records from device?", preferredStyle: .alert)
+        dialog.addAction(UIAlertAction(title: "Cancel", style: .default) { _ in
+            self.updateViewData(status: true)
+        })
+        dialog.addAction(UIAlertAction(title: "Delete", style: .default) { _ in
+            // Set status locally and remotely
+            self.controller.reset(registration: false, contacts: true)
+            self.updateViewData(status: true)
+        })
+        present(dialog, animated: true)
+    }
+    
     private func enableExportContacts() {
         let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.exportContacts(_:)))
         doubleTapGestureRecognizer.numberOfTapsRequired = 2
