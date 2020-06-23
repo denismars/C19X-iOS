@@ -23,7 +23,7 @@ protocol Controller {
     /**
      Reset all application data.
      */
-    func reset()
+    func reset(registration: Bool, contacts: Bool)
     
     /**
      Notify controller that app has entered foreground mode.
@@ -70,14 +70,16 @@ class ConcreteController : Controller, ReceiverDelegate {
             settings.registrationState(.unregistered)
         }
         
-        // REMOVE FOR PRODUCTION : Delete app to achieve the same in production
-        //reset()
-        //database.remove(Date().advanced(by: TimeInterval.day))
     }
     
-    func reset() {
-        settings.reset()
-        database.remove(Date().advanced(by: TimeInterval.day))
+    func reset(registration: Bool = true, contacts: Bool = true) {
+        os_log("reset (registration=%s,contacts=%s)", log: self.log, type: .debug, registration.description, contacts.description)
+        if (registration) {
+            settings.reset()
+        }
+        if (contacts) {
+            database.remove(Date().advanced(by: TimeInterval.day))
+        }
     }
     
     func foreground(_ source: String) {
@@ -86,6 +88,7 @@ class ConcreteController : Controller, ReceiverDelegate {
         initialiseTransceiver()
         applySettings()
         synchronise()
+        transceiver?.start("foreground")
         delegates.forEach{ $0.controller(.foreground) }
     }
     

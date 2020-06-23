@@ -54,20 +54,31 @@ protocol Transceiver {
 /// Time delay between notifications for subscribers.
 let transceiverNotificationDelay = DispatchTimeInterval.seconds(8)
 
-class ConcreteTransceiver : Transceiver {
+class ConcreteTransceiver: Transceiver, LocationManagerDelegate {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transceiver")
     private let dayCodes: DayCodes
     private let beaconCodes: BeaconCodes
     private let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
-    private var transmitter : Transmitter
+    private var transmitter: Transmitter
     private var receiver: Receiver
     private var delegates: [ReceiverDelegate] = []
+    private var locationManager: LocationManager
+    /**
+     Shifting timer for triggering transceiver start just before the app switches from background to suspend state following a
+     call to CoreLocation delegate methods. Apple documentation suggests the time limit is about 10 seconds.
+     */
+    private var startTimer: DispatchSourceTimer?
+    /// Dedicated sequential queue for the shifting timer.
+    private let startTimerQueue = DispatchQueue(label: "org.c19x.beacon.transceiver.Timer")
 
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
         dayCodes = ConcreteDayCodes(sharedSecret)
         beaconCodes = ConcreteBeaconCodes(dayCodes)
         transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter)
         receiver = ConcreteReceiver(queue: queue)
+        locationManager = ConcreteLocationManager()
+        locationManager.delegates.append(self)
+        locationManager.start("transceiver")
     }
     
     func start(_ source: String) {
@@ -75,11 +86,12 @@ class ConcreteTransceiver : Transceiver {
         transmitter.start(source)
         receiver.start(source)
         // REMOVE FOR PRODUCTION
-        if (source == "BGAppRefreshTask") {
-            // Marker (RSSS=-10000) for transceiver start calls from BGAppRefreshTask
-            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10000)) }
-        } else {
+        if source == "BGAppRefreshTask" {
             delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10001)) }
+        } else if source.contains("locationChange") {
+            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10002)) }
+        } else {
+            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10000)) }
         }
     }
 
@@ -94,4 +106,26 @@ class ConcreteTransceiver : Transceiver {
         receiver.delegates.append(delegate)
         transmitter.delegates.append(delegate)
     }
+    
+    /**
+     Schedule start after a delay of 8 seconds to start transceiver again just before
+     state change from background to suspended.
+     */
+    private func scheduleStart(_ source: String) {
+        startTimer?.cancel()
+        startTimer = DispatchSource.makeTimerSource(queue: startTimerQueue)
+        startTimer?.schedule(deadline: DispatchTime.now().advanced(by: transceiverNotificationDelay))
+        startTimer?.setEventHandler { [weak self] in
+            self?.start("scheduleStart|"+source)
+        }
+        startTimer?.resume()
+    }
+
+    // MARK:- LocationManagerDelegate
+    
+    func locationManager(didUpdateAt: Date) {
+        os_log("locationManager (didUpdateAt=%s)", log: self.log, type: .debug, didUpdateAt.description)
+        scheduleStart("locationChange")
+    }
+    
 }
