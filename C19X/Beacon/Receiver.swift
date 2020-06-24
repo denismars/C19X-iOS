@@ -14,8 +14,6 @@ import os
  Beacon receiver scans for peripherals with fixed service UUID.
  */
 protocol Receiver {
-    /// Delegates for receiving beacon detection events.
-    var delegates: [ReceiverDelegate] { get set }
     
     /**
      Create a receiver that uses the same sequential dispatch queue as the transmitter.
@@ -31,6 +29,11 @@ protocol Receiver {
      Stop and resets receiver.
      */
     func stop(_ source: String)
+    
+    /**
+     Delegates for receiving beacon detection events.
+     */
+    func append(_ delegate: ReceiverDelegate)
     
     /**
      Scan for beacons. This is normally called when bluetooth powers on, but also called by
@@ -187,7 +190,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     /// Dedicated sequential queue for the shifting timer.
     private let scanTimerQueue = DispatchQueue(label: "org.c19x.beacon.receiver.Timer")
     /// Delegates for receiving beacon detection events.
-    var delegates: [ReceiverDelegate] = []
+    private var delegates: [ReceiverDelegate] = []
     /// Track scan interval and up time statistics for the receiver, for debug purposes.
     private let statistics = TimeIntervalSample()
     
@@ -198,6 +201,10 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         self.central = CBCentralManager(delegate: self, queue: queue, options: [
             CBCentralManagerOptionRestoreIdentifierKey : "org.C19X.beacon.Receiver",
             CBCentralManagerOptionShowPowerAlertKey : true])
+    }
+    
+    func append(_ delegate: ReceiverDelegate) {
+        delegates.append(delegate)
     }
     
     func start(_ source: String) {
@@ -242,6 +249,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
 //                disconnect("scan|unknown", peripheral)
                 beacons[uuid] = Beacon(peripheral: peripheral)
+                connect("scan|unknown", peripheral)
             }
         }
         // All peripherals -> Discard expired beacons

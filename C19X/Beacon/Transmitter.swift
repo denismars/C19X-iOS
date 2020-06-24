@@ -17,14 +17,6 @@ import os
 */
 protocol Transmitter {
     /**
-     Delegates for receiving beacon detection events. This is necessary because some Android devices (Samsung J6)
-     does not support BLE transmit, thus making the beacon characteristic writable offers a mechanism for such devices
-     to detect a beacon transmitter and make their own presence known by sending its own beacon code and RSSI as
-     data to the transmitter.
-     */
-    var delegates: [ReceiverDelegate] { get set }
-    
-    /**
      Create a transmitter  that uses the same sequential dispatch queue as the receiver.
      Transmitter starts automatically when Bluetooth is enabled. Use the updateBeaconCode() function
      to manually change the beacon code being broadcasted by the transmitter. The code is also
@@ -42,6 +34,14 @@ protocol Transmitter {
      */
     func stop(_ source: String)
 
+    /**
+     Delegates for receiving beacon detection events. This is necessary because some Android devices (Samsung J6)
+     does not support BLE transmit, thus making the beacon characteristic writable offers a mechanism for such devices
+     to detect a beacon transmitter and make their own presence known by sending its own beacon code and RSSI as
+     data to the transmitter.
+     */
+    func append(_ delegate: ReceiverDelegate)
+    
     /**
      Change beacon code being broadcasted by adjusting the lower 64-bit of characteristic UUID.
      */
@@ -105,6 +105,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     /// Beacon characteristic being broadcasted by the transmitter, this is a mutating characteristic where the beacon code
     /// is encoded in the lower 64-bits of the UUID.
     private var beaconCharacteristic: CBMutableCharacteristic?
+    private var beaconService: CBMutableService?
     /// Dummy data for writing to the receivers to trigger state restoration or resume from suspend state to background state.
     private let emptyData = Data(repeating: 0, count: 0)
     /**
@@ -117,7 +118,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     /// Last beacon code update time, used to update code automatically at regular intervals.
     private var codeUpdatedAt = Date.distantPast
     /// Delegates for receiving beacon detection events.
-    var delegates: [ReceiverDelegate] = []
+    private var delegates: [ReceiverDelegate] = []
 
     required init(queue: DispatchQueue, beaconCodes: BeaconCodes, updateCodeAfter: TimeInterval) {
         self.queue = queue
@@ -131,15 +132,15 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         ])
     }
     
+    func append(_ delegate: ReceiverDelegate) {
+        delegates.append(delegate)
+    }
+    
     func start(_ source: String) {
         os_log("start (source=%s)", log: log, type: .debug, source)
-//        if peripheral.isAdvertising {
-//            queue.async { self.peripheral.stopAdvertising() }
-//            notifyTimer?.cancel()
-//            notifyTimer = nil
-//        }
-        if let (_,beaconCode) = beaconCharacteristic?.uuid.values {
-            queue.async { self.peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]]) }
+        stopAdvertising(cancelTimer: true)
+        if let (_,beaconCode) = beaconCharacteristic?.uuid.values, let beaconService = beaconService {
+            startAdvertising(beaconService, after: .seconds(1))
             os_log("start successful, for existing beacon code (source=%s,code=%s)", log: log, type: .debug, source, beaconCode.description)
         } else {
             updateBeaconCode()
@@ -154,9 +155,30 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
             os_log("stop denied, already stopped (source=%s)", log: log, type: .fault, source)
             return
         }
-        queue.async { self.peripheral.stopAdvertising() }
-        notifyTimer?.cancel()
-        notifyTimer = nil
+        stopAdvertising(cancelTimer: true)
+    }
+    
+    private func startAdvertising(_ beaconService: CBMutableService, after: DispatchTimeInterval) {
+        queue.asyncAfter(deadline: DispatchTime.now().advanced(by: after), execute: {
+            self.peripheral.removeAllServices()
+            self.beaconCharacteristic?.value = nil
+            self.peripheral.add(beaconService)
+            self.peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconService.uuid]])
+        })
+    }
+    
+    private func stopAdvertising(cancelTimer: Bool) {
+        guard peripheral.isAdvertising else {
+            return
+        }
+        queue.async {
+            self.peripheral.removeAllServices()
+            self.peripheral.stopAdvertising()
+        }
+        if cancelTimer {
+            notifyTimer?.cancel()
+            notifyTimer = nil
+        }
     }
     
     func updateBeaconCode() {
@@ -174,18 +196,12 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         let (upper, _) = beaconCharacteristicCBUUID.values
         let beaconCharacteristicCBUUID = CBUUID(upper: upper, lower: beaconCode)
         beaconCharacteristic = CBMutableCharacteristic(type: beaconCharacteristicCBUUID, properties: [.write, .notify], value: nil, permissions: [.writeable])
-        let beaconService = CBMutableService(type: beaconServiceCBUUID, primary: true)
-        beaconService.characteristics = [beaconCharacteristic!]
+        beaconService = CBMutableService(type: beaconServiceCBUUID, primary: true)
+        beaconService!.characteristics = [beaconCharacteristic!]
 
         // Replace advertised service to broadcast new beacon code
-//        if peripheral.isAdvertising {
-//            queue.async { self.peripheral.stopAdvertising() }
-//        }
-        queue.async {
-            self.peripheral.removeAllServices()
-            self.peripheral.add(beaconService)
-            self.peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [beaconServiceCBUUID]])
-        }
+        stopAdvertising(cancelTimer: false)
+        startAdvertising(beaconService!, after: .seconds(1))
         codeUpdatedAt = Date()
         os_log("updateBeaconCode successful (code=%s,characteristic=%s)", log: self.log, type: .debug, beaconCode.description, beaconCharacteristicCBUUID.uuidString)
     }
@@ -220,6 +236,9 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         if let services = dict[CBPeripheralManagerRestoredStateServicesKey] as? [CBMutableService] {
             for service in services {
                 os_log("Restored (service=%s)", log: log, type: .debug, service.uuid.uuidString)
+                if service.uuid == beaconServiceCBUUID {
+                    self.beaconService = service
+                }
                 if let characteristics = service.characteristics {
                     for characteristic in characteristics {
                         os_log("Restored (characteristic=%s)", log: log, type: .debug, characteristic.uuid.uuidString)

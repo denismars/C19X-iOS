@@ -29,8 +29,6 @@ import os
  situation when it should be launched again to scan for devices is following movement.
  */
 protocol LocationManager {
-    var delegates: [LocationManagerDelegate] { get set }
-    
     /**
      Start movement monitoring.
      */
@@ -40,9 +38,14 @@ protocol LocationManager {
      Stop movement monitoring.
      */
     func stop(_ source: String)
+    
+    /**
+     Register delegate
+     */
+    func append(_ delegate: LocationManagerDelegate)
 }
 
-protocol LocationManagerDelegate {
+protocol LocationManagerDelegate : NSObjectProtocol {
     
     /**
      Device has moved. This could be movement or heading changes. Please note the delegate
@@ -72,8 +75,9 @@ extension CLAuthorizationStatus: CustomStringConvertible {
 
 class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDelegate {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "LocationManager")
-    var delegates: [LocationManagerDelegate] = []
+    private var delegates: [LocationManagerDelegate] = []
     private let locationManager = CLLocationManager()
+    private var region: CLRegion?
     
     // Movement detection methods. Methods that relaunches app will do so
     // even after the user force-quits app (let's hope that really is true)
@@ -83,20 +87,29 @@ class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDeleg
     private let methodSignificantChange = true
     // Location change : High power, does not launch app, detects any movement in real time
     private let methodLocation = false
+    // Region change : launches app, detects entry and exit of regions
+    private let methodRegion = true
     // Heading change : High power, does not launch app, detects any change of direction in real time
     private let methodHeading = false
+    
 
     override init() {
         super.init()
-        locationManager.delegate = self
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
         locationManager.showsBackgroundLocationIndicator = false
-        
+        locationManager.delegate = self
+
         // Distance filter (in meters) for methodLocation
-        locationManager.distanceFilter = CLLocationDistance(1)
+        locationManager.distanceFilter = CLLocationDistance(10)
         // Angular filter (in degrees) for methodHeading
         locationManager.headingFilter = CLLocationDegrees(20)
+        
+        start("init")
+    }
+    
+    func append(_ delegate: LocationManagerDelegate) {
+        delegates.append(delegate)
     }
     
     func start(_ source: String) {
@@ -118,7 +131,7 @@ class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDeleg
                 locationManager.startMonitoringSignificantLocationChanges()
                 //os_log("startMonitoringSignificantLocationChanges", log: log, type: .debug)
             } else {
-                os_log("startMonitoringSignificantLocationChanges failed", log: log, type: .fault)
+                os_log("methodSignificantChange failed", log: log, type: .fault)
             }
         }
 
@@ -128,7 +141,17 @@ class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDeleg
                 locationManager.startUpdatingLocation()
                 //os_log("startUpdatingLocation", log: log, type: .debug)
             } else {
-                os_log("startUpdatingLocation failed", log: log, type: .fault)
+                os_log("methodLocation failed", log: log, type: .fault)
+            }
+        }
+        
+        if methodRegion {
+            os_log("methodRegion", log: log, type: .debug)
+            if CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) {
+                // This will call didUpdateLocation -> notifyDelegate -> startMonitoring
+                locationManager.requestLocation()
+            } else {
+                os_log("methodRegion failed", log: log, type: .fault)
             }
         }
         
@@ -138,7 +161,7 @@ class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDeleg
                 locationManager.startUpdatingHeading()
                 //os_log("startUpdatingHeading", log: log, type: .debug)
             } else {
-                os_log("startUpdatingHeading failed", log: log, type: .fault)
+                os_log("methodHeading failed", log: log, type: .fault)
             }
         }
     }
@@ -148,13 +171,30 @@ class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDeleg
         if methodVisits { locationManager.stopMonitoringVisits() }
         if methodSignificantChange { locationManager.stopMonitoringSignificantLocationChanges() }
         if methodLocation { locationManager.stopUpdatingLocation() }
+        if methodRegion, region != nil {
+            locationManager.stopMonitoring(for: region!)
+            region = nil
+        }
         if methodHeading { locationManager.stopUpdatingHeading() }
     }
     
     /// Location is never recorded or shared.
-    private func notifyDelegates(_ source: String) {
-        //os_log("notifyDelegates (source=%s)", log: log, type: .debug, source.description)
-        delegates.forEach { $0.locationManager(didUpdateAt: Date()) }
+    private func notifyDelegate(_ source: String, _ coordinate: CLLocationCoordinate2D? = nil) {
+        //os_log("notifyDelegate (source=%s)", log: log, type: .debug, source.description)
+        let timestamp = Date()
+        delegates.forEach { $0.locationManager(didUpdateAt: timestamp) }
+
+        if methodRegion, let coordinate = coordinate {
+            if region != nil {
+                locationManager.stopMonitoring(for: region!)
+                region = nil
+            }
+            region = CLCircularRegion(center: coordinate, radius: CLLocationDistance(1), identifier: "Circle")
+            region?.notifyOnExit = true
+            region?.notifyOnEntry = false
+            locationManager.startMonitoring(for: region!)
+            os_log("monitoringForRegion (region=%s)", log: log, type: .debug, region!.description)
+        }
     }
     
     // MARK:- CLLocationManagerDelegate
@@ -165,22 +205,28 @@ class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDeleg
     
     func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
         os_log("didVisit", log: log, type: .debug)
-        notifyDelegates("didUpdateLocations")
+        notifyDelegate("didVisit", visit.coordinate)
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         os_log("didUpdateLocations", log: log, type: .debug)
-        notifyDelegates("didUpdateLocations")
+        notifyDelegate("didUpdateLocations", locations.last?.coordinate)
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        os_log("didExitRegion", log: log, type: .debug)
+        // This will call didUpdateLocation -> notifyDelegate -> startMonitoring
+        locationManager.requestLocation()
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
         os_log("didUpdateHeading", log: log, type: .debug)
-        notifyDelegates("didUpdateHeading")
+        notifyDelegate("didUpdateHeading")
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         os_log("didFailWithError (error=%s)", log: log, type: .debug, String(describing: error))
-        notifyDelegates("didFailWithError")
+        notifyDelegate("didFailWithError")
     }
     
     func locationManagerDidPauseLocationUpdates(_ manager: CLLocationManager) {

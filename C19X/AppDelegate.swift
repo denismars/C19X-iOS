@@ -15,11 +15,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "App")
     private let permittedBGAppRefreshTaskIdentifier = "org.c19x.BGAppRefreshTask"
     private let permittedBGProcessingTaskIdentifier = "org.c19x.BGProcessingTask"
-    var controller: Controller!
+    let controller: Controller = ConcreteController()
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        os_log("applicationDidFinishLaunching", log: log, type: .debug)
-        controller = ConcreteController()
+        let options = (launchOptions == nil ? "[]" : launchOptions!.description)
+        os_log("applicationDidFinishLaunching (launchOptions=%s)", log: log, type: .debug, options)
         
         // Background app refresh based on BGTaskScheduler
         // Schedule regular background task to stop - rest - start beacon to keep it running indefinitely

@@ -305,6 +305,8 @@ class ViewController: UIViewController, ControllerDelegate {
         let dialog = UIAlertController(title: "Delete contacts", message: "Remove all contact records from device?", preferredStyle: .alert)
         dialog.addAction(UIAlertAction(title: "Cancel", style: .default) { _ in
             self.updateViewData(status: true)
+            // Simulate crash
+            self.controller.reset(registration: false, contacts: false)
         })
         dialog.addAction(UIAlertAction(title: "Delete", style: .default) { _ in
             // Set status locally and remotely
