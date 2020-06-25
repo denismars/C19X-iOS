@@ -71,6 +71,7 @@ enum OperatingSystem {
     case android
     case ios
     case restored
+    case unknown
 }
 
 /**
@@ -253,10 +254,8 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             let uuid = peripheral.identifier.uuidString
             if beacons[uuid] == nil {
                 os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
-//                disconnect("scan|unknown", peripheral)
                 beacons[uuid] = Beacon(peripheral: peripheral)
-//                beacons[uuid]?.operatingSystem = .restored
-                connect("scan|unknown", peripheral)
+                beacons[uuid]?.operatingSystem = .unknown
             }
         }
         // All peripherals -> Discard expired beacons
@@ -268,19 +267,30 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         }
         // All peripherals -> Check pending actions
         beacons.values.forEach() { beacon in
-            // iOS peripherals
-            if let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
-                // iOS peripherals (Connected) -> Wake transmitter
-                if beacon.peripheral.state == .connected {
-                    wakeTransmitter("scan|ios", beacon)
-                }
-                // iOS peripherals (Not connected) -> Connect
-                else {
-                    connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
-                }
+            if beacon.operatingSystem == nil {
+                beacon.operatingSystem = .unknown
             }
-            if let operatingSystem = beacon.operatingSystem, operatingSystem == .restored {
-                connect("scan|restored|" + beacon.peripheral.state.description, beacon.peripheral)
+            if let operatingSystem = beacon.operatingSystem {
+                switch operatingSystem {
+                case .ios:
+                    // iOS peripherals (Connected) -> Wake transmitter
+                    if beacon.peripheral.state == .connected {
+                        wakeTransmitter("scan|ios", beacon)
+                    }
+                    // iOS peripherals (Not connected) -> Connect
+                    else {
+                        connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
+                    }
+                    break
+                case .restored:
+                    connect("scan|restored|" + beacon.peripheral.state.description, beacon.peripheral)
+                    break
+                case .unknown:
+                    connect("scan|unknown|" + beacon.peripheral.state.description, beacon.peripheral)
+                    break
+                default:
+                    break
+                }
             }
         }
     }
