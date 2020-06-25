@@ -2,6 +2,8 @@
 //  LocationManager.swift
 //  C19X
 //
+//  TO BE DELETED : DOESN'T SEEM TO HELP CoreBluetooth
+//
 //  Trigger beacon start for suspended / killed app when user moves. This is
 //  necessary when all devices are in the vicinity are in suspended state.
 //

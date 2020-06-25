@@ -220,8 +220,10 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
             guard let s = self, let beaconCharacteristic = s.beaconCharacteristic else {
                 return
             }
-            os_log("Notify subscribers (source=%s)", log: s.log, type: .debug, source)
-            s.queue.async { s.peripheral.updateValue(s.emptyData, for: beaconCharacteristic, onSubscribedCentrals: nil) }            
+            s.queue.async {
+                os_log("Notify subscribers (source=%s)", log: s.log, type: .debug, source)
+                s.peripheral.updateValue(s.emptyData, for: beaconCharacteristic, onSubscribedCentrals: nil)
+            }
 //            let updateCodeInterval = Date().timeIntervalSince(s.codeUpdatedAt)
 //            if updateCodeInterval > s.updateCodeAfter {
 //                os_log("Automatic beacon code update (lastUpdate=%s,elapsed=%s)", log: s.log, type: .debug, s.codeUpdatedAt.description, updateCodeInterval.description)

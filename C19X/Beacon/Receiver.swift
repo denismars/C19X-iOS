@@ -457,9 +457,9 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             // after 8 seconds. The notification triggers the receiver's didUpdateValueFor callback, which wakes up the receiver to initiate
             // a readRSSI call. Please note, a beacon code update on the transmitter will trigger the receiver's didModifyService callback,
             // which wakes up the receiver to initiate a readCode (if already connected) or connect call.
-            else {
-                notifyDelegates("didDiscover|android", beacon)
-                wakeTransmitter("didDiscover", beacon)
+            else if operatingSystem == .ios {
+                notifyDelegates("didDiscover|ios", beacon)
+                wakeTransmitter("didDiscover|ios", beacon)
                 scheduleScan("didDiscover|ios")
             }
         }

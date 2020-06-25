@@ -54,12 +54,11 @@ protocol Transceiver {
 /// Time delay between notifications for subscribers.
 let transceiverNotificationDelay = DispatchTimeInterval.seconds(8)
 
-class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
+class ConcreteTransceiver: NSObject, Transceiver {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transceiver")
     private let dayCodes: DayCodes
     private let beaconCodes: BeaconCodes
     private let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
-    private let locationManager: LocationManager = ConcreteLocationManager()
     private let transmitter: Transmitter
     private let receiver: Receiver
     private var delegates: [ReceiverDelegate] = []
@@ -70,8 +69,6 @@ class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
         beaconCodes = ConcreteBeaconCodes(dayCodes)
         transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter)
         receiver = ConcreteReceiver(queue: queue)
-        super.init()
-        locationManager.append(self)
     }
     
     func start(_ source: String) {
@@ -111,15 +108,5 @@ class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
         delegates.append(delegate)
         receiver.append(delegate)
         transmitter.append(delegate)
-    }
-    
-    // MARK:- LocationManagerDelegate
-    
-    func locationManager(didDetect: LocationChange) {
-        let elapsed = abs(lastStartTimestamp.timeIntervalSinceNow)
-        os_log("locationManager (didDetect=%s,elapsed=%s)", log: log, type: .debug, didDetect.rawValue, elapsed.description)
-        if elapsed > 4 {
-            start("locationManager|"+didDetect.rawValue)
-        }
     }
 }
