@@ -283,7 +283,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                             wakeTransmitter("scan|ios", beacon)
                         } else {
                             // Add pending connect when out of range
-                            connect("scan|ios|pendingConnect", beacon.peripheral)
+                            connect("scan|ios|pending|" + beacon.peripheral.state.description, beacon.peripheral)
                         }
                     }
                     // iOS peripherals (Not connected) -> Connect
@@ -452,14 +452,15 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 notifyDelegates("didDiscover|android", beacon)
                 scheduleScan("didDiscover|android")
             }
-            // iOS -> Notify delegates -> Wake transmitter -> Scan again
+            // iOS -> Notify delegates [-> Wake transmitter] -> Scan again
+            // NB: Wake transmitter moved to scan|ios
             // iOS peripheral is kept awake by writing empty data to the beacon characteristic, which triggers a value update notification
             // after 8 seconds. The notification triggers the receiver's didUpdateValueFor callback, which wakes up the receiver to initiate
             // a readRSSI call. Please note, a beacon code update on the transmitter will trigger the receiver's didModifyService callback,
             // which wakes up the receiver to initiate a readCode (if already connected) or connect call.
             else if operatingSystem == .ios {
                 notifyDelegates("didDiscover|ios", beacon)
-                wakeTransmitter("didDiscover|ios", beacon)
+//                wakeTransmitter("didDiscover|ios", beacon)
                 scheduleScan("didDiscover|ios")
             }
         }
@@ -593,12 +594,8 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 notifyDelegates("didDiscoverCharacteristicsFor", beacon)
             }
         }
-        // iOS -> Wake transmitter
-        if let operatingSystem = beacon.operatingSystem, operatingSystem == .ios {
-            wakeTransmitter("didDiscoverCharacteristicsFor", beacon)
-        }
         // Android -> Disconnect
-        else {
+        if let operatingSystem = beacon.operatingSystem, operatingSystem == .android {
             disconnect("didDiscoverCharacteristicsFor", peripheral)
         }
         // Always -> Scan again
