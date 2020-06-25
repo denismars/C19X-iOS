@@ -149,6 +149,9 @@ class Beacon {
     var isExpired: Bool { get {
         Date().timeIntervalSince(lastUpdatedAt) > TimeInterval.day
     } }
+    var timeIntervalSinceLastUpdate: TimeInterval { get {
+        Date().timeIntervalSince(lastUpdatedAt)
+    }}
     
     init(peripheral: CBPeripheral) {
         self.peripheral = peripheral
@@ -275,7 +278,13 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 case .ios:
                     // iOS peripherals (Connected) -> Wake transmitter
                     if beacon.peripheral.state == .connected {
-                        wakeTransmitter("scan|ios", beacon)
+                        if beacon.timeIntervalSinceLastUpdate < TimeInterval.minute {
+                            // Throttle back keep awake calls when out of range
+                            wakeTransmitter("scan|ios", beacon)
+                        } else {
+                            // Add pending connect when out of range
+                            connect("scan|ios|pendingConnect", beacon.peripheral)
+                        }
                     }
                     // iOS peripherals (Not connected) -> Connect
                     else {
