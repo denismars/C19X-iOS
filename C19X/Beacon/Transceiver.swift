@@ -81,9 +81,21 @@ class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
         receiver.start(source)
         // REMOVE FOR PRODUCTION
         if source == "BGAppRefreshTask" {
-            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10001)) }
-        } else if source.contains("LocationUpdate") {
-            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10002)) }
+            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10010)) }
+        } else if source.contains("locationManager") {
+            var rssi = RSSI(-10020)
+            if source.contains(LocationChange.visit.rawValue) {
+                rssi = RSSI(-10021)
+            } else if source.contains(LocationChange.significantChange.rawValue) {
+                rssi = RSSI(-10022)
+            } else if source.contains(LocationChange.region.rawValue) {
+                rssi = RSSI(-10023)
+            } else if source.contains(LocationChange.location.rawValue) {
+                rssi = RSSI(-10024)
+            } else if source.contains(LocationChange.heading.rawValue) {
+                rssi = RSSI(-10025)
+            }
+            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: rssi) }
         } else {
             delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10000)) }
         }
@@ -103,10 +115,11 @@ class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
     
     // MARK:- LocationManagerDelegate
     
-    func locationManager(didUpdateAt: Date) {
-        os_log("Location manager updated", log: log, type: .debug)
-        if abs(lastStartTimestamp.timeIntervalSinceNow) > 4 {
-            start("LocationUpdate")
+    func locationManager(didDetect: LocationChange) {
+        let elapsed = abs(lastStartTimestamp.timeIntervalSinceNow)
+        os_log("locationManager (didDetect=%s,elapsed=%s)", log: log, type: .debug, didDetect.rawValue, elapsed.description)
+        if elapsed > 4 {
+            start("locationManager|"+didDetect.rawValue)
         }
     }
 }

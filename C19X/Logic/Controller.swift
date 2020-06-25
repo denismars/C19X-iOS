@@ -66,6 +66,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate {
     var transceiver: Transceiver?
     
     override init() {
+        os_log("init", log: self.log, type: .debug)
         if settings.registrationState() == .registering {
             settings.registrationState(.unregistered)
         }
@@ -86,13 +87,12 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate {
     
     func simulateCrash(after: Double) {
         DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + after) {
-            print("Killing app")
-            exit(0)
-//            // CRASH
-//            if ([0][1] == 1) {
-//                exit(0)
-//            }
-//            exit(1)
+            os_log("simulateCrash (after=%s)", log: self.log, type: .fault, after.description)
+            // CRASH
+            if ([0][1] == 1) {
+                exit(0)
+            }
+            exit(1)
         }
     }
     

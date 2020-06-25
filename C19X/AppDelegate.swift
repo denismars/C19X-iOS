@@ -20,6 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let options = (launchOptions == nil ? "[]" : launchOptions!.description)
         os_log("applicationDidFinishLaunching (launchOptions=%s)", log: log, type: .debug, options)
+        controller.foreground("applicationDidFinishLaunching")
         
         // Background app refresh based on BGTaskScheduler
         // Schedule regular background task to stop - rest - start beacon to keep it running indefinitely

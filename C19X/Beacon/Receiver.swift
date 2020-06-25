@@ -70,6 +70,7 @@ protocol ReceiverDelegate {
 enum OperatingSystem {
     case android
     case ios
+    case restored
 }
 
 /**
@@ -137,6 +138,7 @@ class Beacon {
      */
     var isReady: Bool { get {
         guard operatingSystem != nil, code != nil, rssi != nil else {
+            
             return false
         }
         let today = UInt64(Date().timeIntervalSince1970).dividedReportingOverflow(by: UInt64(86400))
@@ -241,7 +243,11 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             return
         }
         // Scan for peripherals -> didDiscover
-        queue.async { self.central.scanForPeripherals(withServices: [beaconServiceCBUUID]) }
+        queue.async {
+            self.central.scanForPeripherals(
+                withServices: [beaconServiceCBUUID],
+                options: [CBCentralManagerScanOptionSolicitedServiceUUIDsKey: [beaconServiceCBUUID]])
+        }
         // Connected peripherals -> Check registration
         central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
             let uuid = peripheral.identifier.uuidString
@@ -249,6 +255,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
 //                disconnect("scan|unknown", peripheral)
                 beacons[uuid] = Beacon(peripheral: peripheral)
+//                beacons[uuid]?.operatingSystem = .restored
                 connect("scan|unknown", peripheral)
             }
         }
@@ -256,8 +263,8 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         beacons.values.filter{$0.isExpired}.forEach { beacon in
             let uuid = beacon.uuidString
             os_log("scan found expired peripheral (peripheral=%s)", log: log, type: .debug, uuid)
-            disconnect("scan|expired", beacon.peripheral)
             beacons[uuid] = nil
+            disconnect("scan|expired", beacon.peripheral)
         }
         // All peripherals -> Check pending actions
         beacons.values.forEach() { beacon in
@@ -272,10 +279,8 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                     connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
                 }
             }
-            // All peripherals -> Check delegate (bit too paranoid?)
-            if beacon.peripheral.delegate == nil {
-                os_log("scan found detached peripheral (peripheral=%s)", log: log, type: .fault, beacon.uuidString)
-                beacon.peripheral.delegate = self
+            if let operatingSystem = beacon.operatingSystem, operatingSystem == .restored {
+                connect("scan|restored|" + beacon.peripheral.state.description, beacon.peripheral)
             }
         }
     }
@@ -382,10 +387,12 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 let uuid = peripheral.identifier.uuidString
                 if let beacon = beacons[uuid] {
                     beacon.peripheral = peripheral
+                    os_log("Restored known (peripheral=%s,state=%s)", log: log, type: .debug, uuid, peripheral.state.description)
                 } else {
                     beacons[uuid] = Beacon(peripheral: peripheral)
+                    beacons[uuid]?.operatingSystem = .restored
+                    os_log("Restored (peripheral=%s,state=%s)", log: log, type: .debug, uuid, peripheral.state.description)
                 }
-                os_log("Restored (peripheral=%s,state=%s)", log: log, type: .debug, uuid, peripheral.state.description)
             }
         }
         // Reconnection check performed in scan following centralManagerDidUpdateState:central.state == .powerOn
