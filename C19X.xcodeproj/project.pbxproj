@@ -20,7 +20,6 @@
 		B60C0A122462941D002BA6A0 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B60C0A112462941D002BA6A0 /* CoreData.framework */; };
 		B60C0A1524629441002BA6A0 /* C19X.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = B60C0A1324629441002BA6A0 /* C19X.xcdatamodeld */; };
 		B60C5838247EB9C100665748 /* RiskAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60C5837247EB9C100665748 /* RiskAnalysis.swift */; };
-		B6357E0F24A20C60000CD652 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6357E0E24A20C60000CD652 /* LocationManager.swift */; };
 		B635CFE5247907F400873E20 /* Controller.swift in Sources */ = {isa = PBXBuildFile; fileRef = B635CFE4247907F400873E20 /* Controller.swift */; };
 		B6439C15247D2A16004338A6 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6439C14247D2A16004338A6 /* Settings.swift */; };
 		B6439C17247D2F4F004338A6 /* SecuredStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6439C16247D2F4F004338A6 /* SecuredStorage.swift */; };
@@ -62,7 +61,6 @@
 		B60C0A112462941D002BA6A0 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		B60C0A1424629441002BA6A0 /* C19X.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = C19X.xcdatamodel; sourceTree = "<group>"; };
 		B60C5837247EB9C100665748 /* RiskAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskAnalysis.swift; sourceTree = "<group>"; };
-		B6357E0E24A20C60000CD652 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		B635CFE4247907F400873E20 /* Controller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controller.swift; sourceTree = "<group>"; };
 		B6439C14247D2A16004338A6 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		B6439C16247D2F4F004338A6 /* SecuredStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuredStorage.swift; sourceTree = "<group>"; };
@@ -204,7 +202,6 @@
 				B6BC9E2E246A99C00017B281 /* Receiver.swift */,
 				B6BC9E30246D1C9C0017B281 /* BeaconUtilities.swift */,
 				B60B5BC3247503B300EBEE47 /* Transceiver.swift */,
-				B6357E0E24A20C60000CD652 /* LocationManager.swift */,
 			);
 			path = Beacon;
 			sourceTree = "<group>";
@@ -349,7 +346,6 @@
 				B6439C1B247D2FD8004338A6 /* DataUtilities.swift in Sources */,
 				B6439C19247D2F68004338A6 /* Keychain.swift in Sources */,
 				B60779342458397F00479C78 /* Network.swift in Sources */,
-				B6357E0F24A20C60000CD652 /* LocationManager.swift in Sources */,
 				B60779362458398700479C78 /* AES.swift in Sources */,
 				B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */,
 				B635CFE5247907F400873E20 /* Controller.swift in Sources */,
