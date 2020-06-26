@@ -82,6 +82,7 @@ class Beacon {
     var peripheral: CBPeripheral {
         didSet { lastUpdatedAt = Date() }
     }
+
     /**
      Operating system (Android | iOS) distinguished by whether the beacon characteristic supports
      notify (iOS only). Android devices are discoverable by iOS in all circumstances, thus a connect
@@ -267,6 +268,20 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             os_log("scan found expired peripheral (peripheral=%s)", log: log, type: .debug, uuid)
             beacons[uuid] = nil
             disconnect("scan|expired", beacon.peripheral)
+        }
+        // All peripherals -> De-duplicate based on code
+        var codes = Set<BeaconCode>()
+        beacons.values.forEach { beacon in
+            guard let code = beacon.code else {
+                return
+            }
+            let uuid = beacon.uuidString
+            if codes.contains(code) {
+                os_log("scan found duplicate peripheral (peripheral=%s,code=%s)", log: log, type: .debug, uuid, code.description)
+                beacons[uuid] = nil
+            } else {
+                codes.insert(code)
+            }
         }
         // All peripherals -> Check pending actions
         beacons.values.forEach() { beacon in
@@ -625,6 +640,14 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         // which will trigger a didModifyServices call on all the iOS subscibers, thus iOS devices will
         // need to read the new code, if already connected, or connect to read the new code.
         let uuid = peripheral.identifier.uuidString
+        let characteristics = invalidatedServices.map{$0.characteristics}.count
+        guard characteristics == 0 else {
+            // Value of characteristic == 1 implies invalidation of service with existing beacon code, wait
+            // for characteristic == 0 to read code, as that implies a new service with a new beacon code
+            // will be ready for read. Otherwise, this will result in two readCode requests for every beacon
+            // code update.
+            return
+        }
         os_log("didModifyServices (peripheral=%s)", log: log, type: .debug, uuid)
         if let beacon = beacons[uuid] {
             beacon.code = nil
