@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Select &quot;Change to Always Allow&quot;. This allows you to detect contacts as you move. This app does not record or share your location.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Select &quot;Allow While Using App&quot;. This allows you to detect contacts as you move. This app does not record or share your location.</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>org.c19x.BGProcessingTask</string>
@@ -33,6 +29,10 @@
 	<string>This allows you to detect contacts with other people</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This allows other people to detect contacts with you</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Select "Change to Always Allow". This allows you to detect contacts as you move. This app does not record or share your location.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Select "Allow While Using App". This allows you to detect contacts as you move. This app does not record or share your location.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -57,7 +57,6 @@
 		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>
 		<string>fetch</string>
-		<string>location</string>
 		<string>processing</string>
 	</array>
 	<key>UIFileSharingEnabled</key>

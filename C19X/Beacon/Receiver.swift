@@ -111,6 +111,7 @@ class Beacon {
             codeUpdatedAt = Date()
         }
     }
+    
     /**
      Last update timestamp for beacon code. Need to track this to invalidate codes from
      yesterday. It is unnecessary to invalidate old codes obtained during a day as the fact
@@ -139,7 +140,6 @@ class Beacon {
      */
     var isReady: Bool { get {
         guard operatingSystem != nil, code != nil, rssi != nil else {
-            
             return false
         }
         let today = UInt64(Date().timeIntervalSince1970).dividedReportingOverflow(by: UInt64(86400))
@@ -287,15 +287,19 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                         }
                     }
                     // iOS peripherals (Not connected) -> Connect
-                    else {
+                    else if beacon.peripheral.state != .connecting {
                         connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
                     }
                     break
                 case .restored:
-                    connect("scan|restored|" + beacon.peripheral.state.description, beacon.peripheral)
+                    if beacon.peripheral.state != .connected && beacon.peripheral.state != .connecting {
+                        connect("scan|restored|" + beacon.peripheral.state.description, beacon.peripheral)
+                    }
                     break
                 case .unknown:
-                    connect("scan|unknown|" + beacon.peripheral.state.description, beacon.peripheral)
+                    if beacon.peripheral.state != .connected && beacon.peripheral.state != .connecting {
+                        connect("scan|unknown|" + beacon.peripheral.state.description, beacon.peripheral)
+                    }
                     break
                 default:
                     break
@@ -552,7 +556,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             return
         }
         for service in services {
-            os_log("didDiscoverServices, found service (peripheral=%s,service=%s)", log: log, type: .debug, uuid, service.uuid.description)
+//            os_log("didDiscoverServices, found service (peripheral=%s,service=%s)", log: log, type: .debug, uuid, service.uuid.description)
             if (service.uuid == beaconServiceCBUUID) {
                 os_log("didDiscoverServices, found beacon service (peripheral=%s)", log: log, type: .debug, uuid)
                 peripheral.discoverCharacteristics(nil, for: service)
@@ -573,7 +577,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             return
         }
         for characteristic in characteristics {
-            os_log("didDiscoverCharacteristicsFor, found characteristic (peripheral=%s,characteristic=%s)", log: log, type: .debug, uuid, characteristic.uuid.description)
+//            os_log("didDiscoverCharacteristicsFor, found characteristic (peripheral=%s,characteristic=%s)", log: log, type: .debug, uuid, characteristic.uuid.description)
             let (upper,beaconCode) = characteristic.uuid.values
             if upper == characteristicCBUUIDUpper {
                 let notifies = characteristic.properties.contains(.notify)
@@ -626,7 +630,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             beacon.code = nil
             if peripheral.state == .connected {
                 readCode("didModifyServices", peripheral)
-            } else {
+            } else if peripheral.state != .connecting {
                 connect("didModifyServices", peripheral)
             }
         }
