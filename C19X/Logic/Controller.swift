@@ -55,7 +55,7 @@ enum ControllerState: String {
     case foreground, background
 }
 
-class ConcreteController : Controller, ReceiverDelegate {
+class ConcreteController : NSObject, Controller, ReceiverDelegate {
     private let log = OSLog(subsystem: "org.c19x.logic", category: "Controller")
     var delegates: [ControllerDelegate] = []
 
@@ -65,20 +65,34 @@ class ConcreteController : Controller, ReceiverDelegate {
     let settings = Settings.shared
     var transceiver: Transceiver?
     
-    init() {
+    override init() {
+        os_log("init", log: self.log, type: .debug)
         if settings.registrationState() == .registering {
             settings.registrationState(.unregistered)
         }
-        
     }
     
     func reset(registration: Bool = true, contacts: Bool = true) {
         os_log("reset (registration=%s,contacts=%s)", log: self.log, type: .debug, registration.description, contacts.description)
-        if (registration) {
+        if registration {
             settings.reset()
         }
-        if (contacts) {
+        if contacts {
             database.remove(Date().advanced(by: TimeInterval.day))
+        }
+        if !contacts && !registration {
+            simulateCrash(after: 5)
+        }
+    }
+    
+    func simulateCrash(after: Double) {
+        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + after) {
+            os_log("simulateCrash (after=%s)", log: self.log, type: .fault, after.description)
+            // CRASH
+            if ([0][1] == 1) {
+                exit(0)
+            }
+            exit(1)
         }
     }
     
@@ -88,7 +102,6 @@ class ConcreteController : Controller, ReceiverDelegate {
         initialiseTransceiver()
         applySettings()
         synchronise()
-        transceiver?.start("foreground")
         delegates.forEach{ $0.controller(.foreground) }
     }
     

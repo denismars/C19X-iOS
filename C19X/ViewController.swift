@@ -56,7 +56,7 @@ class ViewController: UIViewController, ControllerDelegate {
         adviceMessage.sizeToFit()
         
         enableImmediateUpdate()
-        enableExportContacts()
+        enableDeveloperFunctions()
 
         // Initialise view data, hence suppress notification
         updateViewData(status: true, contacts: true, advice: true, suppressNotification: true)
@@ -295,27 +295,29 @@ class ViewController: UIViewController, ControllerDelegate {
     
     // MARK:- Enable export by double tapping on contact view
     
-    @objc func exportContacts(_ sender: UITapGestureRecognizer) {
-        os_log("Export requested", log: self.log, type: .debug)
-        controller.export()
-        resetContacts()
+    @objc func developerFunctions(_ sender: UITapGestureRecognizer) {
+        os_log("Developer functions", log: self.log, type: .debug)
+        developerFunctions()
     }
 
-    private func resetContacts() {
-        let dialog = UIAlertController(title: "Delete contacts", message: "Remove all contact records from device?", preferredStyle: .alert)
+    private func developerFunctions() {
+        let dialog = UIAlertController(title: "Developer Mode", message: "Test functions to be removed for production use.", preferredStyle: .alert)
         dialog.addAction(UIAlertAction(title: "Cancel", style: .default) { _ in
-            self.updateViewData(status: true)
         })
-        dialog.addAction(UIAlertAction(title: "Delete", style: .default) { _ in
-            // Set status locally and remotely
+        dialog.addAction(UIAlertAction(title: "Simulate Crash", style: .default) { _ in
+            self.controller.reset(registration: false, contacts: false)
+        })
+        dialog.addAction(UIAlertAction(title: "Export Contacts", style: .default) { _ in
+            self.controller.export()
+        })
+        dialog.addAction(UIAlertAction(title: "Clear Contacts", style: .default) { _ in
             self.controller.reset(registration: false, contacts: true)
-            self.updateViewData(status: true)
         })
         present(dialog, animated: true)
     }
     
-    private func enableExportContacts() {
-        let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.exportContacts(_:)))
+    private func enableDeveloperFunctions() {
+        let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.developerFunctions(_:)))
         doubleTapGestureRecognizer.numberOfTapsRequired = 2
         self.contactView.isUserInteractionEnabled = true
         self.contactView.addGestureRecognizer(doubleTapGestureRecognizer)

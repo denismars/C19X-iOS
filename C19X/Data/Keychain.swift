@@ -23,10 +23,10 @@ struct Keychain {
             kSecReturnData: false,
             ] as NSDictionary, nil)
         if status == errSecSuccess {
-            os_log("Exists (key=%s,result=true)", log: log, type: .debug, key)
+            //os_log("Exists (key=%s,result=true)", log: log, type: .debug, key)
             return true
         } else if status == errSecItemNotFound {
-            os_log("Exists (key=%s,result=false)", log: log, type: .debug, key)
+            //os_log("Exists (key=%s,result=false)", log: log, type: .debug, key)
             return false
         } else {
             os_log("Exists failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
@@ -48,7 +48,7 @@ struct Keychain {
             os_log("Create failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
             return false
         }
-        os_log("Create (key=%s,result=true)", log: log, type: .debug, key)
+        //os_log("Create (key=%s,result=true)", log: log, type: .debug, key)
         return true
     }
     
@@ -64,7 +64,7 @@ struct Keychain {
             os_log("Update failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
             return false
         }
-        os_log("Update (key=%s,result=true)", log: log, type: .debug, key)
+        //os_log("Update (key=%s,result=true)", log: log, type: .debug, key)
         return true
     }
     
@@ -75,7 +75,7 @@ struct Keychain {
             return nil
         }
         let r = (e! ? update(key, value) : create(key, value))
-        os_log("Set (key=%s,result=%s)", log: log, type: .debug, key, r.description)
+        //os_log("Set (key=%s,result=%s)", log: log, type: .debug, key, r.description)
         return r
     }
     
@@ -89,10 +89,10 @@ struct Keychain {
             kSecReturnData: true,
             ] as NSDictionary, &result)
         if status == errSecSuccess {
-            os_log("Get (key=%s,result=true)", log: log, type: .debug, key)
+            //os_log("Get (key=%s,result=true)", log: log, type: .debug, key)
             return String(data: result as! Data, encoding: .utf8)
         } else if status == errSecItemNotFound {
-            os_log("Get (key=%s,result=false)", log: log, type: .debug, key)
+            //os_log("Get (key=%s,result=false)", log: log, type: .debug, key)
             return nil
         } else {
             os_log("Get failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
@@ -111,7 +111,7 @@ struct Keychain {
             os_log("Remove failed (key=%s,error=%s)", log: log, type: .fault, key, status.description)
             return false
         }
-        os_log("Remove (key=%s,result=true)", log: log, type: .debug, key)
+        //os_log("Remove (key=%s,result=true)", log: log, type: .debug, key)
         return true
     }
 }
