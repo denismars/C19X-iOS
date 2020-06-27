@@ -67,8 +67,8 @@ class ConcreteTransceiver: NSObject, Transceiver {
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
         dayCodes = ConcreteDayCodes(sharedSecret)
         beaconCodes = ConcreteBeaconCodes(dayCodes)
-        transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter)
         receiver = ConcreteReceiver(queue: queue)
+        transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter, receiver: receiver)
     }
     
     func start(_ source: String) {

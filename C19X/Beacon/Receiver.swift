@@ -40,6 +40,11 @@ protocol Receiver {
      background app refresh task in the AppDelegate as backup for keeping the receiver awake.
      */
     func scan(_ source: String)
+    
+    /**
+     Scan for central.
+     */
+    func scan(_ source: String, central: CBCentral)
 }
 
 /**
@@ -236,6 +241,23 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         beacons.values.forEach() { beacon in
             if beacon.peripheral.state != .disconnected {
                 disconnect("stop|" + source, beacon.peripheral)
+            }
+        }
+    }
+    
+    func scan(_ source: String, central: CBCentral) {
+        let uuid = central.identifier.uuidString
+        if beacons[uuid] == nil {
+            os_log("scan hint found unknown peripheral (source=%s,peripheral=%s)", log: log, type: .debug, source, uuid)
+            let peripherals = self.central.retrievePeripherals(withIdentifiers: [central.identifier])
+            if let peripheral = peripherals.last {
+                os_log("scan hint resolved unknown peripheral (source=%s,peripheral=%s)", log: log, type: .debug, source, peripheral.identifier.description)
+                peripheral.delegate = self
+                beacons[uuid] = Beacon(peripheral: peripheral)
+                beacons[uuid]?.operatingSystem = .unknown
+                connect("scanHint|central|unknown|" + peripheral.state.description, peripheral)
+            } else {
+                os_log("scan hint cannot resolve unknown peripheral (source=%s,peripheral=%s)", log: log, type: .fault, source, uuid)
             }
         }
     }
@@ -479,12 +501,11 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             // which wakes up the receiver to initiate a readCode (if already connected) or connect call.
             else if operatingSystem == .ios {
                 notifyDelegates("didDiscover|ios", beacon)
-//                wakeTransmitter("didDiscover|ios", beacon)
                 scheduleScan("didDiscover|ios")
             }
         }
         // Beacon is not ready | Beacon is new -> Connect
-        else if !beacon.isReady || beacon.peripheral.state == .disconnected || beacon.peripheral.state == .disconnecting {
+        else if !beacon.isReady || beacon.peripheral.state != .connected {
             connect("didDiscover", peripheral)
         }
         // Default -> Scan again

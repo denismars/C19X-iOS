@@ -9,6 +9,7 @@
 import Foundation
 import CoreBluetooth
 import os
+import AVFoundation
 
 /**
  Controller for encapsulating all application data and logic.
@@ -81,13 +82,15 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate {
             database.remove(Date().advanced(by: TimeInterval.day))
         }
         if !contacts && !registration {
-            simulateCrash(after: 5)
+            simulateCrash(after: 8)
         }
     }
     
     func simulateCrash(after: Double) {
         DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + after) {
             os_log("simulateCrash (after=%s)", log: self.log, type: .fault, after.description)
+            let systemSoundID: SystemSoundID = 1103
+            AudioServicesPlaySystemSound(systemSoundID)
             // CRASH
             if ([0][1] == 1) {
                 exit(0)

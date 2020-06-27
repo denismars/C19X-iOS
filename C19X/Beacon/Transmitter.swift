@@ -22,7 +22,7 @@ protocol Transmitter {
      to manually change the beacon code being broadcasted by the transmitter. The code is also
      automatically updated after the given time interval.
      */
-    init(queue: DispatchQueue, beaconCodes: BeaconCodes, updateCodeAfter: TimeInterval)
+    init(queue: DispatchQueue, beaconCodes: BeaconCodes, updateCodeAfter: TimeInterval, receiver: Receiver)
     
     /**
      Start transmitter. The actual start is triggered by bluetooth state changes.
@@ -94,6 +94,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     private let beaconCodes: BeaconCodes
     /// Automatically change beacon codes at regular intervals.
     private let updateCodeAfter: TimeInterval
+    private let receiver: Receiver
     /**
      Characteristic UUID encodes the characteristic identifier in the upper 64-bits and the beacon code in the lower 64-bits
      to achieve reliable read of beacon code without an actual GATT read operation. In theory, the whole 128-bits can be
@@ -119,10 +120,11 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     /// Delegates for receiving beacon detection events.
     private var delegates: [ReceiverDelegate] = []
 
-    required init(queue: DispatchQueue, beaconCodes: BeaconCodes, updateCodeAfter: TimeInterval) {
+    required init(queue: DispatchQueue, beaconCodes: BeaconCodes, updateCodeAfter: TimeInterval, receiver: Receiver) {
         self.queue = queue
         self.beaconCodes = beaconCodes
         self.updateCodeAfter = updateCodeAfter
+        self.receiver = receiver
         super.init()
         // Create a peripheral that supports state restoration
         self.peripheral = CBPeripheralManager(delegate: self, queue: queue, options: [
@@ -288,6 +290,8 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
             } else {
                 peripheral.respond(to: request, withResult: .invalidAttributeValueLength)
             }
+            // Help receiver detect central if it has changed identity
+            receiver.scan("transmitter|write", central: request.central)
         }
         notifySubscribers("didReceiveWrite")
     }
