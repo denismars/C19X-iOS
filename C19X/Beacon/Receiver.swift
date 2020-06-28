@@ -132,7 +132,7 @@ class Beacon {
      growing table of beacons and pending connections to iOS devices. Invalidated
      beacons can be discovered again in the future by scan instead.
      */
-    private var lastUpdatedAt = Date.distantPast
+    var lastUpdatedAt = Date.distantPast
     /// Track connection interval and up time statistics for this beacon, for debug purposes.
     let statistics = TimeIntervalSample()
     
@@ -280,6 +280,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             let uuid = peripheral.identifier.uuidString
             if beacons[uuid] == nil {
                 os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
+                peripheral.delegate = self
                 beacons[uuid] = Beacon(peripheral: peripheral)
                 beacons[uuid]?.operatingSystem = .unknown
             }
@@ -291,18 +292,35 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             beacons[uuid] = nil
             disconnect("scan|expired", beacon.peripheral)
         }
-        // All peripherals -> De-duplicate based on code
-        var codes = Set<BeaconCode>()
+        // All peripherals -> De-duplicate based on beacon code
+        var codes: [BeaconCode:[Beacon]] = [:]
         beacons.values.forEach { beacon in
             guard let code = beacon.code else {
                 return
             }
-            let uuid = beacon.uuidString
-            if codes.contains(code) {
-                os_log("scan found duplicate peripheral (peripheral=%s,code=%s)", log: log, type: .debug, uuid, code.description)
-                beacons[uuid] = nil
+            if codes[code] == nil {
+                codes[code] = [beacon]
             } else {
-                codes.insert(code)
+                codes[code]?.append(beacon)
+            }
+        }
+        codes.forEach() { code, codeBeacons in
+            guard codeBeacons.count > 1 else {
+                return
+            }
+            let codeBeaconsSortedByLastUpdatedAt = codeBeacons.sorted{$0.lastUpdatedAt < $1.lastUpdatedAt}
+            let uuids = codeBeaconsSortedByLastUpdatedAt.map{$0.uuidString}
+            if let uuidToKeep = uuids.last {
+                os_log("scan found duplicate peripherals (code=%s,keeping=%s,peripherals=%s)", log: log, type: .debug, code.description, uuidToKeep, uuids.description)
+                uuids.filter{$0 != uuidToKeep}.forEach() { uuid in
+                    beacons[uuid] = nil
+                    // CoreBluetooth will give warning and disconnect actual duplicate silently
+                    // calling disconnect here is cleaner but will trigger didDiscover and
+                    // retain the duplicates. Expect to see message :
+                    // [CoreBluetooth] API MISUSE: Forcing disconnection of unused peripheral
+                    // <CBPeripheral: XXX, identifier = XXX, name = iPhone, state = connected>.
+                    // Did you forget to cancel the connection?
+                }
             }
         }
         // All peripherals -> Check pending actions
@@ -473,10 +491,10 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         let rssi = RSSI.intValue
         os_log("didDiscover (peripheral=%s,rssi=%d,state=%s)", log: log, type: .debug, uuid, rssi, peripheral.state.description)
         // Register beacon -> Set delegate -> Update RSSI
+        peripheral.delegate = self
         if beacons[uuid] == nil {
             beacons[uuid] = Beacon(peripheral: peripheral)
         }
-        peripheral.delegate = self
         guard let beacon = beacons[uuid] else {
             return
         }
@@ -588,6 +606,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         let uuid = peripheral.identifier.uuidString
         os_log("didDiscoverServices (peripheral=%s,error=%s)", log: log, type: .debug, uuid, String(describing: error))
         guard let services = peripheral.services else {
+            //beacons[uuid] = nil
             disconnect("didDiscoverServices|serviceEmpty", peripheral)
             return
         }
@@ -599,6 +618,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                 return
             }
         }
+        //beacons[uuid] = nil
         disconnect("didDiscoverServices|serviceNotFound", peripheral)
         // The disconnect calls here shall be handled by didDisconnect which determines whether to retry for iOS or stop for Android
     }

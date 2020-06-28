@@ -1,0 +1,192 @@
+Beacon reconnection tests
+
+UNKNOWN (T) - UNKNOWN (T)
+1. Phone A start, detects nothing, simulate crash, place in faraday bag
+2. Phone B start, detects nothing, simulate crash
+`fault    15:07:26.610215+0100    C19X    Controller    simulateCrash (after=<private>)`
+3. Phone A out of faraday bag, Phone B resumes, detects Phone A
+`debug    15:08:18.372787+0100    C19X    Database    Loaded persistent stores (key=NSMigratePersistentStoresAutomaticallyOption,value=1)`
+
+KNOWN (S) - KNOWN (S)
+1. Phone A and B are connected
+2. Phone A placed in faraday bag, Phone B shows disconnect, pending connect and scan
+`debug    15:11:00.867727+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=<private>,error=<private>)
+debug    15:11:00.867824+0100    C19X    Receiver    connect (source=didDisconnectPeripheral,peripheral=<private>)
+debug    15:11:08.942945+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})`
+3. Phone B enters suspended state
+4. Phone A out of faraday bag, Phone B resumes, detects Phone A
+`debug    15:14:19.121706+0100    C19X    Receiver    didDiscover (peripheral=<private>,rssi=-49,state=<private>)`
+
+KNOWN (T) - KNOWN (S)
+1. Phone A and B are connected
+2. Phone A starts simulate crash, place in faraday bag, crash occurs in bag; Phone B shows disconnect, pending connect and scan
+`debug    15:16:14.946002+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=<private>,error=<private>)
+debug    15:16:14.946100+0100    C19X    Receiver    connect (source=didDisconnectPeripheral,peripheral=<private>)
+debug    15:16:14.946374+0100    C19X    Transmitter    Unsubscribe (central=<private>)
+debug    15:16:23.010812+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})
+debug    15:16:23.011012+0100    C19X    Transmitter    Notify subscribers (source=didUnsubscribeFrom)`
+3. Phone A out of faraday bag, Phone B resumes, detects Phone A
+`debug    15:18:53.884094+0100    C19X    Receiver    didDiscover (peripheral=<private>,rssi=-56,state=<private>)`
+
+KNOWN (T) - KNOWN (T)
+1. Phone A and B are connected
+2. Phone A starts simulate crash, place in faraday bag, crash occurs in bag; Phone B shows disconnect, pending connect and scan
+`debug    15:20:23.999291+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=<private>,error=<private>)
+debug    15:20:24.999583+0100    C19X    Receiver    connect (source=didDisconnectPeripheral,peripheral=<private>)
+debug    15:20:24.000526+0100    C19X    Transmitter    Unsubscribe (central=<private>)
+debug    15:20:32.093966+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})
+debug    15:20:32.094176+0100    C19X    Transmitter    Notify subscribers (source=didUnsubscribeFrom)`
+3. Phone B simulate crash
+`fault    15:21:24.551393+0100    C19X    Controller    simulateCrash (after=<private>)`
+4. Phone A out of faraday bag, Phone B resumes, detects Phone A
+`debug    15:22:17.213632+0100    C19X    Database    Loaded persistent stores (key=NSInferMappingModelAutomaticallyOption,value=1)
+...
+debug    15:22:17.282090+0100    C19X    Receiver    Restored (peripheral=<private>,state=<private>)
+...
+debug    15:22:17.288821+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})
+...
+debug    15:22:17.298707+0100    C19X    Receiver    didConnect (peripheral=<private>)`
+
+KNOWN (T) - KNOWN (T) : AIRPLANE MODE : Requires user to reopen app after turning airplane mode off
+1. Phone A and B are connected
+2. Phone A starts simulate crash, place in faraday bag, crash occurs in bag; Phone B shows disconnect, pending connect and scan
+`debug    15:26:18.613008+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=<private>,error=<private>)
+debug    15:26:18.613131+0100    C19X    Receiver    connect (source=didDisconnectPeripheral,peripheral=<private>)
+debug    15:26:18.613300+0100    C19X    Transmitter    Unsubscribe (central=<private>)
+debug    15:26:26.701020+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})
+debug    15:26:26.701227+0100    C19X    Transmitter    Notify subscribers (source=didUnsubscribeFrom)`
+3. Phone B simulate crash
+`fault    15:28:09.197777+0100    C19X    Controller    simulateCrash (after=<private>)`
+4. Phone B enters airplane mode, exits airplane mode
+5. Phone A out of faraday bag, Phone B **does not detect** Phone A; Phone A back in faraday bag
+6. Phone B opens app, detects nothing, simulate crash again
+`fault    15:33:12.208889+0100    C19X    Controller    simulateCrash (after=<private>)`
+7. Phone A out of faraday bag, Phone B resumes, detects Phone A
+`debug    15:33:54.630330+0100    C19X    Database    Loaded persistent stores (key=NSMigratePersistentStoresAutomaticallyOption,value=1)
+...
+debug    15:33:54.761941+0100    C19X    Receiver    didDiscover (peripheral=<private>,rssi=-78,state=<private>)`
+
+KNOWN (T) - KNOWN (T) : 30 minutes apart
+1. Phone A and B are connected
+2. Phone A starts simulate crash, place in faraday bag, crash occurs in bag; Phone B shows disconnect, pending connect and scan
+`debug    15:38:37.092427+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=<private>,error=<private>)
+debug    15:38:37.092665+0100    C19X    Receiver    connect (source=didDisconnectPeripheral,peripheral=<private>)
+debug    15:38:45.296714+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})`
+3. Phone B simulate crash
+`fault    15:39:00.094026+0100    C19X    Controller    simulateCrash (after=<private>)`
+4. Wait 30 minutes
+5. Phone A out of faraday bag, Phone B resumes, detects Phone A but only transmitter is working
+`debug    16:10:29.698209+0100    C19X    Database    Loaded persistent stores (key=NSMigratePersistentStoresAutomaticallyOption,value=1)
+debug    16:10:29.780612+0100    C19X    Receiver    Restore
+debug    16:10:29.780966+0100    C19X    Receiver    Restored (peripheral=<private>,state=<private>)
+...
+fault    16:10:29.793086+0100    C19X    Receiver    scan found connected but unknown peripheral (peripheral=<private>)
+debug    16:10:29.793175+0100    C19X    Receiver    connect (source=<private>,peripheral=<private>)
+... Phone B connects to Phone A fine
+debug    16:10:29.812643+0100    C19X    Receiver    didConnect (peripheral=<private>)
+debug    16:10:29.812690+0100    C19X    Receiver    readCode (source=<private>,peripheral=<private>)
+... but Phone B readCode of Phone A goes no where
+debug    16:10:37.485097+0100    C19X    Transmitter    Write (central=<private>)
+debug    16:10:37.861990+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})
+debug    16:10:45.573663+0100    C19X    Transmitter    Notify subscribers (source=<private>)
+debug    16:10:45.576287+0100    C19X    Transmitter    Automatic beacon code update (lastUpdate=<private>,elapsed=<private>)
+debug    16:10:45.588932+0100    C19X    Transmitter    updateBeaconCode
+debug    16:10:45.590145+0100    C19X    Transmitter    Write (central=<private>)
+debug    16:10:45.590694+0100    C19X    Transmitter    updateBeaconCode successful (code=<private>,characteristic=<private>)
+debug    16:10:46.064281+0100    C19X    Transmitter    Subscribe (central=<private>)
+debug    16:10:54.013972+0100    C19X    Transmitter    Write (central=<private>)
+debug    16:10:55.544368+0100    C19X    Transmitter    Write (central=<private>)
+debug    16:11:03.615309+0100    C19X    Transmitter    Write (central=<private>)
+debug    16:11:11.683420+0100    C19X    Transmitter    Write (central=<private>)
+debug    16:11:19.751019+0100    C19X    Transmitter    Notify subscribers (source=<private>)
+debug    16:11:27.976263+0100    C19X    Transmitter    Write (central=<private>)
+debug    16:11:36.045114+0100    C19X    Transmitter    Write (central=<private>)
+... loops`
+
+KNOWN (T) - KNOWN (S) : UUID change handling
+1. Phone A and B are connected
+2. Phone A place in faraday bag; Phone B shows disconnect, pending connect and scan
+`debug    00:36:31.858424+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=F7DAEEAD-4F0F-B5E8-D1B0-4FC3C4830D64,error=Optional(Error Domain=CBErrorDomain Code=6 "The connection has timed out unexpectedly." UserInfo={NSLocalizedDescription=The connection has timed out unexpectedly.}))
+debug    00:36:31.858968+0100    C19X    Receiver    connect (source=didDisconnectPeripheral,peripheral=F7DAEEAD-4F0F-B5E8-D1B0-4FC3C4830D64)
+debug    00:36:31.859543+0100    C19X    Transmitter    Unsubscribe (central=F7DAEEAD-4F0F-B5E8-D1B0-4FC3C4830D64)
+debug    00:36:39.924319+0100    C19X    Transmitter    Notify subscribers (source=didUnsubscribeFrom)
+debug    00:36:39.925853+0100    C19X    Receiver    scan (source=scheduleScan|connect,statistics={count=25,mean=16.709072880744937,sd=15.915657171549242,min=6.3302870988845825,max=85.74862003326416,period=417.72682201862335})`
+3. Wait
+4. Phone A out of faraday bag, Phone B resumes, Phone A sends pending subscribe to Phone B
+`debug    00:37:54.841886+0100    C19X    Transmitter    Subscribe (central=53CB6096-422C-76EF-B5A4-73D3078CFA64)`
+5. Phone B transmitter provides scan hint to receiver for changed UUID
+`debug    00:37:54.842175+0100    C19X    Receiver    scan hint found unknown peripheral (source=transmitter|didSubscribeTo,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:37:54.844688+0100    C19X    Receiver    scan hint resolved unknown peripheral (source=transmitter|didSubscribeTo,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:37:54.844974+0100    C19X    Receiver    connect (source=scanHint|central|unknown|.disconnected,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:37:54.847786+0100    C19X    Receiver    didConnect (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:37:54.848191+0100    C19X    Receiver    readCode (source=didConnect,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:37:54.858949+0100    C19X    Receiver    didDiscoverServices (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,error=nil)
+debug    00:37:54.859285+0100    C19X    Receiver    didDiscoverServices, found beacon service (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:37:54.965466+0100    C19X    Receiver    didDiscoverCharacteristicsFor (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,error=nil)
+debug    00:37:54.966475+0100    C19X    Receiver    didDiscoverCharacteristicsFor, found beacon characteristic (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,beaconCode=6721673167573673045,notifies=true,os=ios)
+debug    00:38:02.848768+0100    C19X    Transmitter    Notify subscribers (source=didSubscribeTo)
+debug    00:38:02.912662+0100    C19X    Transmitter    Write (central=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:03.062690+0100    C19X    Receiver    scan (source=scheduleScan|didDiscoverCharacteristicsFor,statistics={count=26,mean=19.26406107957547,sd=20.32001229267445,min=6.3302870988845825,max=85.74862003326416,period=500.8655880689621})`
+6. Phone B discovers duplicate peripheral with same code but different UUID
+`debug    00:38:03.081959+0100    C19X    Receiver    scan found duplicate peripheral (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,code=6721673167573673045)
+debug    00:38:03.423247+0100    C19X    Receiver    didUpdateValueFor (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,error=nil)
+debug    00:38:03.423979+0100    C19X    Receiver    readRSSI (source=didUpdateValueFor,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:03.431417+0100    C19X    Receiver    didReadRSSI (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,rssi=-95,error=nil)
+debug    00:38:10.983603+0100    C19X    Transmitter    Notify subscribers (source=didReceiveWrite)
+debug    00:38:11.493885+0100    C19X    Receiver    scan (source=scheduleScan|didReadRSSI,statistics={count=27,mean=18.862832038490865,sd=20.034185955352385,min=6.3302870988845825,max=85.74862003326416,period=509.29646503925323})
+debug    00:38:19.102816+0100    C19X    Transmitter    Write (central=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:19.106105+0100    C19X    Receiver    scan hint found unknown peripheral (source=transmitter|didReceiveWrite,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:19.107600+0100    C19X    Receiver    scan hint resolved unknown peripheral (source=transmitter|didReceiveWrite,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:19.107844+0100    C19X    Receiver    connect (source=scanHint|central|unknown|.disconnected,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:19.112304+0100    C19X    Receiver    didConnect (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:19.113148+0100    C19X    Receiver    readCode (source=didConnect,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:19.236434+0100    C19X    Receiver    didDiscoverServices (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,error=nil)
+debug    00:38:19.237087+0100    C19X    Receiver    didDiscoverServices, found beacon service (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:19.356321+0100    C19X    Receiver    didDiscoverCharacteristicsFor (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,error=nil)
+debug    00:38:19.357167+0100    C19X    Receiver    didDiscoverCharacteristicsFor, found beacon characteristic (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,beaconCode=-2362347550546797181,notifies=true,os=ios)
+debug    00:38:27.183541+0100    C19X    Transmitter    Write (central=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:27.369379+0100    C19X    Receiver    scan (source=scheduleScan|didDiscoverCharacteristicsFor,statistics={count=28,mean=18.756144608770104,sd=19.667785964594664,min=6.3302870988845825,max=85.74862003326416,period=525.1720490455627})
+debug    00:38:27.379293+0100    C19X    Receiver    wakeTransmitter (source=scan|ios,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:27.452547+0100    C19X    Receiver    didWriteValueFor (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,error=nil)`
+7. Phone B handled UUID change gracefully
+debug    00:38:35.273781+0100    C19X    Transmitter    Notify subscribers (source=didReceiveWrite)
+debug    00:38:35.313646+0100    C19X    Transmitter    Write (central=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:35.463793+0100    C19X    Receiver    didUpdateValueFor (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,error=nil)
+debug    00:38:35.464504+0100    C19X    Receiver    readRSSI (source=didUpdateValueFor,peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64)
+debug    00:38:35.467710+0100    C19X    Receiver    didReadRSSI (peripheral=53CB6096-422C-76EF-B5A4-73D3078CFA64,rssi=-36,error=nil)
+debug    00:38:35.469582+0100    C19X    Database    insert (time=28/06/2020 00:38,code=-2362347550546797181,rssi=-36)
+debug    00:38:35.491980+0100    C19X    Controller    Contact logged (code=-2362347550546797181,rssi=-36,count=21,timestamp=28/06/2020 00:38)
+
+KNOWN (T) - KNOWN (T) : Bluetooth toggle
+1. Phone A and B are connected
+2. Phone A and Phone B, simulate crash on both
+fault    01:45:56.535312+0100    C19X    Controller    simulateCrash (after=<private>)
+3. Phone A and B are connected
+debug    01:46:31.645068+0100    C19X    Controller    Contact logged (code=<private>,rssi=<private>,count=468,timestamp=<private>)
+4. Phone A Bluetooth OFF, Phone B in faraday bag
+fault    01:47:12.083795+0100    C19X    Receiver    scan failed, bluetooth is not powered on
+5. Phone A Bluetooth ON, simulate crash
+debug    01:47:48.222172+0100    C19X    Receiver    State updated (toState=<private>)
+debug    01:47:48.222275+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})
+debug    01:47:48.222904+0100    C19X    Receiver    connect (source=<private>,peripheral=<private>)
+...
+fault    01:48:07.344650+0100    C19X    Controller    simulateCrash (after=<private>)
+6. Phone B out of faraday bag
+debug    01:48:21.883263+0100    C19X    Controller    Contact logged (code=<private>,rssi=<private>,count=475,timestamp=<private>)
+
+KNOWN (T) - KNOWN (T) : Bluetooth toggle
+1. Phone A and B are connected
+debug    01:52:23.819962+0100    C19X    Controller    Contact logged (code=<private>,rssi=<private>,count=497,timestamp=<private>)
+2. Phone A Bluetooth OFF
+fault    01:52:50.709314+0100    C19X    Receiver    scan failed, bluetooth is not powered on
+3. Phone B, place in faraday bag
+4. Phone A Bluetooth ON, simulate crash
+debug    01:53:38.887804+0100    C19X    Receiver    State updated (toState=<private>)
+debug    01:53:38.887924+0100    C19X    Receiver    scan (source=<private>,statistics={<private>})
+...
+fault    01:54:16.739321+0100    C19X    Controller    simulateCrash (after=<private>)
+5. Phone B out of faraday bag
+debug    01:54:39.849544+0100    C19X    Controller    Contact logged (code=<private>,rssi=<private>,count=502,timestamp=<private>)
+
+
+

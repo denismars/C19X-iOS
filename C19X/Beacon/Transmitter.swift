@@ -155,6 +155,10 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
             updateBeaconCode()
             os_log("start successful, for new beacon code (source=%s)", log: log, type: .debug, source)
         }
+        beaconCharacteristic?.subscribedCentrals?.forEach() { central in
+            // Help receiver detect central if it has changed identity
+            receiver.scan("transmitter|start|" + source, central: central)
+        }
         notifySubscribers("start|" + source)
     }
     
@@ -291,7 +295,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
                 peripheral.respond(to: request, withResult: .invalidAttributeValueLength)
             }
             // Help receiver detect central if it has changed identity
-            receiver.scan("transmitter|write", central: request.central)
+            receiver.scan("transmitter|didReceiveWrite", central: request.central)
         }
         notifySubscribers("didReceiveWrite")
     }
@@ -300,6 +304,8 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         // Read -> Notify subscribers
         // This should never happen, no readable characteristic. For debug only.
         os_log("Read (central=%s)", log: log, type: .debug, request.central.identifier.uuidString)
+        // Help receiver detect central if it has changed identity
+        receiver.scan("transmitter|didReceiveRead", central: request.central)
         notifySubscribers("didReceiveRead")
     }
     
@@ -308,6 +314,8 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         // iOS receiver subscribes to the beacon characteristic on first contact. This ensures the first call keeps
         // the transmitter and receiver awake. Future loops will rely on didReceiveWrite as the trigger.
         os_log("Subscribe (central=%s)", log: log, type: .debug, central.identifier.uuidString)
+        // Help receiver detect central if it has changed identity
+        receiver.scan("transmitter|didSubscribeTo", central: central)
         notifySubscribers("didSubscribeTo")
     }
     
@@ -316,6 +324,8 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         // This should never happen, as unsubscribe can only happen on characteristic change, where the characteristic and service
         // are both replaced at the same time. For debug only.
         os_log("Unsubscribe (central=%s)", log: log, type: .debug, central.identifier.uuidString)
+        // Help receiver detect central if it has changed identity
+        receiver.scan("transmitter|didUnsubscribeFrom", central: central)
         notifySubscribers("didUnsubscribeFrom")
     }
 }
