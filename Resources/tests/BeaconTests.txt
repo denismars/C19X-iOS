@@ -66,7 +66,7 @@ debug    15:26:26.701227+0100    C19X    Transmitter    Notify subscribers (sour
 ...
 debug    15:33:54.761941+0100    C19X    Receiver    didDiscover (peripheral=<private>,rssi=-78,state=<private>)`
 
-KNOWN (T) - KNOWN (T) : 30 minutes apart
+KNOWN (T) - KNOWN (T) : 30 minutes apart FAILED
 1. Phone A and B are connected
 2. Phone A starts simulate crash, place in faraday bag, crash occurs in bag; Phone B shows disconnect, pending connect and scan
 `debug    15:38:37.092427+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=<private>,error=<private>)

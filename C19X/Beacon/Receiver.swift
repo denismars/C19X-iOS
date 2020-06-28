@@ -363,6 +363,21 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         }
     }
     
+    private func logBeaconState() {
+        var states: [CBPeripheralState:[String]] = [:]
+        states[.connected] = []
+        states[.connecting] = []
+        states[.disconnecting] = []
+        states[.disconnected] = []
+        beacons.forEach() { uuid, beacon in
+            states[beacon.peripheral.state]?.append(beacon.uuidString)
+        }
+        states.forEach() { state, uuids in
+            states[state] = uuids.sorted{$0 < $1}
+        }
+        os_log("Beacon states (connected=%s,connecting=%s,disconnecting=%s,disconnected=%s)", log: log, type: .default, states[.connected]!.description, states[.connecting]!.description, states[.disconnecting]!.description, states[.disconnected]!.description)
+    }
+    
     /**
      Schedule scan for beacons after a delay of 8 seconds to start scan again just before
      state change from background to suspended. Scan is sufficient for finding Android

@@ -235,6 +235,8 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
                 os_log("Automatic beacon code update (lastUpdate=%s,elapsed=%s)", log: s.log, type: .debug, s.codeUpdatedAt.description, updateCodeInterval.description)
                 s.updateBeaconCode()
             }
+//            os_log("Automatic beacon code update (lastUpdate=%s,elapsed=%s)", log: s.log, type: .debug, s.codeUpdatedAt.description, updateCodeInterval.description)
+//            s.updateBeaconCode()
         }
         notifyTimer?.resume()
     }
