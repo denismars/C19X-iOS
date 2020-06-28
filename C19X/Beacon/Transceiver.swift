@@ -54,7 +54,7 @@ protocol Transceiver {
 /// Time delay between notifications for subscribers.
 let transceiverNotificationDelay = DispatchTimeInterval.seconds(8)
 
-class ConcreteTransceiver: NSObject, Transceiver {
+class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transceiver")
     private let dayCodes: DayCodes
     private let beaconCodes: BeaconCodes
@@ -62,18 +62,20 @@ class ConcreteTransceiver: NSObject, Transceiver {
     private let transmitter: Transmitter
     private let receiver: Receiver
     private var delegates: [ReceiverDelegate] = []
-    private var lastStartTimestamp = Date.distantPast
+    private let locationManager: LocationManager
 
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
         dayCodes = ConcreteDayCodes(sharedSecret)
         beaconCodes = ConcreteBeaconCodes(dayCodes)
         receiver = ConcreteReceiver(queue: queue)
         transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter, receiver: receiver)
+        locationManager = ConcreteLocationManager()
+        super.init()
+        locationManager.append(self)
     }
     
     func start(_ source: String) {
         os_log("start (source=%s)", log: self.log, type: .debug, source)
-        lastStartTimestamp = Date()
         transmitter.start(source)
         receiver.start(source)
         // REMOVE FOR PRODUCTION
@@ -94,5 +96,11 @@ class ConcreteTransceiver: NSObject, Transceiver {
         delegates.append(delegate)
         receiver.append(delegate)
         transmitter.append(delegate)
+    }
+    
+    // MARK:- LocationManagerDelegate
+    
+    func locationManager(didDetect: LocationChange) {
+        receiver.scan("locationManager")
     }
 }

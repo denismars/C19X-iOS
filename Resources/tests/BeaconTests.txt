@@ -190,3 +190,29 @@ debug    01:54:39.849544+0100    C19X    Controller    Contact logged (code=<pri
 
 
 
+TEST 20200628-1412 ================================================================================================
+KNOWN (S) - KNOWN (S)
+1. Phone A and B connected
+2. Phone B placed in faraday bag, A shows disconnect
+`debug    14:12:20.318331+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=3321334A-134D-1AE9-CE35-786E58700BD5,error=Optional(Error Domain=CBErrorDomain Code=6 "The connection has timed out unexpectedly." UserInfo={NSLocalizedDescription=The connection has timed out unexpectedly.}))
+debug    14:12:20.318536+0100    C19X    Receiver    connect (source=didDisconnectPeripheral,peripheral=3321334A-134D-1AE9-CE35-786E58700BD5)
+debug    14:12:20.319483+0100    C19X    Transmitter    Unsubscribe (central=3321334A-134D-1AE9-CE35-786E58700BD5)
+debug    14:12:28.405375+0100    C19X    Transmitter    Notify subscribers (source=didUnsubscribeFrom)
+debug    14:12:28.405616+0100    C19X    Receiver    scan (source=scheduleScan|connect,statistics={count=12,mean=16.467557162046432,sd=16.90763424981216,min=8.058434009552002,max=68.66963303089142,period=197.6106859445572})`
+3. Wait 2 minutes, Phone B out of faraday bag, A shows discover
+`debug    14:14:25.078413+0100    C19X    Receiver    didDiscover (peripheral=3321334A-134D-1AE9-CE35-786E58700BD5,rssi=-58,state=.connecting)
+debug    14:14:25.080013+0100    C19X    Database    insert (time=28/06/2020 14:14,code=-4095016561931542550,rssi=-58)`
+
+
+TEST 20200628-1416 ================================================================================================
+KNOWN (S) - KNOWN (T)
+1. Phone A and B connected
+2. Phone B start simulate crash, place in faraday bag, A shows disconnect, B crashes in bag
+`debug    14:16:10.068728+0100    C19X    Receiver    didDisconnectPeripheral (peripheral=3321334A-134D-1AE9-CE35-786E58700BD5,error=Optional(Error Domain=CBErrorDomain Code=6 "The connection has timed out unexpectedly." UserInfo={NSLocalizedDescription=The connection has timed out unexpectedly.}))
+debug    14:16:10.069005+0100    C19X    Receiver    connect (source=didDisconnectPeripheral,peripheral=3321334A-134D-1AE9-CE35-786E58700BD5)
+debug    14:16:10.069684+0100    C19X    Transmitter    Unsubscribe (central=3321334A-134D-1AE9-CE35-786E58700BD5)
+debug    14:16:18.124654+0100    C19X    Receiver    scan (source=scheduleScan|connect,statistics={count=19,mean=22.491080208828574,sd=28.711741475159975,min=8.058434009552002,max=126.29673910140991,period=427.3305239677429})
+debug    14:16:18.124797+0100    C19X    Transmitter    Notify subscribers (source=didUnsubscribeFrom)`
+3. Wait 1 minute, Phone B out of faraday bag, A shows discover
+`debug    14:17:14.579226+0100    C19X    Receiver    didDiscover (peripheral=3321334A-134D-1AE9-CE35-786E58700BD5,rssi=-59,state=.connecting)`
+

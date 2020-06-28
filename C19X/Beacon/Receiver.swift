@@ -249,15 +249,17 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         let uuid = central.identifier.uuidString
         if beacons[uuid] == nil {
             os_log("scan hint found unknown peripheral (source=%s,peripheral=%s)", log: log, type: .debug, source, uuid)
-            let peripherals = self.central.retrievePeripherals(withIdentifiers: [central.identifier])
-            if let peripheral = peripherals.last {
-                os_log("scan hint resolved unknown peripheral (source=%s,peripheral=%s)", log: log, type: .debug, source, peripheral.identifier.description)
-                peripheral.delegate = self
-                beacons[uuid] = Beacon(peripheral: peripheral)
-                beacons[uuid]?.operatingSystem = .unknown
-                connect("scanHint|central|unknown|" + peripheral.state.description, peripheral)
-            } else {
-                os_log("scan hint cannot resolve unknown peripheral (source=%s,peripheral=%s)", log: log, type: .fault, source, uuid)
+            queue.async {
+                let peripherals = self.central.retrievePeripherals(withIdentifiers: [central.identifier])
+                if let peripheral = peripherals.last {
+                    os_log("scan hint resolved unknown peripheral (source=%s,peripheral=%s)", log: self.log, type: .debug, source, peripheral.identifier.description)
+                    peripheral.delegate = self
+                    self.beacons[uuid] = Beacon(peripheral: peripheral)
+                    self.beacons[uuid]?.operatingSystem = .unknown
+                    self.connect("scanHint|central|unknown|" + peripheral.state.description, peripheral)
+                } else {
+                    os_log("scan hint cannot resolve unknown peripheral (source=%s,peripheral=%s)", log: self.log, type: .fault, source, uuid)
+                }
             }
         }
     }
@@ -265,117 +267,138 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     func scan(_ source: String) {
         statistics.add()
         os_log("scan (source=%s,statistics={%s})", log: log, type: .debug, source, statistics.description)
+        logBeaconState()
         guard central.state == .poweredOn else {
             os_log("scan failed, bluetooth is not powered on", log: log, type: .fault)
             return
         }
-        // Scan for peripherals -> didDiscover
         queue.async {
+            // Scan for peripherals -> didDiscover
             self.central.scanForPeripherals(
                 withServices: [beaconServiceCBUUID],
                 options: [CBCentralManagerScanOptionSolicitedServiceUUIDsKey: [beaconServiceCBUUID]])
         }
-        // Connected peripherals -> Check registration
-        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
-            let uuid = peripheral.identifier.uuidString
-            if beacons[uuid] == nil {
-                os_log("scan found connected but unknown peripheral (peripheral=%s)", log: log, type: .fault, uuid)
-                peripheral.delegate = self
-                beacons[uuid] = Beacon(peripheral: peripheral)
-                beacons[uuid]?.operatingSystem = .unknown
-            }
-        }
-        // All peripherals -> Discard expired beacons
-        beacons.values.filter{$0.isExpired}.forEach { beacon in
-            let uuid = beacon.uuidString
-            os_log("scan found expired peripheral (peripheral=%s)", log: log, type: .debug, uuid)
-            beacons[uuid] = nil
-            disconnect("scan|expired", beacon.peripheral)
-        }
-        // All peripherals -> De-duplicate based on beacon code
-        var codes: [BeaconCode:[Beacon]] = [:]
-        beacons.values.forEach { beacon in
-            guard let code = beacon.code else {
-                return
-            }
-            if codes[code] == nil {
-                codes[code] = [beacon]
-            } else {
-                codes[code]?.append(beacon)
-            }
-        }
-        codes.forEach() { code, codeBeacons in
-            guard codeBeacons.count > 1 else {
-                return
-            }
-            let codeBeaconsSortedByLastUpdatedAt = codeBeacons.sorted{$0.lastUpdatedAt < $1.lastUpdatedAt}
-            let uuids = codeBeaconsSortedByLastUpdatedAt.map{$0.uuidString}
-            if let uuidToKeep = uuids.last {
-                os_log("scan found duplicate peripherals (code=%s,keeping=%s,peripherals=%s)", log: log, type: .debug, code.description, uuidToKeep, uuids.description)
-                uuids.filter{$0 != uuidToKeep}.forEach() { uuid in
-                    beacons[uuid] = nil
-                    // CoreBluetooth will give warning and disconnect actual duplicate silently
-                    // calling disconnect here is cleaner but will trigger didDiscover and
-                    // retain the duplicates. Expect to see message :
-                    // [CoreBluetooth] API MISUSE: Forcing disconnection of unused peripheral
-                    // <CBPeripheral: XXX, identifier = XXX, name = iPhone, state = connected>.
-                    // Did you forget to cancel the connection?
+        queue.async {
+            // Connected peripherals -> Check registration
+            self.central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
+                let uuid = peripheral.identifier.uuidString
+                if self.beacons[uuid] == nil {
+                    os_log("scan found connected but unknown peripheral (peripheral=%s)", log: self.log, type: .fault, uuid)
+                    peripheral.delegate = self
+                    self.beacons[uuid] = Beacon(peripheral: peripheral)
+                    self.beacons[uuid]?.operatingSystem = .unknown
                 }
             }
         }
-        // All peripherals -> Check pending actions
-        beacons.values.forEach() { beacon in
-            if beacon.operatingSystem == nil {
-                beacon.operatingSystem = .unknown
+        queue.async {
+            // All peripherals -> Discard expired beacons
+            self.beacons.values.filter{$0.isExpired}.forEach { beacon in
+                let uuid = beacon.uuidString
+                os_log("scan found expired peripheral (peripheral=%s)", log: self.log, type: .debug, uuid)
+                self.beacons[uuid] = nil
+                self.disconnect("scan|expired", beacon.peripheral)
             }
-            if let operatingSystem = beacon.operatingSystem {
-                switch operatingSystem {
-                case .ios:
-                    // iOS peripherals (Connected) -> Wake transmitter
-                    if beacon.peripheral.state == .connected {
-                        if beacon.timeIntervalSinceLastUpdate < TimeInterval.minute {
-                            // Throttle back keep awake calls when out of range
-                            wakeTransmitter("scan|ios", beacon)
-                        } else {
-                            // Add pending connect when out of range
-                            connect("scan|ios|pending|" + beacon.peripheral.state.description, beacon.peripheral)
+        }
+        queue.async {
+            // All peripherals -> De-duplicate based on beacon code
+            var codes: [BeaconCode:Beacon] = [:]
+            self.beacons.forEach() { uuid, beacon in
+                guard let code = beacon.code else {
+                    return
+                }
+                guard let duplicate = codes[code] else {
+                    codes[code] = beacon
+                    return
+                }
+                os_log("scan found duplicate peripheral (code=%s,peripheral=%s,duplicateOf=%s)", log: self.log, type: .debug, code.description, uuid.description, duplicate.uuidString)
+                self.beacons[uuid] = nil
+                // CoreBluetooth will eventually give warning and disconnect actual duplicate silently.
+                // While calling disconnect here is cleaner but it will trigger didDiscover and
+                // retain the duplicates. Expect to see message :
+                // [CoreBluetooth] API MISUSE: Forcing disconnection of unused peripheral
+                // <CBPeripheral: XXX, identifier = XXX, name = iPhone, state = connected>.
+                // Did you forget to cancel the connection?
+            }
+        }
+        queue.async {
+            // All peripherals -> Check pending actions
+            self.beacons.values.forEach() { beacon in
+                if beacon.operatingSystem == nil {
+                    beacon.operatingSystem = .unknown
+                }
+                if let operatingSystem = beacon.operatingSystem {
+                    switch operatingSystem {
+                    case .ios:
+                        // iOS peripherals (Connected) -> Wake transmitter
+                        if beacon.peripheral.state == .connected {
+                            if beacon.timeIntervalSinceLastUpdate < TimeInterval.minute {
+                                // Throttle back keep awake calls when out of range
+                                self.wakeTransmitter("scan|ios", beacon)
+                            } else {
+                                // Add pending connect when out of range
+                                self.connect("scan|ios|pending|" + beacon.peripheral.state.description, beacon.peripheral)
+                            }
                         }
+                        // iOS peripherals (Not connected) -> Connect
+                        else if beacon.peripheral.state != .connecting {
+                            self.connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
+                        }
+                        break
+                    case .restored:
+                        if beacon.peripheral.state != .connected && beacon.peripheral.state != .connecting {
+                            self.connect("scan|restored|" + beacon.peripheral.state.description, beacon.peripheral)
+                        }
+                        break
+                    case .unknown:
+                        if beacon.peripheral.state != .connected && beacon.peripheral.state != .connecting {
+                            self.connect("scan|unknown|" + beacon.peripheral.state.description, beacon.peripheral)
+                        }
+                        break
+                    default:
+                        break
                     }
-                    // iOS peripherals (Not connected) -> Connect
-                    else if beacon.peripheral.state != .connecting {
-                        connect("scan|ios|" + beacon.peripheral.state.description, beacon.peripheral)
-                    }
-                    break
-                case .restored:
-                    if beacon.peripheral.state != .connected && beacon.peripheral.state != .connecting {
-                        connect("scan|restored|" + beacon.peripheral.state.description, beacon.peripheral)
-                    }
-                    break
-                case .unknown:
-                    if beacon.peripheral.state != .connected && beacon.peripheral.state != .connecting {
-                        connect("scan|unknown|" + beacon.peripheral.state.description, beacon.peripheral)
-                    }
-                    break
-                default:
-                    break
                 }
             }
         }
     }
     
     private func logBeaconState() {
-        var states: [CBPeripheralState:[String]] = [:]
-        states[.connected] = []
-        states[.connecting] = []
-        states[.disconnecting] = []
-        states[.disconnected] = []
-        beacons.forEach() { uuid, beacon in
-            states[beacon.peripheral.state]?.append(beacon.uuidString)
+        os_log("Beacon state report ========", log: log, type: .default)
+        beacons.keys.sorted{$0 < $1}.forEach() { uuid in
+            if let beacon = beacons[uuid] {
+                os_log("Beacon state (uuid=%s,state=%s)", log: log, type: .default, uuid, beacon.peripheral.state.description)
+            }
         }
-        states.forEach() { state, uuids in
-            states[state] = uuids.sorted{$0 < $1}
+        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
+            guard beacons[peripheral.identifier.uuidString] == nil else {
+                return
+            }
+            os_log("Beacon state (uuid=%s,state=.unknown)", log: log, type: .default, peripheral.identifier.uuidString)
         }
-        os_log("Beacon states (connected=%s,connecting=%s,disconnecting=%s,disconnected=%s)", log: log, type: .default, states[.connected]!.description, states[.connecting]!.description, states[.disconnecting]!.description, states[.disconnected]!.description)
+//        var uuids = Set<String>()
+//        var unknownUuids: [String] = []
+//        var states: [CBPeripheralState:[String]] = [:]
+//        states[.connected] = []
+//        states[.connecting] = []
+//        states[.disconnecting] = []
+//        states[.disconnected] = []
+//        beacons.forEach() { uuid, beacon in
+//            uuids.insert(beacon.uuidString)
+//            if var stateUuids = states[beacon.peripheral.state], stateUuids.contains(beacon.uuidString) {
+//                stateUuids.append(beacon.uuidString)
+//            }
+//        }
+//        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
+//            if !uuids.contains(peripheral.identifier.uuidString) {
+//                unknownUuids.append(peripheral.identifier.uuidString)
+//                uuids.insert(peripheral.identifier.uuidString)
+//            }
+//        }
+//        states.forEach() { state, uuids in
+//            states[state] = uuids.sorted{$0 < $1}
+//        }
+//        unknownUuids = unknownUuids.sorted{$0 < $1}
+//        os_log("Beacon states (connected=%s,connecting=%s,disconnecting=%s,disconnected=%s,unknown=%s)", log: log, type: .default, states[.connected]!.description, states[.connecting]!.description, states[.disconnecting]!.description, states[.disconnected]!.description, unknownUuids.description)
     }
     
     /**
