@@ -46,6 +46,11 @@ protocol Transmitter {
      Change beacon code being broadcasted by adjusting the lower 64-bit of characteristic UUID.
      */
     func updateBeaconCode()
+    
+    /**
+     Get all subscribers
+     */
+    func subscribers() -> [CBCentral]
 }
 
 /**
@@ -213,6 +218,16 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
         
         codeUpdatedAt = Date()
         os_log("updateBeaconCode successful (code=%s,characteristic=%s)", log: self.log, type: .debug, beaconCode.description, characteristic.uuid.uuidString)
+    }
+    
+    func subscribers() -> [CBCentral] {
+        guard let characteristic = beaconCharacteristic else {
+            return []
+        }
+        guard let centrals = characteristic.subscribedCentrals else {
+            return []
+        }
+        return centrals
     }
     
     /**

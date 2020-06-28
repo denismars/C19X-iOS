@@ -375,30 +375,6 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             }
             os_log("Beacon state (uuid=%s,state=.unknown)", log: log, type: .default, peripheral.identifier.uuidString)
         }
-//        var uuids = Set<String>()
-//        var unknownUuids: [String] = []
-//        var states: [CBPeripheralState:[String]] = [:]
-//        states[.connected] = []
-//        states[.connecting] = []
-//        states[.disconnecting] = []
-//        states[.disconnected] = []
-//        beacons.forEach() { uuid, beacon in
-//            uuids.insert(beacon.uuidString)
-//            if var stateUuids = states[beacon.peripheral.state], stateUuids.contains(beacon.uuidString) {
-//                stateUuids.append(beacon.uuidString)
-//            }
-//        }
-//        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
-//            if !uuids.contains(peripheral.identifier.uuidString) {
-//                unknownUuids.append(peripheral.identifier.uuidString)
-//                uuids.insert(peripheral.identifier.uuidString)
-//            }
-//        }
-//        states.forEach() { state, uuids in
-//            states[state] = uuids.sorted{$0 < $1}
-//        }
-//        unknownUuids = unknownUuids.sorted{$0 < $1}
-//        os_log("Beacon states (connected=%s,connecting=%s,disconnecting=%s,disconnected=%s,unknown=%s)", log: log, type: .default, states[.connected]!.description, states[.connecting]!.description, states[.disconnecting]!.description, states[.disconnected]!.description, unknownUuids.description)
     }
     
     /**
@@ -429,7 +405,9 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             return
         }
         scheduleScan("connect")
-        queue.async { self.central.connect(peripheral) }
+        queue.async {
+            self.central.retrievePeripherals(withIdentifiers: [peripheral.identifier]).forEach{ self.central.connect($0) }
+        }
     }
     
     /**

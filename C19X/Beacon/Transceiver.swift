@@ -102,5 +102,9 @@ class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
     
     func locationManager(didDetect: LocationChange) {
         receiver.scan("locationManager")
+        os_log("Beacon state report (subscribers) ========", log: self.log, type: .debug)
+        transmitter.subscribers().forEach() { central in
+            os_log("Beacon state (uuid=%s,state=.subscribing)", log: self.log, type: .debug, central.identifier.uuidString)
+        }
     }
 }
