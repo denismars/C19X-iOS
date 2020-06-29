@@ -397,7 +397,7 @@ TEST 20200629-1055 =============================================================
 2020-06-29 11:07:46.725041+0100 C19X[14438:6374543] [TestTransceiver] peripheral:didReadRSSI -> discoverServices (uuid=FEFDA4CD-54E6-2D1D-ACF6-662D6A59A10E,rssi=-51)
 
 
-TEST 20200629-1055 ================================================================================================
+TEST 20200629-1114 ================================================================================================
 
 === Phone A and B connected (Phone B uuid=FEFDA4CD-54E6-2D1D-ACF6-662D6A59A10E)
 
@@ -444,3 +444,58 @@ TEST 20200629-1055 =============================================================
 2020-06-29 11:22:24.148139+0100 C19X[14438:6378204] [TestTransceiver] centralManager:didDiscover -> connect (uuid=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0,state=.connecting)
 2020-06-29 11:22:24.151489+0100 C19X[14438:6378204] [TestTransceiver] centralManager:didConnect -> readRSSI (uuid=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0)
 2020-06-29 11:22:24.161488+0100 C19X[14438:6378204] [TestTransceiver] peripheral:didReadRSSI -> discoverServices (uuid=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0,rssi=-90)
+
+
+
+TEST 20200629-1126 ================================================================================================
+
+=== Phone A and B connected (B uuid=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0)
+2020-06-29 11:26:32.771484+0100 C19X[14438:6379278] [TestTransceiver] peripheral:didUpdateValueFor (uuid=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0)
+
+=== Phone B in faraday bag, Phone A registers disconnect and unsubscribe
+
+2020-06-29 11:26:35.494876+0100 C19X[14438:6379278] [TestTransceiver] centralManager:didDisconnectPeripheral (uuid=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0)
+2020-06-29 11:26:35.497310+0100 C19X[14438:6378318] [TestTransceiver] peripheralManager:didUnsubscribeFrom (central=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0)
+2020-06-29 11:26:35.497716+0100 C19X[14438:6378318] [TestTransceiver] peripheralManagerUpdateValue
+2020-06-29 11:26:38.018933+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals ====================
+2020-06-29 11:26:38.025361+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=094B9E4A-E7F3-4CBD-424B-E3DB9F23F3DF,state=.connecting)
+2020-06-29 11:26:38.027631+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=14E14CED-273F-A83E-8D20-853B81C89A8F,state=.connecting)
+2020-06-29 11:26:38.029845+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=1B126A61-8CE6-A98C-72E1-218939F5FE99,state=.connecting)
+2020-06-29 11:26:38.031675+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=3D139EC1-21DB-829E-9597-BB152BEA191A,state=.connecting)
+2020-06-29 11:26:38.033741+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=5FB336A0-AA5C-F295-953E-979EF90009BE,state=.connecting)
+2020-06-29 11:26:38.035201+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=63ED4ACC-730E-5D94-420F-D3AE86452789,state=.connected)
+2020-06-29 11:26:38.036978+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=7B0474ED-DDD7-A2A2-5672-BF506A4B2A04,state=.connecting)
+2020-06-29 11:26:38.038419+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=884D1028-646F-274F-E300-97BDABDCD38B,state=.connecting)
+2020-06-29 11:26:38.041008+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=AE015614-8152-7DC0-1B51-9D472CEB6FD8,state=.connecting)
+2020-06-29 11:26:38.047382+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=CB840A38-2E20-1A72-6598-BA08EE96533F,state=.connecting)
+2020-06-29 11:26:38.052933+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=FEFDA4CD-54E6-2D1D-ACF6-662D6A59A10E,state=.connecting)
+2020-06-29 11:26:38.058831+0100 C19X[14438:6378318] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0,state=.disconnected)
+
+=== Wait 14 minutes, Phone B out of faraday bag, Phone A discovers B (new uuid=D4E67D95-5529-550B-751B-29D7DA31FACA), woohoo!   :-)
+
+2020-06-29 11:40:49.040333+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals ====================
+2020-06-29 11:40:49.045473+0100 C19X[14438:6382635] [TestTransceiver] centralManager:didDiscover (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA,state=.disconnected)
+2020-06-29 11:40:49.045953+0100 C19X[14438:6382635] [TestTransceiver] centralManager:didDiscover -> connect (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA,state=.disconnected)
+2020-06-29 11:40:49.070828+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=094B9E4A-E7F3-4CBD-424B-E3DB9F23F3DF,state=.connecting)
+2020-06-29 11:40:49.071547+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=14E14CED-273F-A83E-8D20-853B81C89A8F,state=.connecting)
+2020-06-29 11:40:49.072660+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=1B126A61-8CE6-A98C-72E1-218939F5FE99,state=.connecting)
+2020-06-29 11:40:49.073138+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=3D139EC1-21DB-829E-9597-BB152BEA191A,state=.connecting)
+2020-06-29 11:40:49.073661+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=4F7D7F16-2C5C-9C30-2199-D8A32D2CA3E0,state=.connecting)
+2020-06-29 11:40:49.074141+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=5FB336A0-AA5C-F295-953E-979EF90009BE,state=.connecting)
+2020-06-29 11:40:49.074678+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=63ED4ACC-730E-5D94-420F-D3AE86452789,state=.connected)
+2020-06-29 11:40:49.075235+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=7B0474ED-DDD7-A2A2-5672-BF506A4B2A04,state=.connecting)
+2020-06-29 11:40:49.088414+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=884D1028-646F-274F-E300-97BDABDCD38B,state=.connecting)
+2020-06-29 11:40:49.100792+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=AE015614-8152-7DC0-1B51-9D472CEB6FD8,state=.connecting)
+2020-06-29 11:40:49.112981+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=CB840A38-2E20-1A72-6598-BA08EE96533F,state=.connecting)
+2020-06-29 11:40:49.113622+0100 C19X[14438:6382620] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals (uuid=FEFDA4CD-54E6-2D1D-ACF6-662D6A59A10E,state=.connecting)
+2020-06-29 11:40:49.886766+0100 C19X[14438:6382620] [TestTransceiver] centralManager:didConnect -> readRSSI (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA)
+2020-06-29 11:40:49.889707+0100 C19X[14438:6382636] [TestTransceiver] peripheral:didReadRSSI -> discoverServices (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA,rssi=-66)
+2020-06-29 11:40:50.533025+0100 C19X[14438:6382620] [TestTransceiver] peripheral:didDiscoverServices (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA)
+2020-06-29 11:40:50.533735+0100 C19X[14438:6382620] [TestTransceiver] peripheral:didDiscoverServices -> discoverCharacteristics (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA)
+2020-06-29 11:40:50.650767+0100 C19X[14438:6382636] [TestTransceiver] peripheral:didDiscoverCharacteristicsFor (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA)
+2020-06-29 11:40:50.651995+0100 C19X[14438:6382636] [TestTransceiver] peripheral:didDiscoverCharacteristicsFor -> FOUND -> setNotifyValue (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA,serialNumber=67)
+2020-06-29 11:40:50.769501+0100 C19X[14438:6382636] [TestTransceiver] peripheralManager:didSubscribeTo (central=D4E67D95-5529-550B-751B-29D7DA31FACA)
+2020-06-29 11:40:50.769828+0100 C19X[14438:6382636] [TestTransceiver] peripheralManagerUpdateValue
+2020-06-29 11:40:50.780713+0100 C19X[14438:6382636] [TestTransceiver] peripheral:didUpdateNotificationStateFor (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA)
+2020-06-29 11:40:50.781378+0100 C19X[14438:6382636] [TestTransceiver] peripheralManagerUpdateValue
+2020-06-29 11:40:50.790557+0100 C19X[14438:6382636] [TestTransceiver] peripheral:didUpdateValueFor (uuid=D4E67D95-5529-550B-751B-29D7DA31FACA)
