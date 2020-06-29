@@ -110,16 +110,21 @@ class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
 }
 
 class CachedBeaconData {
+    var rssi: RSSI? {
+       didSet {
+           lastUpdatedAt = Date()
+       }
+    }
+    var operatingSystem: OperatingSystem? {
+        didSet {
+            lastUpdatedAt = Date()
+        }
+    }
     var code: BeaconCode? {
         didSet {
             lastUpdatedAt = Date()
             codeUpdatedAt = Date()
         }
-    }
-    var rssi: RSSI? {
-       didSet {
-           lastUpdatedAt = Date()
-       }
     }
     var codeUpdatedAt: Date = Date.distantPast
     var lastUpdatedAt: Date = Date.distantPast
@@ -295,17 +300,17 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
     func centralManagerScanForPeripherals(_ central: CBCentralManager) {
         os_log("centralManager:scanForPeripherals ====================", log: log, type: .debug)
         scheduleCentralManagerScanForPeripherals()
-        let identifiers = settings.peripherals().sorted{$0 < $1}.compactMap{UUID(uuidString: $0)}
         central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
             os_log("centralManager:scanForPeripherals:retrieveConnectedPeripherals -> connect (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
             centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
             central.connect(peripheral)
         }
-        central.retrievePeripherals(withIdentifiers: identifiers).forEach() { peripheral in
-            os_log("centralManager:scanForPeripherals:retrievePeripherals -> connect (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
-            centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
-            central.connect(peripheral)
-        }
+//        let identifiers = settings.peripherals().sorted{$0 < $1}.compactMap{UUID(uuidString: $0)}
+//        central.retrievePeripherals(withIdentifiers: identifiers).forEach() { peripheral in
+//            os_log("centralManager:scanForPeripherals:retrievePeripherals (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
+//            centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
+//            central.connect(peripheral)
+//        }
         central.scanForPeripherals(
             withServices: [beaconServiceCBUUID],
             options: [CBCentralManagerScanOptionSolicitedServiceUUIDsKey: [beaconServiceCBUUID]])
@@ -382,8 +387,8 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
             return
         }
         let code = BeaconCode(characteristic.uuid.values.lower)
-        os_log("peripheral:didDiscoverCharacteristicsFor -> FOUND (uuid=%s,code=%s)", log: log, type: .debug, peripheral.identifier.uuidString, code.description)
-        if characteristic.properties.contains(.notify) {
+        let notifies = characteristic.properties.contains(.notify)
+        if notifies {
             os_log("peripheral:didDiscoverCharacteristicsFor:ios -> setNotifyValue (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
             peripheral.setNotifyValue(true, for: characteristic)
         } else {
@@ -395,9 +400,12 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
             centralManagerCachedBeaconData[peripheral.identifier.uuidString] = CachedBeaconData()
             centralManagerCachedBeaconData[peripheral.identifier.uuidString]?.code = code
         }
-        if let rssi = centralManagerCachedBeaconData[peripheral.identifier.uuidString]?.rssi {
-            delegates.forEach{$0.receiver(didDetect: code, rssi: rssi)}
+        centralManagerCachedBeaconData[peripheral.identifier.uuidString]?.operatingSystem = (notifies ? .ios : .android)
+        guard let rssi = centralManagerCachedBeaconData[peripheral.identifier.uuidString]?.rssi, let os = centralManagerCachedBeaconData[peripheral.identifier.uuidString]?.operatingSystem else {
+            return
         }
+        os_log("peripheral:didDiscoverCharacteristicsFor -> didDetect (uuid=%s,code=%s,rssi=%s,os=%s)", log: log, type: .debug, peripheral.identifier.uuidString, code.description, rssi.description, os.rawValue)
+        delegates.forEach{$0.receiver(didDetect: code, rssi: rssi)}
     }
     
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {

@@ -10,10 +10,16 @@ Scenario 2 : Known-Known
 2. Phone B force-quit app, start app, background
 3. Phone A out of faraday bag
 4. Phone A and B are expected to stay connected indefinitely
-5. Phone A simulate crash, background, in faraday bag, crashes in bag
+5. Phone A background, in faraday bag
 6. Phone B is expected to register 'didDisconnectPeripheral' and 'didUnsubscribeFrom'
-7. Phone B simulate crash, background, wait N minutes (at least 10mins for UUID change)
+7. Phone B background, wait N minutes (at least 10mins for UUID change)
 8. Phone A out of faraday bag, Phone A and B are expected to connect and stay connected indefinitely
+
+Scenario 3 : UUID change by airplane mode
+
+1. Phone A and B connected
+2. Phone A airplane mode ON, Phone B is expected to register 'didDisconnectPeripheral' and 'didUnsubscribeFrom'
+3. Phone A airplane mode OFF, Phone B is expected to register 'didSubscribeTo' but with new UUID for Phone A
 
 ========== TEST 2020-06-29 14:44:26 : Scenario 2 : N < 1 : Same UUID ==========
 === STEPS 1-6
@@ -35,3 +41,34 @@ Scenario 2 : Known-Known
 2020-06-29 14:48:47.312192+0100 C19X[14589:6440934] [TestTransceiver] centralManager:scanForPeripherals ====================
 2020-06-29 14:48:47.322922+0100 C19X[14589:6440934] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals -> connect (uuid=094B9E4A-E7F3-4CBD-424B-E3DB9F23F3DF,state=.connecting)
 2020-06-29 14:48:47.324242+0100 C19X[14589:6440384] [TestTransceiver] centralManager:didConnect -> readRSSI (uuid=D810598E-7F22-9649-A9EE-DB688044AD68)
+
+========== TEST 2020-06-29 14:46:07 : Scenario 2 : N < 6 : Same UUID ==========
+=== STEPS 1-6
+2020-06-29 15:12:50.234122+0100 C19X[14627:6450525] [TestTransceiver] centralManager:didDisconnectPeripheral (uuid=701BC25F-5C67-72C2-3498-188C83D43EF8)
+2020-06-29 15:12:50.236234+0100 C19X[14627:6450525] [TestTransceiver] peripheralManager:didUnsubscribeFrom -> peripheralManagerUpdateValue (central=701BC25F-5C67-72C2-3498-188C83D43EF8)
+2020-06-29 15:12:50.237562+0100 C19X[14627:6450525] [TestTransceiver] peripheralManagerUpdateValue -> updateValue
+=== STEPS 7-8
+2020-06-29 15:18:16.673251+0100 C19X[14627:6452272] [TestTransceiver] centralManager:scanForPeripherals ====================
+2020-06-29 15:18:16.674358+0100 C19X[14627:6450619] [TestTransceiver] centralManager:didDiscover -> connect (uuid=701BC25F-5C67-72C2-3498-188C83D43EF8,state=.connecting)
+2020-06-29 15:18:16.694453+0100 C19X[14627:6450619] [TestTransceiver] centralManager:didConnect -> readRSSI (uuid=701BC25F-5C67-72C2-3498-188C83D43EF8)
+
+========== TEST 2020-06-29 15:40:35 : Scenario 2 : N < 20 : Changed UUID : FAILED ==========
+=== STEPS 1-6
+2020-06-29 15:40:35.365348+0100 C19X[14672:6459904] [TestTransceiver] centralManager:didDisconnectPeripheral (uuid=9BE7DDD1-1999-B697-F3C0-2A6A8A55BDFC)
+2020-06-29 15:40:35.366697+0100 C19X[14672:6459864] [TestTransceiver] peripheralManager:didUnsubscribeFrom -> peripheralManagerUpdateValue (central=9BE7DDD1-1999-B697-F3C0-2A6A8A55BDFC)
+=== STEPS 7-8 FAILED
+2020-06-29 15:52:40.205999+0100 C19X[14672:6458683] [TestTransceiver] locationManager:didDetect (change=location)
+2020-06-29 15:52:40.206327+0100 C19X[14672:6458683] [TestTransceiver] centralManager:scanForPeripherals ====================
+=== STEPS 7-8 (after manual app open)
+2020-06-29 16:02:10.892535+0100 C19X[14672:6462683] [TestTransceiver] centralManager:didDiscover -> connect (uuid=8AB3D009-F040-C47E-D51C-9021CB011588,state=.disconnected)
+
+========== TEST 2020-06-29 16:13:09 : Scenario 3 : Changed UUID ==========
+=== Airplane ON
+2020-06-29 16:13:09.786094+0100 C19X[14672:6467492] [TestTransceiver] centralManager:didDisconnectPeripheral (uuid=1264FE83-6383-0B4F-C593-1DCF715240E3)
+2020-06-29 16:13:09.786972+0100 C19X[14672:6467492] [TestTransceiver] peripheralManager:didUnsubscribeFrom -> peripheralManagerUpdateValue (central=1264FE83-6383-0B4F-C593-1DCF715240E3)
+2020-06-29 16:13:09.787214+0100 C19X[14672:6467492] [TestTransceiver] peripheralManagerUpdateValue -> updateValue
+2020-06-29 16:13:13.332936+0100 C19X[14672:6467492] [TestTransceiver] centralManager:scanForPeripherals ====================
+=== Airplane OFF
+2020-06-29 16:13:21.575309+0100 C19X[14672:6467591] [TestTransceiver] peripheralManager:didSubscribeTo -> peripheralManagerUpdateValue (central=95DD409B-5D85-36A2-3B6B-87FC2B11122B)
+2020-06-29 16:13:21.576343+0100 C19X[14672:6467591] [TestTransceiver] peripheralManagerUpdateValue -> updateValue
+

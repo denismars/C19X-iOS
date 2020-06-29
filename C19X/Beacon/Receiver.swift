@@ -72,7 +72,7 @@ protocol ReceiverDelegate {
  two are handled very differently to reduce chance of error (Android) and ensure
  background scanning works (iOS).
  */
-enum OperatingSystem {
+enum OperatingSystem : String {
     case android
     case ios
     case restored
