@@ -27,6 +27,7 @@
 		B6439C1B247D2FD8004338A6 /* DataUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6439C1A247D2FD8004338A6 /* DataUtilities.swift */; };
 		B693ED8E24A7877A009D50C7 /* BeaconTests.txt in Resources */ = {isa = PBXBuildFile; fileRef = B693ED8D24A7877A009D50C7 /* BeaconTests.txt */; };
 		B693ED9024A8DB2E009D50C7 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B693ED8F24A8DB2E009D50C7 /* LocationManager.swift */; };
+		B693ED9224AA1F44009D50C7 /* TestProcedures.txt in Resources */ = {isa = PBXBuildFile; fileRef = B693ED9124AA1F44009D50C7 /* TestProcedures.txt */; };
 		B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94A24698334009874F1 /* DayCodes.swift */; };
 		B6B7D94D246983C3009874F1 /* BeaconCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94C246983C3009874F1 /* BeaconCodes.swift */; };
 		B6B7D9532469A60E009874F1 /* Transmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D9522469A60E009874F1 /* Transmitter.swift */; };
@@ -80,6 +81,7 @@
 		B64DA1E22488F5D300ED589B /* Icon.pxd */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Icon.pxd; sourceTree = "<group>"; };
 		B693ED8D24A7877A009D50C7 /* BeaconTests.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = BeaconTests.txt; sourceTree = "<group>"; };
 		B693ED8F24A8DB2E009D50C7 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		B693ED9124AA1F44009D50C7 /* TestProcedures.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestProcedures.txt; sourceTree = "<group>"; };
 		B6B7D94A24698334009874F1 /* DayCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCodes.swift; sourceTree = "<group>"; };
 		B6B7D94C246983C3009874F1 /* BeaconCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconCodes.swift; sourceTree = "<group>"; };
 		B6B7D9522469A60E009874F1 /* Transmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transmitter.swift; sourceTree = "<group>"; };
@@ -202,6 +204,7 @@
 			isa = PBXGroup;
 			children = (
 				B693ED8D24A7877A009D50C7 /* BeaconTests.txt */,
+				B693ED9124AA1F44009D50C7 /* TestProcedures.txt */,
 			);
 			path = tests;
 			sourceTree = "<group>";
@@ -331,6 +334,7 @@
 				B693ED8E24A7877A009D50C7 /* BeaconTests.txt in Resources */,
 				B607792A2458382700479C78 /* LaunchScreen.storyboard in Resources */,
 				B60779272458382700479C78 /* Assets.xcassets in Resources */,
+				B693ED9224AA1F44009D50C7 /* TestProcedures.txt in Resources */,
 				B60779252458381E00479C78 /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

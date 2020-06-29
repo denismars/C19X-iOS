@@ -175,7 +175,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate {
             os_log("Initialise transceiver failed (error=unregistered)", log: self.log, type: .fault)
             return
         }
-        transceiver = TestTransceiver(serialNumber, settings)
+        transceiver = TestTransceiver(BeaconCode(serialNumber), settings)
 //        transceiver = ConcreteTransceiver(sharedSecret, codeUpdateAfter: 120)
         transceiver?.append(self)
         os_log("Initialise transceiver successful (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)

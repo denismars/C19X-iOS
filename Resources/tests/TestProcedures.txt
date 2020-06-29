@@ -1,0 +1,37 @@
+Scenario 1 : Unknown-Unknown
+
+1. Phone A force-quit app, start app, simulate crash, background, in faraday bag, crashes in bag
+2. Phone B force-quit app, start app, simulate crash, background, crashes
+3. Phone A out of faraday bag, Phone A and B are expected to connect and stay connected indefinitely
+
+Scenario 2 : Known-Known
+
+1. Phone A force-quit app, start app, background, in faraday bag
+2. Phone B force-quit app, start app, background
+3. Phone A out of faraday bag
+4. Phone A and B are expected to stay connected indefinitely
+5. Phone A simulate crash, background, in faraday bag, crashes in bag
+6. Phone B is expected to register 'didDisconnectPeripheral' and 'didUnsubscribeFrom'
+7. Phone B simulate crash, background, wait N minutes (at least 10mins for UUID change)
+8. Phone A out of faraday bag, Phone A and B are expected to connect and stay connected indefinitely
+
+========== TEST 2020-06-29 14:44:26 : Scenario 2 : N < 1 : Same UUID ==========
+=== STEPS 1-6
+2020-06-29 14:44:26.775102+0100 C19X[14589:6439686] [TestTransceiver] centralManager:didDisconnectPeripheral (uuid=D810598E-7F22-9649-A9EE-DB688044AD68)
+2020-06-29 14:44:26.776674+0100 C19X[14589:6439686] [TestTransceiver] peripheralManager:didUnsubscribeFrom -> peripheralManagerUpdateValue (central=D810598E-7F22-9649-A9EE-DB688044AD68)
+2020-06-29 14:44:26.776872+0100 C19X[14589:6439686] [TestTransceiver] peripheralManagerUpdateValue -> updateValue
+=== STEPS 7-8
+2020-06-29 14:45:03.786241+0100 C19X[14589:6439869] [TestTransceiver] centralManager:scanForPeripherals ====================
+2020-06-29 14:45:03.792842+0100 C19X[14589:6439869] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals -> connect (uuid=094B9E4A-E7F3-4CBD-424B-E3DB9F23F3DF,state=.connecting)
+2020-06-29 14:45:03.798087+0100 C19X[14589:6439989] [TestTransceiver] centralManager:didConnect -> readRSSI (uuid=D810598E-7F22-9649-A9EE-DB688044AD68)
+
+========== TEST 2020-06-29 14:46:07 : Scenario 2 : N < 3 : Same UUID ==========
+=== STEPS 1-6
+2020-06-29 14:46:07.247600+0100 C19X[14589:6440044] [TestTransceiver] centralManager:didDisconnectPeripheral (uuid=D810598E-7F22-9649-A9EE-DB688044AD68)
+2020-06-29 14:46:07.248665+0100 C19X[14589:6440242] [TestTransceiver] peripheralManager:didUnsubscribeFrom -> peripheralManagerUpdateValue (central=D810598E-7F22-9649-A9EE-DB688044AD68)
+2020-06-29 14:46:07.249344+0100 C19X[14589:6440242] [TestTransceiver] peripheralManagerUpdateValue -> updateValue
+=== STEPS 7-8
+2020-06-29 14:48:47.305137+0100 C19X[14589:6440384] [TestTransceiver] centralManager:didDiscover -> connect (uuid=D810598E-7F22-9649-A9EE-DB688044AD68,state=.connecting)
+2020-06-29 14:48:47.312192+0100 C19X[14589:6440934] [TestTransceiver] centralManager:scanForPeripherals ====================
+2020-06-29 14:48:47.322922+0100 C19X[14589:6440934] [TestTransceiver] centralManager:scanForPeripherals:retrievePeripherals -> connect (uuid=094B9E4A-E7F3-4CBD-424B-E3DB9F23F3DF,state=.connecting)
+2020-06-29 14:48:47.324242+0100 C19X[14589:6440384] [TestTransceiver] centralManager:didConnect -> readRSSI (uuid=D810598E-7F22-9649-A9EE-DB688044AD68)
