@@ -114,9 +114,10 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
     private let serialNumber: SerialNumber
     private let settings: Settings
     private let dispatchQueue = DispatchQueue(label: "Transceiver")
-    
+    private let emptyData = Data(repeating: 0, count: 0)
+
     private var peripheralManager: CBPeripheralManager!
-    private var peripheralCharacteristic: CBCharacteristic?
+    private var peripheralCharacteristic: CBMutableCharacteristic?
     
     private var centralManager: CBCentralManager!
     private var centralManagerPeripherals: [String:CBPeripheral] = [:]
@@ -205,7 +206,38 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
     func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
         os_log("peripheralManagerDidStartAdvertising (error=%s)", log: log, type: .debug, error?.localizedDescription ?? "nil")
     }
+    
+    func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
+        let centralIdentifier = central.identifier.description
+        os_log("peripheralManager:didSubscribeTo (central=%s)", log: log, type: .debug, centralIdentifier)
+        peripheralManagerUpdateValue(peripheral)
+    }
+    
+    func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
+        let centralIdentifier = central.identifier.description
+        os_log("peripheralManager:didUnsubscribeFrom (central=%s)", log: log, type: .debug, centralIdentifier)
+        peripheralManagerUpdateValue(peripheral)
+    }
+    
+    func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+        let centrals = requests.map{$0.central.identifier.uuidString}
+        os_log("peripheralManager:didReceiveWrite (centrals=%s)", log: log, type: .debug, centrals.description)
+        peripheralManagerUpdateValue(peripheral)
+    }
 
+    func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
+        os_log("peripheralManagerIsReady:toUpdateSubscribers", log: log, type: .debug)
+        peripheralManagerUpdateValue(peripheral)
+    }
+    
+    func peripheralManagerUpdateValue(_ peripheral: CBPeripheralManager) {
+        os_log("peripheralManagerUpdateValue", log: log, type: .debug)
+        guard let characteristic = peripheralCharacteristic else {
+            return
+        }
+        peripheral.updateValue(emptyData, for: characteristic, onSubscribedCentrals: nil)
+    }
+    
     // MARK:- CBCentralManagerDelegate
     
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -233,16 +265,16 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
     }
     
     func centralManagerScanForPeripherals(_ central: CBCentralManager) {
-        os_log("centralManager:scanForPeripherals", log: log, type: .debug)
+        os_log("centralManager:scanForPeripherals ====================", log: log, type: .debug)
         scheduleCentralManagerScanForPeripherals()
         let identifiers = settings.peripherals().sorted{$0 < $1}.compactMap{UUID(uuidString: $0)}
-        central.retrievePeripherals(withIdentifiers: identifiers).forEach() { peripheral in
-            os_log("centralManager:scanForPeripherals:retrievePeripherals (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
+        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
+            os_log("centralManager:scanForPeripherals:retrieveConnectedPeripherals -> connect (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
             centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
             central.connect(peripheral)
         }
-        central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
-            os_log("centralManager:scanForPeripherals:retrieveConnectedPeripherals (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
+        central.retrievePeripherals(withIdentifiers: identifiers).forEach() { peripheral in
+            os_log("centralManager:scanForPeripherals:retrievePeripherals (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
             centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
             central.connect(peripheral)
         }
@@ -267,51 +299,76 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
     
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         os_log("centralManager:didDiscover (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
+//        guard centralManagerPeripherals[peripheral.identifier.uuidString] == nil else {
+//            return
+//        }
+        os_log("centralManager:didDiscover -> connect (uuid=%s,state=%s)", log: log, type: .debug, peripheral.identifier.uuidString, peripheral.state.description)
         settings.peripherals(append: peripheral.identifier.uuidString)
         centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
         central.connect(peripheral)
-        
-        scheduleCentralManagerScanForPeripherals()
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        os_log("centralManager:didConnect (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+        os_log("centralManager:didConnect -> readRSSI (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
         peripheral.delegate = self
         peripheral.readRSSI()
     }
     
+    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        os_log("centralManager:didDisconnectPeripheral (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+        peripheral.delegate = nil
+        centralManagerPeripherals[peripheral.identifier.uuidString] = nil
+    }
+    
+    func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        os_log("centralManager:didFailToConnect (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+        peripheral.delegate = nil
+        centralManagerPeripherals[peripheral.identifier.uuidString] = nil
+    }
+    
+    // MARK:- CBPeripheralDelegate
+    
     func peripheral(_ peripheral: CBPeripheral, didReadRSSI RSSI: NSNumber, error: Error?) {
         let uuid = peripheral.identifier.description
         let rssi = RSSI.intValue.description
-        os_log("peripheral:didReadRSSI (uuid=%s,rssi=%s)", log: log, type: .debug, uuid, rssi)
+        os_log("peripheral:didReadRSSI -> discoverServices (uuid=%s,rssi=%s)", log: log, type: .debug, uuid, rssi)
         peripheral.discoverServices([beaconServiceCBUUID])
     }
     
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         os_log("peripheral:didDiscoverServices (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
         guard let service = peripheral.services?.filter({$0.uuid == beaconServiceCBUUID}).first else {
+            os_log("peripheral:didDiscoverServices -> cancelPeripheralConnection (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
             centralManager.cancelPeripheralConnection(peripheral)
             return
         }
+        os_log("peripheral:didDiscoverServices -> discoverCharacteristics (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
         peripheral.discoverCharacteristics(nil, for: service)
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         os_log("peripheral:didDiscoverCharacteristicsFor (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
         guard let characteristic = service.characteristics?.filter({ $0.uuid.values.0 == beaconCharacteristicCBUUID.values.0 }).first else {
+            os_log("peripheral:didDiscoverCharacteristicsFor -> cancelPeripheralConnection (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
             centralManager.cancelPeripheralConnection(peripheral)
             return
         }
-        os_log("peripheral:didDiscoverCharacteristicsFor:FOUND (uuid=%s,serialNumber=%s)", log: log, type: .debug, peripheral.identifier.uuidString, characteristic.uuid.values.1.description)
-        centralManager.cancelPeripheralConnection(peripheral)
-    }
-
-    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        os_log("centralManager:didDisconnectPeripheral (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
-        peripheral.delegate = nil
-        centralManagerPeripherals[peripheral.identifier.uuidString] = nil
-        
-        scheduleCentralManagerScanForPeripherals()
+        os_log("peripheral:didDiscoverCharacteristicsFor -> FOUND -> setNotifyValue (uuid=%s,serialNumber=%s)", log: log, type: .debug, peripheral.identifier.uuidString, characteristic.uuid.values.1.description)
+        peripheral.setNotifyValue(true, for: characteristic)
     }
     
+    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        os_log("peripheral:didUpdateValueFor (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        os_log("peripheral:didUpdateNotificationStateFor (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+        peripheralManagerUpdateValue(peripheralManager)
+    }
+    
+    func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+        os_log("peripheral:didWriteValueFor (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+    }
+    
+
 }
