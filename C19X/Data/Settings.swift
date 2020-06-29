@@ -34,6 +34,8 @@ class Settings {
     private let keyTimestampMessage = "Timestamp.Message"
     private let keyTimestampSettings = "Timestamp.Settings"
     private let keyTimestampInfectionData = "Timestamp.InfectionData"
+    
+    private let keyBeaconPeripherals = "Beacon.Peripherals"
 
     /**
      Clear all application data
@@ -314,6 +316,25 @@ class Settings {
             return "https://preprod.c19x.org/"
         }
         return server
+    }
+    
+    func peripherals(append: String) {
+        guard var uuids = userDefaults.stringArray(forKey: keyBeaconPeripherals) else {
+            userDefaults.set([append], forKey: keyBeaconPeripherals)
+            return
+        }
+        guard !uuids.contains(append) else {
+            return
+        }
+        uuids.append(append)
+        userDefaults.set(uuids, forKey: keyBeaconPeripherals)
+    }
+    
+    func peripherals() -> [String] {
+        guard let uuids = userDefaults.stringArray(forKey: keyBeaconPeripherals) else {
+            return []
+        }
+        return uuids
     }
     
     /**

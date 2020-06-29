@@ -475,6 +475,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         // Restore -> Populate beacons
         os_log("Restore", log: log, type: .debug)
         self.central = central
+        central.delegate = self
         if let restoredPeripherals = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] {
             for peripheral in restoredPeripherals {
                 peripheral.delegate = self
