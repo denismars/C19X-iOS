@@ -58,6 +58,17 @@ extension CBManagerState: CustomStringConvertible {
     }
 }
 
+extension CBConnectionEvent: CustomStringConvertible {
+    
+    public var description: String {
+        switch self {
+        case .peerConnected: return ".peerConnected"
+        case .peerDisconnected: return ".peerDisconnected"
+        @unknown default: return "undefined"
+        }
+    }
+}
+
 /**
  Extension to make the state human readable in logs.
  */
