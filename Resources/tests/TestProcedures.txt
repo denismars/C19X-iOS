@@ -37,6 +37,7 @@ Scenario 2 : Known-Known
 2020-06-29 14:48:47.324242+0100 C19X[14589:6440384] [TestTransceiver] centralManager:didConnect -> readRSSI (uuid=D810598E-7F22-9649-A9EE-DB688044AD68)
 
 ========== TEST 2020-07-01 15:16:22 : Airplane mode : N < 1 : Changed UUID ==========
+
 1. Phone A and B connected (A uuid=0DD5AD59-6EEC-2B18-393A-55666A076EC7)
 2020-07-01 15:16:22.575405+0100 C19X[16964:7253917] [TestTransceiver] centralManager:didConnect -> readRSSI (<P:uuid=0DD5AD59-6EEC-2B18-393A-55666A076EC7,state=.connected,obj=e50500>)
 2020-07-01 15:16:22.593449+0100 C19X[16964:7253768] [TestTransceiver] peripheral:didReadRSSI -> discoverServices (rssi=-55,<P:uuid=0DD5AD59-6EEC-2B18-393A-55666A076EC7,state=.connected,obj=e50500>)
@@ -65,3 +66,28 @@ Scenario 2 : Known-Known
 2020-07-01 15:17:22.454235+0100 C19X[16964:7253923] [TestTransceiver] centralManager:didConnect -> readRSSI (<P:uuid=F1D10908-C3A2-B864-B14D-098519BD04DF,state=.connected,obj=e4c0a0>)
 2020-07-01 15:17:22.483179+0100 C19X[16964:7254268] [TestTransceiver] peripheral:didReadRSSI -> discoverServices (rssi=-45,<P:uuid=F1D10908-C3A2-B864-B14D-098519BD04DF,state=.connected,obj=e4c0a0>)
 
+
+========== TEST 2020-07-01 16:52:57 : Airplane mode : N < 1 : Changed UUID ==========
+
+1. Phone A and B connected
+2020-07-01 16:54:44.455713+0100 C19X[17048:7285745] [TestTransceiver] peripheral:didUpdateValueFor (uuid=10A70158-1DEC-A190-1815-7DA711DC248F)
+
+2. Phone A, airplane mode ON
+2020-07-01 16:54:46.699101+0100 C19X[17048:7285745] [TestTransceiver] centralManager:didDisconnectPeripheral (<P:uuid=10A70158-1DEC-A190-1815-7DA711DC248F,state=.disconnected,obj=3ac000>)
+2020-07-01 16:54:46.701158+0100 C19X[17048:7285745] [TestTransceiver] peripheralManager:didUnsubscribeFrom (<C:uuid=10A70158-1DEC-A190-1815-7DA711DC248F,obj=7f5a40>)
+2020-07-01 16:54:50.499952+0100 C19X[17048:7285777] [TestTransceiver] centralManager:scanForPeripherals ====================
+
+3. Phone A, airplane mode OFF
+2020-07-01 16:55:04.647483+0100 C19X[17048:7285779] [TestTransceiver] peripheralManager:didSubscribeTo -> peripheralManagerUpdateValue (<C:uuid=8EFA99B1-5521-B4EA-76B1-4F8EC21E7A6C,obj=7c04c0>)
+2020-07-01 16:55:04.648016+0100 C19X[17048:7285779] [TestTransceiver] peripheralManagerUpdateValue -> updateValue
+2020-07-01 16:55:04.661796+0100 C19X[17048:7285889] [TestTransceiver] centralManager:scanForPeripherals ====================
+2020-07-01 16:55:04.670192+0100 C19X[17048:7285889] [TestTransceiver] centralManager:scanForPeripherals:retrieveConnectedPeripherals -> connect (<P:uuid=8EFA99B1-5521-B4EA-76B1-4F8EC21E7A6C,state=.disconnected,obj=3b4820>)
+
+
+2020-07-01 16:57:05.853765+0100 C19X[17048:7286410] [TestTransceiver] centralManager:didDisconnectPeripheral (<P:uuid=A94F68F5-A088-A893-6B20-788DFF8D7CEA,state=.disconnected,obj=3b0000>)
+2020-07-01 16:57:05.854352+0100 C19X[17048:7286410] [TestTransceiver] peripheralManager:didUnsubscribeFrom (<C:uuid=A94F68F5-A088-A893-6B20-788DFF8D7CEA,obj=7f5bc0>)
+2020-07-01 16:57:13.601270+0100 C19X[17048:7286444] [TestTransceiver] centralManager:scanForPeripherals ====================
+2020-07-01 16:58:13.957481+0100 C19X[17048:7286447] [TestTransceiver] peripheralManager:didSubscribeTo -> peripheralManagerUpdateValue (<C:uuid=711922AD-027F-4897-A14C-B397CC70DA6C,obj=7cda40>)
+2020-07-01 16:58:13.958424+0100 C19X[17048:7286447] [TestTransceiver] peripheralManagerUpdateValue -> updateValue
+2020-07-01 16:58:13.969531+0100 C19X[17048:7286717] [TestTransceiver] centralManager:scanForPeripherals ====================
+2020-07-01 16:58:13.992802+0100 C19X[17048:7286717] [TestTransceiver] centralManager:scanForPeripherals:retrieveConnectedPeripherals -> connect (<P:uuid=711922AD-027F-4897-A14C-B397CC70DA6C,state=.disconnected,obj=3b45a0>)

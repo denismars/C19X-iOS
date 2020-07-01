@@ -290,18 +290,28 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
     }
     
     func centralManagerScanForPeripherals(_ central: CBCentralManager) {
-        os_log("centralManager:scanForPeripherals ====================", log: log, type: .debug)
+        os_log("centralManager:scanForPeripherals (state=%s) ====================", log: log, type: .debug, central.state.description)
         scheduleCentralManagerScanForPeripherals()
         let identifiers = settings.peripherals().sorted{$0 < $1}.compactMap{UUID(uuidString: $0)}
         central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
             os_log("centralManager:scanForPeripherals:retrieveConnectedPeripherals -> connect (%s)", log: log, type: .debug, peripheral.description)
             centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
+            guard central.state == .poweredOn else {
+                return
+            }
             central.connect(peripheral)
         }
         // Enables resume from airplane mode
-        central.retrievePeripherals(withIdentifiers: identifiers).forEach() { peripheral in
+        let peripherals = central.retrievePeripherals(withIdentifiers: identifiers)
+        peripherals.forEach() { peripheral in
             centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
+            guard central.state == .poweredOn else {
+                return
+            }
             central.connect(peripheral)
+        }
+        guard central.state == .poweredOn else {
+            return
         }
         central.scanForPeripherals(
             withServices: [beaconServiceCBUUID],
