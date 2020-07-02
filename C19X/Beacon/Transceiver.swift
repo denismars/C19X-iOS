@@ -127,6 +127,7 @@ class CachedBeaconData {
 
 class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeripheralManagerDelegate, CBCentralManagerDelegate, CBPeripheralDelegate {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "TestTransceiver")
+    private let beaconServiceUUID = BeaconServiceUUID()
     private let beaconCode: BeaconCode
     private let settings: Settings
     private let dispatchQueue = DispatchQueue(label: "Transceiver")
@@ -135,6 +136,7 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
     private var delegates: [ReceiverDelegate] = []
 
     private var peripheralManager: CBPeripheralManager!
+    private var peripheralManagerService: CBMutableService?
     private var peripheralCharacteristic: CBMutableCharacteristic?
     
     private var centralManager: CBCentralManager!
@@ -178,12 +180,31 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
         guard didDetect == .location else {
             return
         }
-//        os_log("locationManager:didDetect (change=%s)", log: self.log, type: .debug, didDetect.rawValue)
-//        centralManagerScanForPeripherals(centralManager)
+        os_log("locationManager:didDetect (change=%s)", log: self.log, type: .debug, didDetect.rawValue)
+        centralManagerScanForPeripherals(centralManager)
     }
     
     // MARK:- CBPeripheralManagerDelegate
     
+    func peripheralManager(_ peripheral: CBPeripheralManager, willRestoreState dict: [String : Any]) {
+        os_log("peripheralManager:willRestoreState", log: log, type: .debug)
+        peripheralManager = peripheral
+        peripheralManager.delegate = self
+        if let services = dict[CBPeripheralManagerRestoredStateServicesKey] as? [CBMutableService] {
+            for service in services {
+                if let characteristics = service.characteristics {
+                    for characteristic in characteristics {
+                        if characteristic.uuid.values.upper == beaconCharacteristicCBUUID.values.upper, let characteristic = characteristic as? CBMutableCharacteristic {
+                            peripheralManagerService = service
+                            peripheralCharacteristic = characteristic
+                            os_log("peripheralManager:willRestoreState -> restored (service=%s,characteristic=%s)", log: log, type: .debug, service.description, characteristic.description)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         os_log("peripheralManagerDidUpdateState (state=%s)", log: self.log, type: .debug, peripheral.state.description)
         delegates.forEach{$0.receiver(didUpdateState: peripheral.state)}
@@ -204,35 +225,19 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
         let upper = beaconCharacteristicCBUUID.values.upper
         let beaconCharacteristicCBUUID = CBUUID(upper: upper, lower: beaconCode)
         let characteristic = CBMutableCharacteristic(type: beaconCharacteristicCBUUID, properties: [.write, .notify], value: nil, permissions: [.writeable])
-        let service = CBMutableService(type: beaconServiceCBUUID, primary: true)
+        let service = CBMutableService(type: beaconServiceUUID.next, primary: true)
         service.characteristics = [characteristic]
+        peripheralManager.stopAdvertising()
         peripheralManager.removeAllServices()
         peripheralManager.add(service)
         peripheralManager.startAdvertising([CBAdvertisementDataServiceUUIDsKey : [service.uuid]])
+        peripheralManagerService = service
         peripheralCharacteristic = characteristic
     }
     
-    func peripheralManager(_ peripheral: CBPeripheralManager, willRestoreState dict: [String : Any]) {
-        os_log("peripheralManager:willRestoreState", log: log, type: .debug)
-        peripheralManager = peripheral
-        peripheralManager.delegate = self
-        if let services = dict[CBPeripheralManagerRestoredStateServicesKey] as? [CBMutableService] {
-            for service in services {
-                if let characteristics = service.characteristics {
-                    for characteristic in characteristics {
-                        if characteristic.uuid.values.upper == beaconCharacteristicCBUUID.values.upper, let characteristic = characteristic as? CBMutableCharacteristic {
-                            let code = characteristic.uuid.values.lower
-                            os_log("peripheralManager:willRestoreState:restoredCharacteristic (code=%s)", log: log, type: .debug, code.description)
-                            peripheralCharacteristic = characteristic
-                        }
-                    }
-                }
-            }
-        }
-    }
     
     func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
-        os_log("peripheralManagerDidStartAdvertising (error=%s)", log: log, type: .debug, error?.localizedDescription ?? "nil")
+        os_log("peripheralManagerDidStartAdvertising (service=%s,error=%s)", log: log, type: .debug, peripheralManagerService?.description ?? "nil", error?.localizedDescription ?? "nil")
     }
     
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
@@ -291,8 +296,8 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
     
     func centralManagerScanForPeripherals(_ central: CBCentralManager) {
         os_log("centralManager:scanForPeripherals (state=%s) ====================", log: log, type: .debug, central.state.description)
-        scheduleCentralManagerScanForPeripherals()
-        let identifiers = settings.peripherals().sorted{$0 < $1}.compactMap{UUID(uuidString: $0)}
+//        scheduleCentralManagerScanForPeripherals()
+//        let identifiers = settings.peripherals().sorted{$0 < $1}.compactMap{UUID(uuidString: $0)}
         central.retrieveConnectedPeripherals(withServices: [beaconServiceCBUUID]).forEach() { peripheral in
             os_log("centralManager:scanForPeripherals:retrieveConnectedPeripherals -> connect (%s)", log: log, type: .debug, peripheral.description)
             centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
@@ -302,20 +307,22 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
             central.connect(peripheral)
         }
         // Enables resume from airplane mode
-        let peripherals = central.retrievePeripherals(withIdentifiers: identifiers)
-        peripherals.forEach() { peripheral in
-            centralManagerPeripherals[peripheral.identifier.uuidString] = peripheral
-            guard central.state == .poweredOn else {
-                return
-            }
-            central.connect(peripheral)
-        }
+//        var peripherals: [CBPeripheral] = []
+//        peripherals.append(contentsOf: central.retrievePeripherals(withIdentifiers: identifiers))
+//        peripherals.forEach() { peripheral in
+//            centralManagerPeripherals[peripheral.uuidString] = peripheral
+//            guard central.state == .poweredOn else {
+//                return
+//            }
+//            central.connect(peripheral)
+//        }
         guard central.state == .poweredOn else {
             return
         }
-        central.scanForPeripherals(
-            withServices: [beaconServiceCBUUID],
-            options: [CBCentralManagerScanOptionSolicitedServiceUUIDsKey: [beaconServiceCBUUID]])
+        central.stopScan()
+        dispatchQueue.asyncAfter(deadline: DispatchTime.now().advanced(by: .seconds(1))) {
+            central.scanForPeripherals(withServices: self.beaconServiceUUID.most)
+        }
     }
     
     func scheduleCentralManagerScanForPeripherals() {
@@ -372,30 +379,30 @@ class TestTransceiver: NSObject, Transceiver, LocationManagerDelegate, CBPeriphe
             centralManagerCachedBeaconData[uuid] = CachedBeaconData()
         }
         centralManagerCachedBeaconData[uuid]?.rssi = rssi
-        peripheral.discoverServices([beaconServiceCBUUID])
+        peripheral.discoverServices(beaconServiceUUID.all)
     }
     
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard let service = peripheral.services?.filter({$0.uuid == beaconServiceCBUUID}).first else {
-            os_log("peripheral:didDiscoverServices -> cancelPeripheralConnection (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+        guard let service = peripheral.services?.filter({beaconServiceUUID.all.contains($0.uuid)}).first else {
+            os_log("peripheral:didDiscoverServices -> cancelPeripheralConnection (%s)", log: log, type: .debug, peripheral.description)
             centralManager.cancelPeripheralConnection(peripheral)
             return
         }
-        os_log("peripheral:didDiscoverServices -> discoverCharacteristics (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+        os_log("peripheral:didDiscoverServices -> discoverCharacteristics (%s,%s)", log: log, type: .debug, peripheral.description, service.description)
         peripheral.discoverCharacteristics(nil, for: service)
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        os_log("peripheral:didDiscoverCharacteristicsFor (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+        os_log("peripheral:didDiscoverCharacteristicsFor (%s)", log: log, type: .debug, peripheral.description)
         guard let characteristic = service.characteristics?.filter({ $0.uuid.values.upper == beaconCharacteristicCBUUID.values.upper }).first else {
-            os_log("peripheral:didDiscoverCharacteristicsFor -> cancelPeripheralConnection (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+            os_log("peripheral:didDiscoverCharacteristicsFor -> cancelPeripheralConnection (%s)", log: log, type: .debug, peripheral.description)
             centralManager.cancelPeripheralConnection(peripheral)
             return
         }
         let code = BeaconCode(characteristic.uuid.values.lower)
-        os_log("peripheral:didDiscoverCharacteristicsFor -> FOUND (uuid=%s,code=%s)", log: log, type: .debug, peripheral.identifier.uuidString, code.description)
+        os_log("peripheral:didDiscoverCharacteristicsFor -> FOUND (%s,code=%s)", log: log, type: .debug, peripheral.description, code.description)
         if characteristic.properties.contains(.notify) {
-            os_log("peripheral:didDiscoverCharacteristicsFor:ios -> setNotifyValue (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
+            os_log("peripheral:didDiscoverCharacteristicsFor:ios -> setNotifyValue (%s)", log: log, type: .debug, peripheral.description)
             peripheral.setNotifyValue(true, for: characteristic)
         } else {
             os_log("peripheral:didDiscoverCharacteristicsFor:android -> cancelPeripheralConnection (uuid=%s)", log: log, type: .debug, peripheral.identifier.uuidString)
@@ -448,6 +455,21 @@ extension CBCentral {
     }}
 }
 
+extension CBService {
+    var uuidString: String { get { uuid.uuidString }}
+    open override var description: String { get {
+        let objectIdentifier = Unmanaged.passUnretained(self).toOpaque().debugDescription.suffix(6).description
+        return "<SERVICE:uuid=" + uuidString + ",obj=" + objectIdentifier + ">"
+    }}
+}
+
+extension CBMutableService {
+    open override var description: String { get {
+        let objectIdentifier = Unmanaged.passUnretained(self).toOpaque().debugDescription.suffix(6).description
+        return "<SERVICE:uuid=" + uuidString + ",obj=" + objectIdentifier + ">"
+    }}
+}
+
 extension CBMutableCharacteristic {
     var uuidString: String { get { uuid.uuidString }}
     open override var description: String { get {
@@ -456,4 +478,166 @@ extension CBMutableCharacteristic {
         let centrals = subscribedCentrals?.description ?? "[]"
         return "<CHAR:uuid=" + uuidString + ",code=" + code + ",subscribers=" + centrals + ",obj=" + objectIdentifier + ">"
     }}
+}
+
+class BeaconServiceUUID : NSObject {
+    private let log = OSLog(subsystem: "org.c19x.beacon", category: "BeaconServiceUUID")
+    let uuidStrings = [
+        "00000000-0000-0000-0000-00000000007C",
+        "00000000-0000-0000-0000-000000000037",
+        "00000000-0000-0000-0000-00000000006E",
+        "00000000-0000-0000-0000-000000000025",
+        "00000000-0000-0000-0000-000000000059",
+        "00000000-0000-0000-0000-000000000012",
+        "00000000-0000-0000-0000-00000000004B",
+        "00000000-0000-0000-0000-000000000000",
+        "00000000-0000-0000-0000-000000000036",
+        "00000000-0000-0000-0000-00000000007D",
+        "00000000-0000-0000-0000-000000000024",
+        "00000000-0000-0000-0000-00000000006F",
+        "00000000-0000-0000-0000-000000000013",
+        "00000000-0000-0000-0000-000000000058",
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-00000000004A",
+        "00000000-0000-0000-0000-00000000006C",
+        "00000000-0000-0000-0000-000000000027",
+        "00000000-0000-0000-0000-00000000007E",
+        "00000000-0000-0000-0000-000000000035",
+        "00000000-0000-0000-0000-000000000049",
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-00000000005B",
+        "00000000-0000-0000-0000-000000000010",
+        "00000000-0000-0000-0000-000000000026",
+        "00000000-0000-0000-0000-00000000006D",
+        "00000000-0000-0000-0000-000000000034",
+        "00000000-0000-0000-0000-00000000007F",
+        "00000000-0000-0000-0000-000000000003",
+        "00000000-0000-0000-0000-000000000048",
+        "00000000-0000-0000-0000-000000000011",
+        "00000000-0000-0000-0000-00000000005A",
+        "00000000-0000-0000-0000-00000000005D",
+        "00000000-0000-0000-0000-000000000016",
+        "00000000-0000-0000-0000-00000000004F",
+        "00000000-0000-0000-0000-000000000004",
+        "00000000-0000-0000-0000-000000000078",
+        "00000000-0000-0000-0000-000000000033",
+        "00000000-0000-0000-0000-00000000006A",
+        "00000000-0000-0000-0000-000000000021",
+        "00000000-0000-0000-0000-000000000017",
+        "00000000-0000-0000-0000-00000000005C",
+        "00000000-0000-0000-0000-000000000005",
+        "00000000-0000-0000-0000-00000000004E",
+        "00000000-0000-0000-0000-000000000032",
+        "00000000-0000-0000-0000-000000000079",
+        "00000000-0000-0000-0000-000000000020",
+        "00000000-0000-0000-0000-00000000006B",
+        "00000000-0000-0000-0000-00000000004D",
+        "00000000-0000-0000-0000-000000000006",
+        "00000000-0000-0000-0000-00000000005F",
+        "00000000-0000-0000-0000-000000000014",
+        "00000000-0000-0000-0000-000000000068",
+        "00000000-0000-0000-0000-000000000023",
+        "00000000-0000-0000-0000-00000000007A",
+        "00000000-0000-0000-0000-000000000031",
+        "00000000-0000-0000-0000-000000000007",
+        "00000000-0000-0000-0000-00000000004C",
+        "00000000-0000-0000-0000-000000000015",
+        "00000000-0000-0000-0000-00000000005E",
+        "00000000-0000-0000-0000-000000000022",
+        "00000000-0000-0000-0000-000000000069",
+        "00000000-0000-0000-0000-000000000030",
+        "00000000-0000-0000-0000-00000000007B",
+        "00000000-0000-0000-0000-00000000003E",
+        "00000000-0000-0000-0000-000000000075",
+        "00000000-0000-0000-0000-00000000002C",
+        "00000000-0000-0000-0000-000000000067",
+        "00000000-0000-0000-0000-00000000001B",
+        "00000000-0000-0000-0000-000000000050",
+        "00000000-0000-0000-0000-000000000009",
+        "00000000-0000-0000-0000-000000000042",
+        "00000000-0000-0000-0000-000000000074",
+        "00000000-0000-0000-0000-00000000003F",
+        "00000000-0000-0000-0000-000000000066",
+        "00000000-0000-0000-0000-00000000002D",
+        "00000000-0000-0000-0000-000000000051",
+        "00000000-0000-0000-0000-00000000001A",
+        "00000000-0000-0000-0000-000000000043",
+        "00000000-0000-0000-0000-000000000008",
+        "00000000-0000-0000-0000-00000000002E",
+        "00000000-0000-0000-0000-000000000065",
+        "00000000-0000-0000-0000-00000000003C",
+        "00000000-0000-0000-0000-000000000077",
+        "00000000-0000-0000-0000-00000000000B",
+        "00000000-0000-0000-0000-000000000040",
+        "00000000-0000-0000-0000-000000000019",
+        "00000000-0000-0000-0000-000000000052",
+        "00000000-0000-0000-0000-000000000064",
+        "00000000-0000-0000-0000-00000000002F",
+        "00000000-0000-0000-0000-000000000076",
+        "00000000-0000-0000-0000-00000000003D",
+        "00000000-0000-0000-0000-000000000041",
+        "00000000-0000-0000-0000-00000000000A",
+        "00000000-0000-0000-0000-000000000053",
+        "00000000-0000-0000-0000-000000000018",
+        "00000000-0000-0000-0000-00000000001F",
+        "00000000-0000-0000-0000-000000000054",
+        "00000000-0000-0000-0000-00000000000D",
+        "00000000-0000-0000-0000-000000000046",
+        "00000000-0000-0000-0000-00000000003A",
+        "00000000-0000-0000-0000-000000000071",
+        "00000000-0000-0000-0000-000000000028",
+        "00000000-0000-0000-0000-000000000063",
+        "00000000-0000-0000-0000-000000000055",
+        "00000000-0000-0000-0000-00000000001E",
+        "00000000-0000-0000-0000-000000000047",
+        "00000000-0000-0000-0000-00000000000C",
+        "00000000-0000-0000-0000-000000000070",
+        "00000000-0000-0000-0000-00000000003B",
+        "00000000-0000-0000-0000-000000000062",
+        "00000000-0000-0000-0000-000000000029",
+        "00000000-0000-0000-0000-00000000000F",
+        "00000000-0000-0000-0000-000000000044",
+        "00000000-0000-0000-0000-00000000001D",
+        "00000000-0000-0000-0000-000000000056",
+        "00000000-0000-0000-0000-00000000002A",
+        "00000000-0000-0000-0000-000000000061",
+        "00000000-0000-0000-0000-000000000038",
+        "00000000-0000-0000-0000-000000000073",
+        "00000000-0000-0000-0000-000000000045",
+        "00000000-0000-0000-0000-00000000000E",
+        "00000000-0000-0000-0000-000000000057",
+        "00000000-0000-0000-0000-00000000001C",
+        "00000000-0000-0000-0000-000000000060",
+        "00000000-0000-0000-0000-00000000002B",
+        "00000000-0000-0000-0000-000000000072",
+        "00000000-0000-0000-0000-000000000039"
+    ]
+    let all: [CBUUID]!
+    private var index = 0
+    var current: CBUUID { get {
+        all[index]
+        
+    }}
+    var next: CBUUID { get {
+        index = (index + 1) % all.count
+        os_log("beaconServiceUUID:next (index=%s)", log: log, type: .debug, index.description)
+        return current
+    }}
+    var most: [CBUUID] { get {
+        var most: [CBUUID] = []
+        index = (index + 1) % all.count
+        let exclude = all.count - 1 - index
+        for i in 0 ..< all.count {
+            if i != exclude {
+                most.append(all[i])
+            }
+        }
+        os_log("beaconServiceUUID:most (exclude=%s)", log: log, type: .debug, exclude.description)
+        return most
+    }}
+    
+    override init() {
+        all = uuidStrings.compactMap({CBUUID(string: $0)})
+    }
+    
 }
