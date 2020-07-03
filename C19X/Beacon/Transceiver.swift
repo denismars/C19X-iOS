@@ -54,7 +54,7 @@ protocol Transceiver {
 /// Time delay between notifications for subscribers.
 let transceiverNotificationDelay = DispatchTimeInterval.seconds(8)
 
-class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
+class ConcreteTransceiver: NSObject, Transceiver {
     private let log = OSLog(subsystem: "org.c19x.beacon", category: "Transceiver")
     private let dayCodes: DayCodes
     private let beaconCodes: BeaconCodes
@@ -62,16 +62,13 @@ class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
     private let transmitter: Transmitter
     private let receiver: Receiver
     private var delegates: [ReceiverDelegate] = []
-    private let locationManager: LocationManager
 
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
         dayCodes = ConcreteDayCodes(sharedSecret)
         beaconCodes = ConcreteBeaconCodes(dayCodes)
         receiver = ConcreteReceiver(queue: queue)
         transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter, receiver: receiver)
-        locationManager = ConcreteLocationManager()
         super.init()
-        locationManager.append(self)
     }
     
     func start(_ source: String) {
@@ -96,15 +93,5 @@ class ConcreteTransceiver: NSObject, Transceiver, LocationManagerDelegate {
         delegates.append(delegate)
         receiver.append(delegate)
         transmitter.append(delegate)
-    }
-    
-    // MARK:- LocationManagerDelegate
-    
-    func locationManager(didDetect: LocationChange) {
-        receiver.scan("locationManager")
-        os_log("Beacon state report (subscribers) ========", log: self.log, type: .debug)
-        transmitter.subscribers().forEach() { central in
-            os_log("Beacon state (uuid=%s,state=.subscribing)", log: self.log, type: .debug, central.identifier.uuidString)
-        }
     }
 }
