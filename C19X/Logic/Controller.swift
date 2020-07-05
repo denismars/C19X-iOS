@@ -17,6 +17,7 @@ import AVFoundation
 protocol Controller {
     var settings: Settings { get }
     var transceiver: Transceiver? { get }
+    var notification: Notification { get }
 
     /// Delegates for receiving application events.
     var delegates: [ControllerDelegate] { get set }
@@ -65,7 +66,8 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate {
     private let riskAnalysis: RiskAnalysis = ConcreteRiskAnalysis()
     let settings = Settings.shared
     var transceiver: Transceiver?
-    
+    var notification: Notification = ConcreteNotification()
+
     override init() {
         os_log("init", log: self.log, type: .debug)
         if settings.registrationState() == .registering {

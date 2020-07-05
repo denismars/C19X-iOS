@@ -267,7 +267,6 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     func scan(_ source: String) {
         statistics.add()
         os_log("scan (source=%s,statistics={%s})", log: log, type: .debug, source, statistics.description)
-        logBeaconState()
         guard central.state == .poweredOn else {
             os_log("scan failed, bluetooth is not powered on", log: log, type: .fault)
             return
