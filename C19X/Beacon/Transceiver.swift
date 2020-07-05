@@ -61,6 +61,7 @@ class ConcreteTransceiver: NSObject, Transceiver {
     private let queue = DispatchQueue(label: "org.c19x.beacon.Transceiver")
     private let transmitter: Transmitter
     private let receiver: Receiver
+    private let locationManager: LocationManager
     private var delegates: [ReceiverDelegate] = []
 
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
@@ -68,6 +69,7 @@ class ConcreteTransceiver: NSObject, Transceiver {
         beaconCodes = ConcreteBeaconCodes(dayCodes)
         receiver = ConcreteReceiver(queue: queue)
         transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter, receiver: receiver)
+        locationManager = ConcreteLocationManager()
         super.init()
     }
     

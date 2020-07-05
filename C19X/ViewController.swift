@@ -85,7 +85,7 @@ class ViewController: UIViewController, ControllerDelegate {
                 self.contactValueUnit.text = (value < 2 ? "contact" : "contacts") + " tracked"
                 self.contactLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
                 if self.contactDescription(status) && !suppressNotification {
-                    self.notification(title: "Recent Contacts Updated", body: "Open C19X app to review update.", backgroundOnly: true)
+                    self.controller.notification.content(title: "Recent Contacts Updated", body: "Open C19X app to review update.")
                 }
             }
         }
@@ -96,10 +96,10 @@ class ViewController: UIViewController, ControllerDelegate {
                 let timestamp = (adviceTimestamp > messageTimestamp ? adviceTimestamp : messageTimestamp)
                 self.adviceLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
                 if self.adviceDescription(value) && !suppressNotification {
-                    self.notification(title: "Advice Updated", body: "Open C19X app to review update.", backgroundOnly: true)
+                    self.controller.notification.content(title: "Advice Updated", body: "Open C19X app to review update.")
                 }
                 if self.adviceMessage(message) && !suppressNotification {
-                    self.notification(title: "Message Received", body: "Open C19X app to view message.", backgroundOnly: true)
+                    self.controller.notification.content(title: "Message Received", body: "Open C19X app to view message.")
                 }
             }
         }
@@ -185,43 +185,6 @@ class ViewController: UIViewController, ControllerDelegate {
         return text != adviceMessage.text
     }
     
-    private func notification(title: String, body: String, backgroundOnly: Bool = false) {
-        DispatchQueue.main.async {
-            if backgroundOnly && UIApplication.shared.applicationState != .background {
-                os_log("notification denied, application active (backgroundOnly=true)", log: self.log, type: .debug)
-                return
-            }
-            if UIApplication.shared.applicationState != .background {
-                os_log("notification (method=foreground,title=%s,body=%s)", log: self.log, type: .debug, title, body)
-                let dialog = UIAlertController(title: title, message: body, preferredStyle: .alert)
-                dialog.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-                self.present(dialog, animated: true)
-            } else {
-                // Request authorisation for notification
-                let center = UNUserNotificationCenter.current()
-                center.requestAuthorization(options: [.alert]) { granted, error in
-                    if let error = error {
-                        os_log("notification denied, authorisation failed (error=%s)", log: self.log, type: .fault, error.localizedDescription)
-                    } else if granted {
-                        // Raise notification
-                        os_log("notification (method=background,title=%s,body=%s)", log: self.log, type: .debug, title, body)
-                        let identifier = "org.C19X.notification"
-                        let content = UNMutableNotificationContent()
-                        content.title = title
-                        content.body = body
-                        content.sound = UNNotificationSound.default
-                        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-                        center.removePendingNotificationRequests(withIdentifiers: [identifier])
-                        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-                        center.add(request)
-                    } else {
-                        os_log("notification denied, authorisation denied", log: self.log, type: .fault)
-                    }
-                }
-            }
-        }
-    }
-    
     // MARK:- ControllerDelegate
     
     func controller(_ didUpdateState: ControllerState) {
@@ -247,13 +210,13 @@ class ViewController: UIViewController, ControllerDelegate {
         os_log("transceiver did update state (state=%s)", log: self.log, type: .debug, didUpdateState.description)
         switch didUpdateState {
         case .poweredOn:
-//            notification(title: "Contact Tracing Enabled", body: "Turn OFF Bluetooth to pause.", backgroundOnly: true)
+            controller.notification.content(title: "Contact Tracing Enabled", body: "Turn OFF Bluetooth to pause.")
             break
         case .poweredOff:
-            notification(title: "Contact Tracing Disabled", body: "Turn ON Bluetooth to resume.")
+            controller.notification.content(title: "Contact Tracing Disabled", body: "Turn ON Bluetooth to resume.")
             break
         case .unauthorized:
-            notification(title: "Contact Tracing Disabled", body: "Allow Bluetooth access in Settings > C19X to enable.")
+            controller.notification.content(title: "Contact Tracing Disabled", body: "Allow Bluetooth access in Settings > C19X to enable.")
             break
         case .unsupported:
 //            notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
