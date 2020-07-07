@@ -29,6 +29,7 @@
 		B693ED9224AA1F44009D50C7 /* TestProcedures.txt in Resources */ = {isa = PBXBuildFile; fileRef = B693ED9124AA1F44009D50C7 /* TestProcedures.txt */; };
 		B6ABDA0B24B2960C00DF4E00 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6ABDA0A24B2960C00DF4E00 /* LocationManager.swift */; };
 		B6ABDA0D24B299C600DF4E00 /* Notification.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6ABDA0C24B299C600DF4E00 /* Notification.swift */; };
+		B6ABDA1124B52BEF00DF4E00 /* BatteryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6ABDA1024B52BEF00DF4E00 /* BatteryManager.swift */; };
 		B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94A24698334009874F1 /* DayCodes.swift */; };
 		B6B7D94D246983C3009874F1 /* BeaconCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D94C246983C3009874F1 /* BeaconCodes.swift */; };
 		B6B7D9532469A60E009874F1 /* Transmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B7D9522469A60E009874F1 /* Transmitter.swift */; };
@@ -84,6 +85,7 @@
 		B693ED9124AA1F44009D50C7 /* TestProcedures.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestProcedures.txt; sourceTree = "<group>"; };
 		B6ABDA0A24B2960C00DF4E00 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		B6ABDA0C24B299C600DF4E00 /* Notification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notification.swift; sourceTree = "<group>"; };
+		B6ABDA1024B52BEF00DF4E00 /* BatteryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryManager.swift; sourceTree = "<group>"; };
 		B6B7D94A24698334009874F1 /* DayCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCodes.swift; sourceTree = "<group>"; };
 		B6B7D94C246983C3009874F1 /* BeaconCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeaconCodes.swift; sourceTree = "<group>"; };
 		B6B7D9522469A60E009874F1 /* Transmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transmitter.swift; sourceTree = "<group>"; };
@@ -173,6 +175,7 @@
 				B60779332458397F00479C78 /* Network.swift */,
 				B60C5837247EB9C100665748 /* RiskAnalysis.swift */,
 				B6ABDA0C24B299C600DF4E00 /* Notification.swift */,
+				B6ABDA1024B52BEF00DF4E00 /* BatteryManager.swift */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -357,6 +360,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B60C5838247EB9C100665748 /* RiskAnalysis.swift in Sources */,
+				B6ABDA1124B52BEF00DF4E00 /* BatteryManager.swift in Sources */,
 				B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */,
 				B6B7D94D246983C3009874F1 /* BeaconCodes.swift in Sources */,
 				B6BC9E31246D1C9C0017B281 /* BeaconUtilities.swift in Sources */,

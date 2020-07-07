@@ -57,22 +57,25 @@ enum ControllerState: String {
     case foreground, background
 }
 
-class ConcreteController : NSObject, Controller, ReceiverDelegate {
+class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManagerDelegate {
     private let log = OSLog(subsystem: "org.c19x.logic", category: "Controller")
     var delegates: [ControllerDelegate] = []
 
     private let database: Database = ConcreteDatabase()
     private let network: Network = ConcreteNetwork(Settings.shared)
     private let riskAnalysis: RiskAnalysis = ConcreteRiskAnalysis()
+    private let batteryManager: BatteryManager = ConcreteBatteryManager()
     let settings = Settings.shared
     var transceiver: Transceiver?
     var notification: Notification = ConcreteNotification()
 
     override init() {
         os_log("init", log: self.log, type: .debug)
+        super.init()
         if settings.registrationState() == .registering {
             settings.registrationState(.unregistered)
         }
+        batteryManager.append(self)
     }
     
     func reset(registration: Bool = true, contacts: Bool = true) {
@@ -351,10 +354,15 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate {
     }
     
     func export() {
+        exportContact()
+        exportBattery()
+    }
+    
+    private func exportContact() {
         do {
             let fileURL = try FileManager.default
                 .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-                .appendingPathComponent("contacts.csv")
+                .appendingPathComponent("contact.csv")
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
             var string = "timestamp,rssi\n"
@@ -367,12 +375,39 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate {
                 string.append(row)
             }
             try string.write(to: fileURL, atomically: true, encoding: .utf8)
-            os_log("export", log: log, type: .debug)
+            os_log("exportContact", log: log, type: .debug)
         } catch {
-            os_log("Failed to export contacts to storage (error=%s)", log: log, type: .fault, String(describing: error))
+            os_log("Failed to export contact data to storage (error=%s)", log: log, type: .fault, String(describing: error))
         }
     }
-    
+
+    private func exportBattery() {
+        do {
+            let fileURL = try FileManager.default
+                .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                .appendingPathComponent("battery.csv")
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            var string = "timestamp,state,level\n"
+            database.batteries.forEach() { battery in
+                guard let time = battery.time else {
+                    return
+                }
+                let timestamp = dateFormatter.string(from: time)
+                guard let state = battery.state?.description else {
+                    return
+                }
+                let level = battery.level.description
+                let row = timestamp + "," + state + "," + level + "\n"
+                string.append(row)
+            }
+            try string.write(to: fileURL, atomically: true, encoding: .utf8)
+            os_log("exportBattery", log: log, type: .debug)
+        } catch {
+            os_log("Failed to export battery data to storage (error=%s)", log: log, type: .fault, String(describing: error))
+        }
+    }
+
     // MARK:- ReceiverDelegate
     
     func receiver(didDetect: BeaconCode, rssi: RSSI) {
@@ -387,6 +422,15 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate {
         notification.screenOnTrigger(didUpdateState == .poweredOn)
         delegates.forEach { $0.transceiver(didUpdateState)}
     }
+    
+    // MARK:- BatteryManagerDelegate
+    
+    func batteryManager(didUpdateState: BatteryState, level: BatteryLevel) {
+        os_log("Battery state updated (state=%s,level=%s)", log: log, type: .debug, didUpdateState.description, level.description)
+        database.insert(time: Date(), state: didUpdateState, level: level)
+    }
+    
+
 }
 
 protocol ControllerDelegate {

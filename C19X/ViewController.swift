@@ -270,13 +270,13 @@ class ViewController: UIViewController, ControllerDelegate {
         dialog.addAction(UIAlertAction(title: "Simulate Crash", style: .default) { _ in
             self.controller.reset(registration: false, contacts: false)
         })
-        dialog.addAction(UIAlertAction(title: "Export Contacts", style: .default) { _ in
-            self.controller.export()
-        })
         dialog.addAction(UIAlertAction(title: "Clear Contacts", style: .default) { _ in
             self.controller.reset(registration: false, contacts: true)
         })
-        dialog.addAction(UIAlertAction(title: "Clear all data", style: .default) { _ in
+        dialog.addAction(UIAlertAction(title: "Export Data", style: .default) { _ in
+            self.controller.export()
+        })
+        dialog.addAction(UIAlertAction(title: "Clear All Data", style: .default) { _ in
             self.controller.reset(registration: true, contacts: false)
         })
         present(dialog, animated: true)

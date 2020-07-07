@@ -77,12 +77,6 @@ class ConcreteTransceiver: NSObject, Transceiver {
         os_log("start (source=%s)", log: self.log, type: .debug, source)
         transmitter.start(source)
         receiver.start(source)
-        // REMOVE FOR PRODUCTION
-        if source == "BGAppRefreshTask" {
-            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10010)) }
-        } else {
-            delegates.forEach { $0.receiver(didDetect: BeaconCode(0), rssi: RSSI(-10000)) }
-        }
     }
 
     func stop(_ source: String) {

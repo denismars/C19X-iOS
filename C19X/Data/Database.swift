@@ -12,12 +12,18 @@ import os
 
 protocol Database {
     var contacts: [Contact] { get }
+    var batteries: [Battery] { get }
     
     /**
      Add new contact record.
      */
     func insert(time: Date, code: BeaconCode, rssi: RSSI)
-    
+
+    /**
+     Add new battery record.
+     */
+    func insert(time: Date, state: BatteryState, level: BatteryLevel)
+
     /**
      Remove all database records before given date.
      */
@@ -30,6 +36,7 @@ class ConcreteDatabase: Database {
 
     private var lock = NSLock()
     var contacts: [Contact] = []
+    var batteries: [Battery] = []
 
     init() {
         persistentContainer = NSPersistentContainer(name: "C19X")
@@ -67,15 +74,41 @@ class ConcreteDatabase: Database {
         }
         lock.unlock()
     }
-    
+
+    func insert(time: Date, state: BatteryState, level: BatteryLevel) {
+        os_log("insert (time=%s,state=%s,level=%s)", log: log, type: .debug, time.description, state.description, level.description)
+        lock.lock()
+        do {
+            let managedContext = persistentContainer.viewContext
+            let object = NSEntityDescription.insertNewObject(forEntityName: "Battery", into: managedContext) as! Contact
+            object.setValue(time, forKey: "time")
+            object.setValue(state.description, forKey: "state")
+            object.setValue(Float(level), forKey: "level")
+            try managedContext.save()
+            contacts.append(object)
+        } catch let error as NSError {
+            os_log("insert failed (time=%s,state=%s,level=%s,error=%s)", log: log, type: .debug, time.description, state.description, level.description, error.description)
+        }
+        lock.unlock()
+    }
+
     func remove(_ before: Date) {
         os_log("remove (before=%s)", log: self.log, type: .debug, before.description)
         lock.lock()
         let managedContext = persistentContainer.viewContext
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Contact")
+        let contactFetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Contact")
+        let batteryFetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Battery")
         do {
-            let objects: [Contact] = try managedContext.fetch(fetchRequest) as! [Contact]
-            objects.forEach() { o in
+            let contactObjects: [Contact] = try managedContext.fetch(contactFetchRequest) as! [Contact]
+            contactObjects.forEach() { o in
+                if let time = o.value(forKey: "time") as? Date {
+                    if (time.compare(before) == .orderedAscending) {
+                        managedContext.delete(o)
+                    }
+                }
+            }
+            let batteryObjects: [Battery] = try managedContext.fetch(batteryFetchRequest) as! [Battery]
+            batteryObjects.forEach() { o in
                 if let time = o.value(forKey: "time") as? Date {
                     if (time.compare(before) == .orderedAscending) {
                         managedContext.delete(o)
@@ -93,10 +126,12 @@ class ConcreteDatabase: Database {
     private func load() {
         os_log("Load", log: self.log, type: .debug)
         let managedContext = persistentContainer.viewContext
-        let fetchRequest = NSFetchRequest<Contact>(entityName: "Contact")
+        let contactFetchRequest = NSFetchRequest<Contact>(entityName: "Contact")
+        let batteryFetchRequest = NSFetchRequest<Battery>(entityName: "Battery")
         do {
-            self.contacts = try managedContext.fetch(fetchRequest)
-            os_log("Loaded (count=%d)", log: self.log, type: .debug, self.contacts.count)
+            self.contacts = try managedContext.fetch(contactFetchRequest)
+            self.batteries = try managedContext.fetch(batteryFetchRequest)
+            os_log("Loaded (contacts=%d,batteries=%s)", log: self.log, type: .debug, self.contacts.count, self.batteries.count)
         } catch let error as NSError {
             os_log("Load failed (error=%s)", log: self.log, type: .fault, error.description)
         }

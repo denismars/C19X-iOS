@@ -45,8 +45,8 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         requestAuthorisation()
         
         // Register for device lock and unlock events
-        NotificationCenter.default.addObserver(self, selector: #selector(self.onDeviceLock(_:)), name: UIApplication.protectedDataWillBecomeUnavailableNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(self.onDeviceUnlock(_:)), name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(onDeviceLock), name: UIApplication.protectedDataWillBecomeUnavailableNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(onDeviceUnlock), name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
     }
     
     func show(_ title: String, _ body: String) {
