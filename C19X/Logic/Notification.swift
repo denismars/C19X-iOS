@@ -24,6 +24,11 @@ protocol Notification {
      Remove all notifications on app termination.
      */
     func removeAll()
+    
+    /**
+     Enable or disable screen on trigger when the device is locked
+     */
+    func screenOnTrigger(_ enabled: Bool)
 }
 
 class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDelegate {
@@ -33,6 +38,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
     private let repeatingNotificationIdentifier = "C19X.repeatingNotificationIdentifier"
     private let repeatingNotificationDelay = TimeInterval(5 * 60)
     private var deviceIsLocked: Bool = false
+    private var screenOnTriggerActive: Bool = false
     
     override init() {
         super.init()
@@ -43,18 +49,6 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         NotificationCenter.default.addObserver(self, selector: #selector(self.onDeviceUnlock(_:)), name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
     }
     
-    @objc func onDeviceLock(_ sender: NotificationCenter) {
-        os_log("onDeviceLock", log: self.log, type: .debug)
-        deviceIsLocked = true
-        scheduleNotification(repeatingNotificationIdentifier, "Contact Tracing Enabled", "", delay: repeatingNotificationDelay, repeats: true)
-    }
-    
-    @objc func onDeviceUnlock(_ sender: NotificationCenter) {
-        os_log("onDeviceUnlock", log: self.log, type: .debug)
-        deviceIsLocked = false
-        removeAllNotifications([repeatingNotificationIdentifier])
-    }
-
     func show(_ title: String, _ body: String) {
         removeAllNotifications([repeatingNotificationIdentifier])
         if deviceIsLocked {
@@ -68,6 +62,28 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         removeAllNotifications(nil)
     }
     
+    func screenOnTrigger(_ enabled: Bool) {
+        os_log("screenOnTrigger (enabled=%s)", log: self.log, type: .debug, enabled.description)
+        screenOnTriggerActive = enabled
+        if !enabled {
+            removeAllNotifications([repeatingNotificationIdentifier])
+        }
+    }
+    
+    @objc func onDeviceLock(_ sender: NotificationCenter) {
+        os_log("onDeviceLock", log: self.log, type: .debug)
+        deviceIsLocked = true
+        if screenOnTriggerActive {
+            scheduleNotification(repeatingNotificationIdentifier, "Contact Tracing Enabled", "", delay: repeatingNotificationDelay, repeats: true)
+        }
+    }
+    
+    @objc func onDeviceUnlock(_ sender: NotificationCenter) {
+        os_log("onDeviceUnlock", log: self.log, type: .debug)
+        deviceIsLocked = false
+        removeAllNotifications([repeatingNotificationIdentifier])
+    }
+
     private func requestAuthorisation() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
             if let error = error {
