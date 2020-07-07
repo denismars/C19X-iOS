@@ -27,24 +27,26 @@ protocol LocationManager {
 }
 
 class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDelegate {
-    private let locationManager = CLLocationManager()
-    private let uuid = UUID(uuidString: "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6")!
+    private let locationManager: CLLocationManager
+    private let proximityBeacon = CLBeaconIdentityConstraint(uuid: UUID(uuidString: "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6")!)
     
     override init() {
+        locationManager = CLLocationManager()
         super.init()
         locationManager.delegate = self
         locationManager.requestAlwaysAuthorization()
         locationManager.pausesLocationUpdatesAutomatically = false
         locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
-        locationManager.distanceFilter = 3000.0
-        if #available(iOS 9.0, *) {
-          locationManager.allowsBackgroundLocationUpdates = true
-        }
+        locationManager.distanceFilter = CLLocationDistanceMax
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.showsBackgroundLocationIndicator = false
+
         locationManager.startUpdatingLocation()
-        if #available(iOS 13.0, *) {
-            locationManager.startRangingBeacons(satisfying: CLBeaconIdentityConstraint(uuid: uuid))
-        } else {
-            locationManager.startRangingBeacons(in: CLBeaconRegion(proximityUUID: uuid, identifier: "iBeacon"))
-        }
+        locationManager.startRangingBeacons(satisfying: proximityBeacon)
+    }
+    
+    deinit {
+        locationManager.stopRangingBeacons(satisfying: proximityBeacon)
+        locationManager.stopUpdatingLocation()
     }
 }
