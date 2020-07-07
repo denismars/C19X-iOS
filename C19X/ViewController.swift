@@ -56,7 +56,7 @@ class ViewController: UIViewController, ControllerDelegate {
         adviceMessage.sizeToFit()
         
         enableImmediateUpdate()
-        enableDeveloperFunctions()
+        //enableDeveloperFunctions()
 
         // Initialise view data, hence suppress notification
         updateViewData(status: true, contacts: true, advice: true, suppressNotification: true)
