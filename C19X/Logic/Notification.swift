@@ -36,7 +36,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
     private let onDemandNotificationIdentifier = "C19X.onDemandNotificationIdentifier"
     private let onDemandNotificationDelay = TimeInterval(2)
     private let repeatingNotificationIdentifier = "C19X.repeatingNotificationIdentifier"
-    private let repeatingNotificationDelay = TimeInterval(5 * 60)
+    private let repeatingNotificationDelay = TimeInterval(3 * 60)
     private var deviceIsLocked: Bool = false
     private var screenOnTriggerActive: Bool = false
     
@@ -74,7 +74,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         os_log("onDeviceLock", log: self.log, type: .debug)
         deviceIsLocked = true
         if screenOnTriggerActive {
-            scheduleNotification(repeatingNotificationIdentifier, "Contact Tracing Enabled", "", delay: repeatingNotificationDelay, repeats: true)
+            scheduleNotification(repeatingNotificationIdentifier, "Contact Tracing Enabled", "Tracking contacts", delay: repeatingNotificationDelay, repeats: true)
         }
     }
     

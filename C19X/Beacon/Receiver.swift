@@ -153,7 +153,8 @@ class Beacon {
         return createdOnDay == today
     } }
     var isExpired: Bool { get {
-        Date().timeIntervalSince(lastUpdatedAt) > TimeInterval.day
+        // Expiry after an hour because device UUID would have changed after about 20 minutes
+        Date().timeIntervalSince(lastUpdatedAt) > TimeInterval.hour
     } }
     var timeIntervalSinceLastUpdate: TimeInterval { get {
         Date().timeIntervalSince(lastUpdatedAt)
@@ -457,6 +458,11 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     /// Notify receiver delegates of beacon detection
     private func notifyDelegates(_ source: String, _ beacon: Beacon) {
         guard beacon.isReady, let code = beacon.code, let rssi = beacon.rssi else {
+            return
+        }
+        guard rssi < 0 else {
+            beacon.rssi = nil
+            os_log("Discarded beacon, invalid RSSI value (source=%s,peripheral=%s,code=%s,rssi=%s)", log: self.log, type: .debug, source, String(describing: beacon.uuidString), String(describing: code), String(describing: rssi))
             return
         }
         beacon.statistics.add()

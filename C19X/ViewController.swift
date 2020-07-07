@@ -55,8 +55,8 @@ class ViewController: UIViewController, ControllerDelegate {
         adviceMessage.numberOfLines = 0
         adviceMessage.sizeToFit()
         
-        enableImmediateUpdate()
-        //enableDeveloperFunctions()
+        enableImmediateUpdate(4)
+        enableDeveloperFunctions(7)
 
         // Initialise view data, hence suppress notification
         updateViewData(status: true, contacts: true, advice: true, suppressNotification: true)
@@ -249,9 +249,9 @@ class ViewController: UIViewController, ControllerDelegate {
         controller.synchronise(true)
     }
 
-    private func enableImmediateUpdate() {
+    private func enableImmediateUpdate(_ tapsRequired: Int) {
         let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.immediateUpdate(_:)))
-        doubleTapGestureRecognizer.numberOfTapsRequired = 2
+        doubleTapGestureRecognizer.numberOfTapsRequired = tapsRequired
         self.adviceView.isUserInteractionEnabled = true
         self.adviceView.addGestureRecognizer(doubleTapGestureRecognizer)
     }
@@ -276,12 +276,15 @@ class ViewController: UIViewController, ControllerDelegate {
         dialog.addAction(UIAlertAction(title: "Clear Contacts", style: .default) { _ in
             self.controller.reset(registration: false, contacts: true)
         })
+        dialog.addAction(UIAlertAction(title: "Clear all data", style: .default) { _ in
+            self.controller.reset(registration: true, contacts: false)
+        })
         present(dialog, animated: true)
     }
     
-    private func enableDeveloperFunctions() {
+    private func enableDeveloperFunctions(_ tapsRequired: Int) {
         let doubleTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(self.developerFunctions(_:)))
-        doubleTapGestureRecognizer.numberOfTapsRequired = 2
+        doubleTapGestureRecognizer.numberOfTapsRequired = tapsRequired
         self.contactView.isUserInteractionEnabled = true
         self.contactView.addGestureRecognizer(doubleTapGestureRecognizer)
     }
