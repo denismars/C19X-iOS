@@ -62,6 +62,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         scheduleProcessingTask()
     }
     
+    func applicationWillTerminate(_ application: UIApplication) {
+        os_log("applicationWillTerminate", log: log, type: .debug)
+        controller.notification.removeAll()
+    }
+    
     // MARK: - Schedule background tasks
     
     func scheduleAppRefreshTask() {

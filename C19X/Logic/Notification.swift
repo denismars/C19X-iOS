@@ -8,31 +8,108 @@
 
 import Foundation
 import UIKit
+import NotificationCenter
 import os
 
+/**
+ Notifications and screen on trigger while device is locked.
+ */
 protocol Notification {
-    func content(title: String, body: String)
+    /**
+     Show notification immediately if in background.
+     */
+    func show(_ title: String, _ body: String)
+    
+    /**
+     Remove all notifications on app termination.
+     */
+    func removeAll()
 }
 
 class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDelegate {
     private let log = OSLog(subsystem: "org.C19X.logic", category: "Notification")
-    private let repeatInterval = TimeInterval(5 * 60)
+    private let onDemandNotificationIdentifier = "C19X.onDemandNotificationIdentifier"
+    private let onDemandNotificationDelay = TimeInterval(2)
+    private let repeatingNotificationIdentifier = "C19X.repeatingNotificationIdentifier"
+    private let repeatingNotificationDelay = TimeInterval(5 * 60)
+    private var deviceIsLocked: Bool = false
+    
+    override init() {
+        super.init()
+        requestAuthorisation()
+        
+        // Register for device lock and unlock events
+        NotificationCenter.default.addObserver(self, selector: #selector(self.onDeviceLock(_:)), name: UIApplication.protectedDataWillBecomeUnavailableNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(self.onDeviceUnlock(_:)), name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+    }
+    
+    @objc func onDeviceLock(_ sender: NotificationCenter) {
+        os_log("onDeviceLock", log: self.log, type: .debug)
+        deviceIsLocked = true
+        scheduleNotification(repeatingNotificationIdentifier, "Contact Tracing Enabled", "", delay: repeatingNotificationDelay, repeats: true)
+    }
+    
+    @objc func onDeviceUnlock(_ sender: NotificationCenter) {
+        os_log("onDeviceUnlock", log: self.log, type: .debug)
+        deviceIsLocked = false
+        removeAllNotifications([repeatingNotificationIdentifier])
+    }
 
-    func content(title: String, body: String) {
-        if #available(iOS 10.0, *) {
-            notification10(title, body, delay: repeatInterval, repeats: true)
+    func show(_ title: String, _ body: String) {
+        removeAllNotifications([repeatingNotificationIdentifier])
+        if deviceIsLocked {
+            scheduleNotification(onDemandNotificationIdentifier, title, body, delay: repeatingNotificationDelay, repeats: true)
+        } else {
+            scheduleNotification(onDemandNotificationIdentifier, title, body, delay: onDemandNotificationDelay, repeats: false)
         }
     }
     
+    func removeAll() {
+        removeAllNotifications(nil)
+    }
+    
+    private func requestAuthorisation() {
+        if #available(iOS 10.0, *) {
+            requestAuthorisation10()
+        }
+    }
+        
+    private func scheduleNotification(_ identifier: String, _ title: String, _ body: String, delay: TimeInterval, repeats: Bool) {
+        if #available(iOS 10.0, *) {
+            scheduleNotification10(identifier, title, body, delay: delay, repeats: repeats)
+        }
+    }
+    
+    private func removeAllNotifications(_ identifiers: [String]?) {
+        if #available(iOS 10.0, *) {
+            removeAllNotifications10(identifiers)
+        }
+    }
+    
+    // MARK:- iOS 10.0 UNUserNotificationCenter
+    
     @available(iOS 10.0, *)
-    private func notification10(_ title: String, _ body: String, delay: TimeInterval, repeats: Bool) {
+    private func requestAuthorisation10() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
+            if let error = error {
+                os_log("requestAuthorisation, authorisation failed (error=%s)", log: self.log, type: .fault, error.localizedDescription)
+            } else if granted {
+                os_log("requestAuthorisation, authorisation granted", log: self.log, type: .debug)
+            } else {
+                os_log("requestAuthorisation, authorisation denied", log: self.log, type: .fault)
+            }
+        }
+        UNUserNotificationCenter.current().delegate = self
+    }
+    
+    @available(iOS 10.0, *)
+    private func scheduleNotification10(_ identifier: String, _ title: String, _ body: String, delay: TimeInterval, repeats: Bool) {
         // Request authorisation for notification
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert]) { granted, error in
             if let error = error {
                 os_log("notification denied, authorisation failed (error=%s)", log: self.log, type: .fault, error.localizedDescription)
             } else if granted {
-                let identifier = "C19X.notification"
                 let content = UNMutableNotificationContent()
                 content.title = title
                 content.body = body
@@ -45,5 +122,30 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
                 os_log("notification denied, authorisation denied", log: self.log, type: .fault)
             }
         }
+    }
+    
+    @available(iOS 10.0, *)
+    private func removeAllNotifications10(_ identifiers: [String]?) {
+        guard let identifiers = identifiers else {
+            os_log("removeAllNotifications", log: log, type: .debug)
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [onDemandNotificationIdentifier, repeatingNotificationIdentifier])
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+            return
+        }
+        os_log("removeAllNotifications (identifiers=%s)", log: log, type: .debug, identifiers.description)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+    }
+    
+    // MARK:- UNUserNotificationCenterDelegate
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Silence notification when the app is in the foreground
+        os_log("willPresent (action=silenceForegroundNotifications)", log: log, type: .debug)
+        completionHandler(UNNotificationPresentationOptions(rawValue: 0))
+    }
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        os_log("didReceive (response=%s)", log: log, type: .debug, response.description)
     }
 }

@@ -85,7 +85,7 @@ class ViewController: UIViewController, ControllerDelegate {
                 self.contactValueUnit.text = (value < 2 ? "contact" : "contacts") + " tracked"
                 self.contactLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
                 if self.contactDescription(status) && !suppressNotification {
-                    self.controller.notification.content(title: "Recent Contacts Updated", body: "Open C19X app to review update.")
+                    self.controller.notification.show("Recent Contacts Updated", "Open C19X app to review update.")
                 }
             }
         }
@@ -96,10 +96,10 @@ class ViewController: UIViewController, ControllerDelegate {
                 let timestamp = (adviceTimestamp > messageTimestamp ? adviceTimestamp : messageTimestamp)
                 self.adviceLastUpdate.text = (timestamp == Date.distantPast ? "" : timestamp.description)
                 if self.adviceDescription(value) && !suppressNotification {
-                    self.controller.notification.content(title: "Advice Updated", body: "Open C19X app to review update.")
+                    self.controller.notification.show("Advice Updated", "Open C19X app to review update.")
                 }
                 if self.adviceMessage(message) && !suppressNotification {
-                    self.controller.notification.content(title: "Message Received", body: "Open C19X app to view message.")
+                    self.controller.notification.show("Message Received", "Open C19X app to view message.")
                 }
             }
         }
@@ -210,13 +210,13 @@ class ViewController: UIViewController, ControllerDelegate {
         os_log("transceiver did update state (state=%s)", log: self.log, type: .debug, didUpdateState.description)
         switch didUpdateState {
         case .poweredOn:
-            controller.notification.content(title: "Contact Tracing Enabled", body: "Turn OFF Bluetooth to pause.")
+//            controller.notification.content(title: "Contact Tracing Enabled", body: "Turn OFF Bluetooth to pause.")
             break
         case .poweredOff:
-            controller.notification.content(title: "Contact Tracing Disabled", body: "Turn ON Bluetooth to resume.")
+            controller.notification.show("Contact Tracing Disabled", "Turn ON Bluetooth to resume.")
             break
         case .unauthorized:
-            controller.notification.content(title: "Contact Tracing Disabled", body: "Allow Bluetooth access in Settings > C19X to enable.")
+            controller.notification.show("Contact Tracing Disabled", "Allow Bluetooth access in Settings > C19X to enable.")
             break
         case .unsupported:
 //            notification(title: "Contact Tracing Disabled", body: "Bluetooth unavailable, restart device to enable.")
