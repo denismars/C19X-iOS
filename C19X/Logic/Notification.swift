@@ -69,27 +69,6 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
     }
     
     private func requestAuthorisation() {
-        if #available(iOS 10.0, *) {
-            requestAuthorisation10()
-        }
-    }
-        
-    private func scheduleNotification(_ identifier: String, _ title: String, _ body: String, delay: TimeInterval, repeats: Bool) {
-        if #available(iOS 10.0, *) {
-            scheduleNotification10(identifier, title, body, delay: delay, repeats: repeats)
-        }
-    }
-    
-    private func removeAllNotifications(_ identifiers: [String]?) {
-        if #available(iOS 10.0, *) {
-            removeAllNotifications10(identifiers)
-        }
-    }
-    
-    // MARK:- iOS 10.0 UNUserNotificationCenter
-    
-    @available(iOS 10.0, *)
-    private func requestAuthorisation10() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
             if let error = error {
                 os_log("requestAuthorisation, authorisation failed (error=%s)", log: self.log, type: .fault, error.localizedDescription)
@@ -101,9 +80,8 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         }
         UNUserNotificationCenter.current().delegate = self
     }
-    
-    @available(iOS 10.0, *)
-    private func scheduleNotification10(_ identifier: String, _ title: String, _ body: String, delay: TimeInterval, repeats: Bool) {
+        
+    private func scheduleNotification(_ identifier: String, _ title: String, _ body: String, delay: TimeInterval, repeats: Bool) {
         // Request authorisation for notification
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert]) { granted, error in
@@ -124,8 +102,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         }
     }
     
-    @available(iOS 10.0, *)
-    private func removeAllNotifications10(_ identifiers: [String]?) {
+    private func removeAllNotifications(_ identifiers: [String]?) {
         guard let identifiers = identifiers else {
             os_log("removeAllNotifications", log: log, type: .debug)
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [onDemandNotificationIdentifier, repeatingNotificationIdentifier])
@@ -136,7 +113,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
     }
-    
+
     // MARK:- UNUserNotificationCenterDelegate
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
