@@ -46,7 +46,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         os_log("Scene did enter background", log: log, type: .debug)
         (UIApplication.shared.delegate as! AppDelegate).controller.background("sceneDidEnterBackground")
         (UIApplication.shared.delegate as! AppDelegate).scheduleAppRefreshTask()
-        (UIApplication.shared.delegate as! AppDelegate).scheduleProcessingTask()
     }
 
 
