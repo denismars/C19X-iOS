@@ -38,7 +38,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
     private let repeatingNotificationIdentifier = "C19X.repeatingNotificationIdentifier"
     private let repeatingNotificationDelay = TimeInterval(3 * 60)
     private var deviceIsLocked: Bool = false
-    private var screenOnTriggerActive: Bool = false
+    private var screenOnTriggerActive: Bool = true
     
     override init() {
         super.init()
@@ -50,12 +50,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
     }
     
     func show(_ title: String, _ body: String) {
-        removeAllNotifications([repeatingNotificationIdentifier])
-        if deviceIsLocked {
-            scheduleNotification(onDemandNotificationIdentifier, title, body, delay: repeatingNotificationDelay, repeats: true)
-        } else {
-            scheduleNotification(onDemandNotificationIdentifier, title, body, delay: onDemandNotificationDelay, repeats: false)
-        }
+        scheduleNotification(onDemandNotificationIdentifier, title, body, delay: onDemandNotificationDelay, repeats: false)
     }
     
     func removeAll() {
@@ -74,6 +69,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         os_log("onDeviceLock", log: self.log, type: .debug)
         deviceIsLocked = true
         if screenOnTriggerActive {
+            os_log("onDeviceLock -> screenOnTriggerActive", log: self.log, type: .debug)
             scheduleNotification(repeatingNotificationIdentifier, "Contact Tracing Enabled", "Tracking contacts", delay: repeatingNotificationDelay, repeats: true)
         }
     }

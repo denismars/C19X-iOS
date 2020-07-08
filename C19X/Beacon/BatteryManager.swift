@@ -33,7 +33,7 @@ protocol BatteryManagerDelegate {
 }
 
 class ConcreteBatteryManager: NSObject, BatteryManager {
-    private let log = OSLog(subsystem: "org.c19x.logic", category: "BatteryManager")
+    private let log = OSLog(subsystem: "org.c19x.beacon", category: "BatteryManager")
     private var batteryLevel: BatteryLevel { UIDevice.current.batteryLevel }
     private var batteryState: BatteryState { UIDevice.current.batteryState }
     private var delegates: [BatteryManagerDelegate] = []

@@ -80,12 +80,12 @@ class ConcreteDatabase: Database {
         lock.lock()
         do {
             let managedContext = persistentContainer.viewContext
-            let object = NSEntityDescription.insertNewObject(forEntityName: "Battery", into: managedContext) as! Contact
+            let object = NSEntityDescription.insertNewObject(forEntityName: "Battery", into: managedContext) as! Battery
             object.setValue(time, forKey: "time")
             object.setValue(state.description, forKey: "state")
             object.setValue(Float(level), forKey: "level")
             try managedContext.save()
-            contacts.append(object)
+            batteries.append(object)
         } catch let error as NSError {
             os_log("insert failed (time=%s,state=%s,level=%s,error=%s)", log: log, type: .debug, time.description, state.description, level.description, error.description)
         }
@@ -131,7 +131,7 @@ class ConcreteDatabase: Database {
         do {
             self.contacts = try managedContext.fetch(contactFetchRequest)
             self.batteries = try managedContext.fetch(batteryFetchRequest)
-            os_log("Loaded (contacts=%d,batteries=%s)", log: self.log, type: .debug, self.contacts.count, self.batteries.count)
+            os_log("Loaded (contacts=%d,batteries=%d)", log: self.log, type: .debug, self.contacts.count, self.batteries.count)
         } catch let error as NSError {
             os_log("Load failed (error=%s)", log: self.log, type: .fault, error.description)
         }

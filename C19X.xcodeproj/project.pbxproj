@@ -175,7 +175,6 @@
 				B60779332458397F00479C78 /* Network.swift */,
 				B60C5837247EB9C100665748 /* RiskAnalysis.swift */,
 				B6ABDA0C24B299C600DF4E00 /* Notification.swift */,
-				B6ABDA1024B52BEF00DF4E00 /* BatteryManager.swift */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -225,6 +224,7 @@
 				B6BC9E30246D1C9C0017B281 /* BeaconUtilities.swift */,
 				B60B5BC3247503B300EBEE47 /* Transceiver.swift */,
 				B6ABDA0A24B2960C00DF4E00 /* LocationManager.swift */,
+				B6ABDA1024B52BEF00DF4E00 /* BatteryManager.swift */,
 			);
 			path = Beacon;
 			sourceTree = "<group>";
@@ -360,7 +360,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				B60C5838247EB9C100665748 /* RiskAnalysis.swift in Sources */,
-				B6ABDA1124B52BEF00DF4E00 /* BatteryManager.swift in Sources */,
 				B6B7D94B24698334009874F1 /* DayCodes.swift in Sources */,
 				B6B7D94D246983C3009874F1 /* BeaconCodes.swift in Sources */,
 				B6BC9E31246D1C9C0017B281 /* BeaconUtilities.swift in Sources */,
@@ -375,6 +374,7 @@
 				B6ABDA0B24B2960C00DF4E00 /* LocationManager.swift in Sources */,
 				B60779362458398700479C78 /* AES.swift in Sources */,
 				B60B5BC4247503B300EBEE47 /* Transceiver.swift in Sources */,
+				B6ABDA1124B52BEF00DF4E00 /* BatteryManager.swift in Sources */,
 				B635CFE5247907F400873E20 /* Controller.swift in Sources */,
 				B60779222458381E00479C78 /* ViewController.swift in Sources */,
 				B6ABDA0D24B299C600DF4E00 /* Notification.swift in Sources */,
