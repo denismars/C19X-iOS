@@ -310,8 +310,14 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
                     codes[code] = beacon
                     return
                 }
-                os_log("scan found duplicate peripheral (code=%s,peripheral=%s,duplicateOf=%s)", log: self.log, type: .debug, code.description, uuid.description, duplicate.uuidString)
-                self.beacons[uuid] = nil
+                if let lastUpdatedAt = self.beacons[uuid]?.lastUpdatedAt, lastUpdatedAt > duplicate.lastUpdatedAt {
+                    os_log("scan found duplicate peripheral (code=%s,peripheral=%s,duplicateOf=%s,keeping=former)", log: self.log, type: .debug, code.description, uuid.description, duplicate.uuidString)
+                    self.beacons[duplicate.uuidString] = nil
+                    codes[code] = beacon
+                } else {
+                    os_log("scan found duplicate peripheral (code=%s,peripheral=%s,duplicateOf=%s,keeping=latter)", log: self.log, type: .debug, code.description, uuid.description, duplicate.uuidString)
+                    self.beacons[uuid] = nil
+                }
                 // CoreBluetooth will eventually give warning and disconnect actual duplicate silently.
                 // While calling disconnect here is cleaner but it will trigger didDiscover and
                 // retain the duplicates. Expect to see message :
