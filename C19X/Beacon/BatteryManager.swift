@@ -11,6 +11,12 @@ import UIKit
 import NotificationCenter
 import os
 
+/**
+ Battery manager for monitoring battery drain over time. LocationManager and repeating local Notifications are
+ known to contribute towards battery drain. While the impact should have been minimised by only requesting
+ coarse-grained location updates and infrequent notifications, it is important to establish the actual impact for
+ analysis and refinement.
+ */
 protocol BatteryManager {
     /**
      Add delegate for battery manager events.
