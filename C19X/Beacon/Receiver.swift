@@ -397,7 +397,7 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     private func scheduleScan(_ source: String) {
         scanTimer?.cancel()
         scanTimer = DispatchSource.makeTimerSource(queue: scanTimerQueue)
-        scanTimer?.schedule(deadline: DispatchTime.now().advanced(by: transceiverNotificationDelay))
+        scanTimer?.schedule(deadline: DispatchTime.now() + transceiverNotificationDelay)
         scanTimer?.setEventHandler { [weak self] in
             self?.scan("scheduleScan|"+source)
         }

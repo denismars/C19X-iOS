@@ -236,7 +236,7 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
     private func notifySubscribers(_ source: String) {
         notifyTimer?.cancel()
         notifyTimer = DispatchSource.makeTimerSource(queue: notifyTimerQueue)
-        notifyTimer?.schedule(deadline: DispatchTime.now().advanced(by: transceiverNotificationDelay))
+        notifyTimer?.schedule(deadline: DispatchTime.now() + transceiverNotificationDelay)
         notifyTimer?.setEventHandler { [weak self] in
             guard let s = self, let beaconCharacteristic = s.beaconCharacteristic else {
                 return
@@ -250,8 +250,6 @@ class ConcreteTransmitter : NSObject, Transmitter, CBPeripheralManagerDelegate {
                 os_log("Automatic beacon code update (lastUpdate=%s,elapsed=%s)", log: s.log, type: .debug, s.codeUpdatedAt.description, updateCodeInterval.description)
                 s.updateBeaconCode()
             }
-//            os_log("Automatic beacon code update (lastUpdate=%s,elapsed=%s)", log: s.log, type: .debug, s.codeUpdatedAt.description, updateCodeInterval.description)
-//            s.updateBeaconCode()
         }
         notifyTimer?.resume()
     }

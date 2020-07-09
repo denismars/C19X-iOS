@@ -63,12 +63,12 @@ class ConcreteBeaconCodes : BeaconCodes {
     
     static func beaconCodes(_ beaconCodeSeed: BeaconCodeSeed, count: Int) -> [BeaconCode] {
         let data = Data(withUnsafeBytes(of: beaconCodeSeed) { Data($0) }.reversed())
-        var hash = SHA256.hash(data: data)
+        var hash = SHA.hash(data: data)
         var values = [BeaconCode](repeating: 0, count: count)
         for i in (0 ... (count - 1)).reversed() {
-            values[i] = hash.javaLongValue
+            values[i] = SHA.javaLongValue(digest: hash)
             let hashData = Data(hash)
-            hash = SHA256.hash(data: hashData)
+            hash = SHA.hash(data: hashData)
         }
         return values
     }

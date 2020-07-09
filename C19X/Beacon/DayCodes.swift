@@ -39,12 +39,12 @@ class ConcreteDayCodes : DayCodes {
     }
     
     static func dayCodes(_ sharedSecret: SharedSecret, days: Int) -> [DayCode] {
-        var hash = SHA256.hash(data: sharedSecret)
+        var hash = SHA.hash(data: sharedSecret)
         var values = [DayCode](repeating: 0, count: days)
         for i in (0 ... (days - 1)).reversed() {
-            values[i] = hash.javaLongValue
+            values[i] = SHA.javaLongValue(digest: hash)
             let hashData = Data(hash)
-            hash = SHA256.hash(data: hashData)
+            hash = SHA.hash(data: hashData)
         }
         return values
     }
@@ -52,8 +52,8 @@ class ConcreteDayCodes : DayCodes {
     static func beaconCodeSeed(_ dayCode: DayCode) -> BeaconCodeSeed {
         let data = withUnsafeBytes(of: dayCode) { Data($0) }
         let reversed: [UInt8] = [data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]]
-        let hash = SHA256.hash(data: reversed)
-        let seed = BeaconCodeSeed(hash.javaLongValue)
+        let hash = SHA.hash(data: Data(reversed))
+        let seed = BeaconCodeSeed(SHA.javaLongValue(digest: hash))
         return seed
     }
     
