@@ -28,7 +28,7 @@ protocol LocationManager {
 
 class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDelegate {
     private let locationManager: CLLocationManager
-    private let uuid = UUID(uuidString: "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6")!
+    private let uuid = UUID(uuidString: beaconServiceCBUUID.uuidString)!
     
     override init() {
         locationManager = CLLocationManager()
