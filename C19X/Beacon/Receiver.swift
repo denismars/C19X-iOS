@@ -140,23 +140,17 @@ class Beacon {
      Beacon identifier is the same as the peripheral identifier.
      */
     var uuidString: String { get { peripheral.identifier.uuidString } }
-    var hasValidCode: Bool { get {
-        guard code != nil else {
-            return false
-        }
-        let today = UInt64(Date().timeIntervalSince1970).dividedReportingOverflow(by: UInt64(86400))
-        let createdOnDay = UInt64(codeUpdatedAt.timeIntervalSince1970).dividedReportingOverflow(by: UInt64(86400))
-        return createdOnDay == today
-    }}
     /**
      Beacon is ready if all the information is available (operatingSystem, RSSI, code), and
      the code was acquired today (day code changes at midnight everyday).
      */
     var isReady: Bool { get {
-        guard operatingSystem != nil, rssi != nil, hasValidCode else {
+        guard operatingSystem != nil, code != nil, rssi != nil else {
             return false
         }
-        return true
+        let today = UInt64(Date().timeIntervalSince1970).dividedReportingOverflow(by: UInt64(86400))
+        let createdOnDay = UInt64(codeUpdatedAt.timeIntervalSince1970).dividedReportingOverflow(by: UInt64(86400))
+        return createdOnDay == today
     } }
     var isExpired: Bool { get {
         // Expiry after an hour because device UUID would have changed after about 20 minutes
@@ -572,14 +566,14 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             // This should never happen
             return
         }
-        if beacon.rssi == nil {
-            // Read RSSI -> Read Code
-            // This is the path after restore, didFailToConnect, disconnect[iOS], didModifyService where
-            // the RSSI value need to be read or refreshed
-            readRSSI("didConnect", peripheral)
-        } else {
-            // Read Code (RSSI already be available from didDiscover)
+        if !beacon.isReady {
+            // Not ready -> Read Code (RSSI should already be available from didDiscover)
             readCode("didConnect", peripheral)
+        } else {
+            // Ready -> Read RSSI -> Read Code
+            // This is the path after restore, didFailToConnect, disconnect[iOS], didModifyService where
+            // the RSSI value may be available but need to be refreshed
+            readRSSI("didConnect", peripheral)
         }
     }
     
@@ -710,11 +704,10 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
     
     func peripheral(_ peripheral: CBPeripheral, didModifyServices invalidatedServices: [CBService]) {
         // iOS only
-        // Modified service -> Scan
+        // Modified service -> Invalidate beacon -> Read Code | Connect
         // Beacon code updates will change the characteristic UUID being broadcasted by the transmitter
-        // which will trigger a didModifyServices call on all the iOS subscibers, while it is preferrable
-        // to read the new code, the fact that the device UUID is being tracked makes that unnecessary,
-        // thus iOS devices should simply reuse the existing code where possible.
+        // which will trigger a didModifyServices call on all the iOS subscibers, thus iOS devices will
+        // need to read the new code, if already connected, or connect to read the new code.
         let uuid = peripheral.identifier.uuidString
         let characteristics = invalidatedServices.map{$0.characteristics}.count
         guard characteristics == 0 else {
@@ -725,7 +718,14 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
             return
         }
         os_log("didModifyServices (peripheral=%s)", log: log, type: .debug, uuid)
-        scheduleScan("didModifyServices")
+        if let beacon = beacons[uuid] {
+            beacon.code = nil
+            if peripheral.state == .connected {
+                readCode("didModifyServices", peripheral)
+            } else if peripheral.state != .connecting {
+                connect("didModifyServices", peripheral)
+            }
+        }
     }
     
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
