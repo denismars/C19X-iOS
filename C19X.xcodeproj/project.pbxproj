@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		B607791E2458381E00479C78 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B607791D2458381E00479C78 /* AppDelegate.swift */; };
-		B60779202458381E00479C78 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B607791F2458381E00479C78 /* SceneDelegate.swift */; };
 		B60779222458381E00479C78 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60779212458381E00479C78 /* ViewController.swift */; };
 		B60779252458381E00479C78 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B60779232458381E00479C78 /* Main.storyboard */; };
 		B60779272458382700479C78 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B60779262458382700479C78 /* Assets.xcassets */; };
@@ -53,7 +52,6 @@
 /* Begin PBXFileReference section */
 		B607791A2458381E00479C78 /* C19X.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = C19X.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B607791D2458381E00479C78 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		B607791F2458381E00479C78 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		B60779212458381E00479C78 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		B60779242458381E00479C78 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		B60779262458382700479C78 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -148,7 +146,6 @@
 				B6B7D9492469831B009874F1 /* Beacon */,
 				B607791D2458381E00479C78 /* AppDelegate.swift */,
 				B6C1110E24881B5E00E00C74 /* C19X.entitlements */,
-				B607791F2458381E00479C78 /* SceneDelegate.swift */,
 				B60779212458381E00479C78 /* ViewController.swift */,
 				B60779232458381E00479C78 /* Main.storyboard */,
 				B60779262458382700479C78 /* Assets.xcassets */,
@@ -379,7 +376,6 @@
 				B60779222458381E00479C78 /* ViewController.swift in Sources */,
 				B6ABDA0D24B299C600DF4E00 /* Notification.swift in Sources */,
 				B607791E2458381E00479C78 /* AppDelegate.swift in Sources */,
-				B60779202458381E00479C78 /* SceneDelegate.swift in Sources */,
 				B60C0A1524629441002BA6A0 /* C19X.xcdatamodeld in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

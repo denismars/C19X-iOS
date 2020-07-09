@@ -28,7 +28,7 @@ protocol LocationManager {
 
 class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDelegate {
     private let locationManager: CLLocationManager
-    private let proximityBeacon = CLBeaconIdentityConstraint(uuid: UUID(uuidString: "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6")!)
+    private let uuid = UUID(uuidString: "2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6")!
     
     override init() {
         locationManager = CLLocationManager()
@@ -39,14 +39,24 @@ class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDeleg
         locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
         locationManager.distanceFilter = CLLocationDistanceMax
         locationManager.allowsBackgroundLocationUpdates = true
-        locationManager.showsBackgroundLocationIndicator = false
+        if #available(iOS 11.0, *) {
+            locationManager.showsBackgroundLocationIndicator = false
+        }
 
         locationManager.startUpdatingLocation()
-        locationManager.startRangingBeacons(satisfying: proximityBeacon)
+        if #available(iOS 13.0, *) {
+            locationManager.startRangingBeacons(satisfying: CLBeaconIdentityConstraint(uuid: uuid))
+        } else {
+            locationManager.startRangingBeacons(in: CLBeaconRegion(proximityUUID: uuid, identifier: "iBeacon"))
+        }
     }
     
     deinit {
-        locationManager.stopRangingBeacons(satisfying: proximityBeacon)
+        if #available(iOS 13.0, *) {
+            locationManager.stopRangingBeacons(satisfying: CLBeaconIdentityConstraint(uuid: uuid))
+        } else {
+            locationManager.stopRangingBeacons(in: CLBeaconRegion(proximityUUID: uuid, identifier: "iBeacon"))
+        }
         locationManager.stopUpdatingLocation()
     }
 }

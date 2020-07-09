@@ -192,7 +192,9 @@ class TimeIntervalSample : Sample {
             return
         }
         let now = Date()
-        add(timestamp!.distance(to: now))
+        if let timestamp = timestamp {
+            add(now.timeIntervalSince(timestamp))
+        }
         timestamp = now
     }
 }

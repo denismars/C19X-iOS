@@ -84,7 +84,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
             settings.reset()
         }
         if contacts {
-            database.remove(Date().advanced(by: TimeInterval.day))
+            database.remove(Date() + TimeInterval.day)
         }
         if !contacts && !registration {
             simulateCrash(after: 8)

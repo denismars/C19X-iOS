@@ -13,6 +13,7 @@ import os
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
     private let log = OSLog(subsystem: "org.C19X", category: "App")
+    var window: UIWindow?
     private let permittedBGAppRefreshTaskIdentifier = "org.c19x.BGAppRefreshTask"
     let controller: Controller = ConcreteController()
     
@@ -44,14 +45,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         //    ... should respond with "Simulating expiration for task with identifier org.c19x.BGAppRefreshTask"
         // 7. Resume app in Xcode, log should show "[App] Background app refresh expired"
         
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: permittedBGAppRefreshTaskIdentifier, using: nil) { task in
-            self.handleAppRefresh(task: task as! BGAppRefreshTask)
+        if #available(iOS 13.0, *) {
+            BGTaskScheduler.shared.register(forTaskWithIdentifier: permittedBGAppRefreshTaskIdentifier, using: nil) { task in
+                self.handleAppRefresh(task: task as! BGAppRefreshTask)
+            }
+        } else {
+            // Fallback on earlier versions
         }
         return true
     }
     
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        os_log("applicationWillEnterForeground", log: log, type: .debug)
+        controller.foreground("applicationWillEnterForeground")
+    }
+    
     func applicationDidEnterBackground(_ application: UIApplication) {
         os_log("applicationDidEnterBackground", log: log, type: .debug)
+        controller.background("applicationDidEnterBackground")
         scheduleAppRefreshTask()
     }
     
@@ -64,17 +75,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func scheduleAppRefreshTask() {
         os_log("scheduleAppRefreshTask (time=%s)", log: log, type: .debug, Date().description)
-        let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.hour * 1)
-        do {
-            try BGTaskScheduler.shared.submit(request)
-        } catch {
-            os_log("scheduleAppRefreshTask failed (error=%s)", log: log, type: .fault, String(describing: error))
+        if #available(iOS 13.0, *) {
+            let request = BGAppRefreshTaskRequest(identifier: permittedBGAppRefreshTaskIdentifier)
+            request.earliestBeginDate = Date(timeIntervalSinceNow: TimeInterval.hour * 1)
+            do {
+                try BGTaskScheduler.shared.submit(request)
+            } catch {
+                os_log("scheduleAppRefreshTask failed (error=%s)", log: log, type: .fault, String(describing: error))
+            }
+        } else {
+            // Fallback on earlier versions
         }
     }
     
     // MARK: - Handle background tasks
     
+    @available(iOS 13.0, *)
     func handleAppRefresh(task: BGAppRefreshTask) {
         scheduleAppRefreshTask()
         os_log("handleAppRefresh start (time=%s)", log: log, type: .debug, Date().description)
@@ -90,20 +106,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             task.setTaskCompleted(success: operation.isCancelled)
         }
         operationQueue.addOperations([operation], waitUntilFinished: false)
-    }
-    
-    // MARK: UISceneSession Lifecycle
-    
-    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        // Called when a new scene session is being created.
-        // Use this method to select a configuration to create the new scene with.
-        return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
-    }
-    
-    func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
-        // Called when the user discards a scene session.
-        // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
-        // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
     }
 }
 
