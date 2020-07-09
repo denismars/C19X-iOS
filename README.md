@@ -3,6 +3,8 @@
 ### Decentralised COVID-19 contact tracing.
 **Private. Simple. Secure.**
 
+Compatible with 91.90% (UK) and 86.24% (GLOBAL) smartphones (June 2020).
+
 #### PRIVATE
 - Anonymous reporting of infection status to help others.
 - On-device matching of infection reports to help you.
@@ -20,12 +22,12 @@
 
 Source code for iOS, Android and Java server are all available for inspection and reuse under MIT License.
 
-This app does not use the Apple - Google Contact Tracing API.
+This app does not use the Apple - Google Contact Tracing API that is compatible with 65.83% (UK) and 76.98% (GLOBAL) smartphones (June 2020).
 
 ## Features
 
 - Bluetooth beacon
-  - Works across iOS (13+) and Android (24+) without software update to latest version.
+  - Works across iOS (10+) and Android (24+) without software update to latest version.
   - Works well under iOS and Android background mode.
   - Low energy usage and minimal bluetooth data exchange.
 - Security
