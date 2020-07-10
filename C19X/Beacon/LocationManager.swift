@@ -8,6 +8,7 @@
 
 import Foundation
 import CoreLocation
+import os
 
 /**
  Location manager is being used to enable background beacon detection where the physical device is either new, or been
@@ -27,6 +28,7 @@ protocol LocationManager {
 }
 
 class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDelegate {
+    private let log = OSLog(subsystem: "org.c19x.beacon", category: "LocationManager")
     private let locationManager: CLLocationManager
     private let uuid = UUID(uuidString: beaconServiceCBUUID.uuidString)!
     
@@ -44,19 +46,41 @@ class ConcreteLocationManager: NSObject, LocationManager, CLLocationManagerDeleg
         }
 
         locationManager.startUpdatingLocation()
+        let beaconRegion = CLBeaconRegion(proximityUUID: uuid, identifier: uuid.uuidString)
         if #available(iOS 13.0, *) {
+            locationManager.startMonitoring(for: beaconRegion)
             locationManager.startRangingBeacons(satisfying: CLBeaconIdentityConstraint(uuid: uuid))
+            os_log("init (iOS 13.0+)", log: log, type: .debug)
         } else {
-            locationManager.startRangingBeacons(in: CLBeaconRegion(proximityUUID: uuid, identifier: "iBeacon"))
+            locationManager.startMonitoring(for: beaconRegion)
+            locationManager.startRangingBeacons(in: beaconRegion)
+            os_log("init (iOS 13.0-)", log: log, type: .debug)
         }
     }
     
     deinit {
+        let beaconRegion = CLBeaconRegion(proximityUUID: uuid, identifier: uuid.uuidString)
         if #available(iOS 13.0, *) {
             locationManager.stopRangingBeacons(satisfying: CLBeaconIdentityConstraint(uuid: uuid))
+            locationManager.stopMonitoring(for: beaconRegion)
         } else {
-            locationManager.stopRangingBeacons(in: CLBeaconRegion(proximityUUID: uuid, identifier: "iBeacon"))
+            locationManager.stopRangingBeacons(in: beaconRegion)
+            locationManager.stopMonitoring(for: beaconRegion)
         }
         locationManager.stopUpdatingLocation()
+        os_log("deinit", log: log, type: .debug)
     }
+    
+    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        os_log("didEnterRegion", log: log, type: .debug)
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        os_log("didExitRegion", log: log, type: .debug)
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didRangeBeacons beacons: [CLBeacon], in region: CLBeaconRegion) {
+        os_log("didRangeBeacons", log: log, type: .debug)
+    }
+    
 }

@@ -466,11 +466,13 @@ class ConcreteReceiver: NSObject, Receiver, CBCentralManagerDelegate, CBPeripher
         guard beacon.isReady, let code = beacon.code, let rssi = beacon.rssi else {
             return
         }
-        guard rssi < 0 else {
-            beacon.rssi = nil
+        // Discard invalid RSSI values
+        if rssi >= RSSI(0) {
             os_log("Discarded beacon, invalid RSSI value (source=%s,peripheral=%s,code=%s,rssi=%s)", log: self.log, type: .debug, source, String(describing: beacon.uuidString), String(describing: code), String(describing: rssi))
+            beacon.rssi = nil
             return
         }
+        // Notify delegates for valid RSSI values
         beacon.statistics.add()
         for delegate in self.delegates {
             delegate.receiver(didDetect: code, rssi: rssi)
