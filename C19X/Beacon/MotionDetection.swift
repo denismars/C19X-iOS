@@ -10,6 +10,7 @@ import UIKit
 import CoreMotion
 import os
 
+// Motion detection inactive
 protocol MotionDetection {
 }
 
