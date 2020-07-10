@@ -13,6 +13,7 @@ import os
 protocol Database {
     var contacts: [Contact] { get }
     var batteries: [Battery] { get }
+    var logEntries: [Log] { get }
     
     /**
      Add new contact record.
@@ -23,6 +24,11 @@ protocol Database {
      Add new battery record.
      */
     func insert(time: Date, state: BatteryState, level: BatteryLevel)
+
+    /**
+     Add new log record.
+     */
+    func insert(time: Date, event: String)
 
     /**
      Remove all database records before given date.
@@ -37,6 +43,7 @@ class ConcreteDatabase: Database {
     private var lock = NSLock()
     var contacts: [Contact] = []
     var batteries: [Battery] = []
+    var logEntries: [Log] = []
 
     init() {
         persistentContainer = NSPersistentContainer(name: "C19X")
@@ -92,12 +99,29 @@ class ConcreteDatabase: Database {
         lock.unlock()
     }
 
+    func insert(time: Date, event: String) {
+        os_log("insert (time=%s,event=%s)", log: log, type: .debug, time.description, event)
+        lock.lock()
+        do {
+            let managedContext = persistentContainer.viewContext
+            let object = NSEntityDescription.insertNewObject(forEntityName: "Log", into: managedContext) as! Log
+            object.setValue(time, forKey: "time")
+            object.setValue(event, forKey: "event")
+            try managedContext.save()
+            logEntries.append(object)
+        } catch let error as NSError {
+            os_log("insert failed (time=%s,event=%s,error=%s)", log: log, type: .debug, time.description, event, error.description)
+        }
+        lock.unlock()
+    }
+
     func remove(_ before: Date) {
         os_log("remove (before=%s)", log: self.log, type: .debug, before.description)
         lock.lock()
         let managedContext = persistentContainer.viewContext
         let contactFetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Contact")
         let batteryFetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Battery")
+        let logFetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Log")
         do {
             let contactObjects: [Contact] = try managedContext.fetch(contactFetchRequest) as! [Contact]
             contactObjects.forEach() { o in
@@ -109,6 +133,14 @@ class ConcreteDatabase: Database {
             }
             let batteryObjects: [Battery] = try managedContext.fetch(batteryFetchRequest) as! [Battery]
             batteryObjects.forEach() { o in
+                if let time = o.value(forKey: "time") as? Date {
+                    if (time.compare(before) == .orderedAscending) {
+                        managedContext.delete(o)
+                    }
+                }
+            }
+            let logObjects: [Log] = try managedContext.fetch(logFetchRequest) as! [Log]
+            logObjects.forEach() { o in
                 if let time = o.value(forKey: "time") as? Date {
                     if (time.compare(before) == .orderedAscending) {
                         managedContext.delete(o)
@@ -128,10 +160,12 @@ class ConcreteDatabase: Database {
         let managedContext = persistentContainer.viewContext
         let contactFetchRequest = NSFetchRequest<Contact>(entityName: "Contact")
         let batteryFetchRequest = NSFetchRequest<Battery>(entityName: "Battery")
+        let logFetchRequest = NSFetchRequest<Log>(entityName: "Log")
         do {
             self.contacts = try managedContext.fetch(contactFetchRequest)
             self.batteries = try managedContext.fetch(batteryFetchRequest)
-            os_log("Loaded (contacts=%d,batteries=%d)", log: self.log, type: .debug, self.contacts.count, self.batteries.count)
+            self.logEntries = try managedContext.fetch(logFetchRequest)
+            os_log("Loaded (contact=%d,battery=%d,log=%d)", log: self.log, type: .debug, contacts.count, batteries.count, logEntries.count)
         } catch let error as NSError {
             os_log("Load failed (error=%s)", log: self.log, type: .fault, error.description)
         }
