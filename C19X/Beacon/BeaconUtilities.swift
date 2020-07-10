@@ -8,7 +8,6 @@
 
 import Foundation
 import CoreBluetooth
-import CryptoKit
 
 /**
  CBUUID has been extended to make use of the upper and lower 64-bits for of the UUID for data transfer.

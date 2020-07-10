@@ -29,6 +29,20 @@ protocol Notification {
      Enable or disable screen on trigger when the device is locked
      */
     func screenOnTrigger(_ enabled: Bool)
+    
+    /**
+     Register delegate with notication
+     */
+    func append(_ delegate: NotificationDelegate)
+}
+
+enum DeviceLockState : String {
+    case locked, unlocked
+}
+
+protocol NotificationDelegate {
+    func notification(deviceLock didUpdateState: DeviceLockState)
+    func notification(screenOnActivation didUpdateState: Bool)
 }
 
 class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDelegate {
@@ -37,6 +51,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
     private let onDemandNotificationDelay = TimeInterval(2)
     private let repeatingNotificationIdentifier = "C19X.repeatingNotificationIdentifier"
     private let repeatingNotificationDelay = TimeInterval(3 * 60)
+    private var delegates: [NotificationDelegate] = []
     private var deviceIsLocked: Bool = false
     private var screenOnTriggerActive: Bool = true
     
@@ -65,18 +80,25 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         }
     }
     
+    func append(_ delegate: NotificationDelegate) {
+        delegates.append(delegate)
+    }
+    
     @objc func onDeviceLock(_ sender: NotificationCenter) {
         os_log("onDeviceLock", log: self.log, type: .debug)
         deviceIsLocked = true
+        delegates.forEach{$0.notification(deviceLock: .locked)}
         if screenOnTriggerActive {
             os_log("onDeviceLock -> screenOnTriggerActive", log: self.log, type: .debug)
             scheduleNotification(repeatingNotificationIdentifier, "Contact Tracing Enabled", "Tracking contacts", delay: repeatingNotificationDelay, repeats: true)
+            delegates.forEach{$0.notification(screenOnActivation: true)}
         }
     }
     
     @objc func onDeviceUnlock(_ sender: NotificationCenter) {
         os_log("onDeviceUnlock", log: self.log, type: .debug)
         deviceIsLocked = false
+        delegates.forEach{$0.notification(deviceLock: .unlocked)}
         removeAllNotifications([repeatingNotificationIdentifier])
     }
 

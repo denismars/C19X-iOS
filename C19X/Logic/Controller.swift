@@ -51,13 +51,18 @@ protocol Controller {
      Export contacts.
      */
     func export()
+    
+    /**
+     Log event.
+     */
+    func log(_ event: String)
 }
 
 enum ControllerState: String {
     case foreground, background
 }
 
-class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManagerDelegate {
+class ConcreteController : NSObject, Controller, ReceiverDelegate, NotificationDelegate, BatteryManagerDelegate {
     private let log = OSLog(subsystem: "org.c19x.logic", category: "Controller")
     var delegates: [ControllerDelegate] = []
 
@@ -70,12 +75,18 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
     var notification: Notification = ConcreteNotification()
 
     override init() {
-        os_log("init", log: self.log, type: .debug)
         super.init()
+        os_log("init", log: self.log, type: .debug)
+        log("init")
         if settings.registrationState() == .registering {
             settings.registrationState(.unregistered)
         }
         batteryManager.append(self)
+        notification.append(self)
+    }
+    
+    func log(_ event: String) {
+        database.insert(time: Date(), event: event)
     }
     
     func reset(registration: Bool = true, contacts: Bool = true) {
@@ -92,6 +103,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
     }
     
     func simulateCrash(after: Double) {
+        log("simulateCrash")
         DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + after) {
             os_log("simulateCrash (after=%s)", log: self.log, type: .fault, after.description)
             let systemSoundID: SystemSoundID = 1103
@@ -106,6 +118,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
     
     func foreground(_ source: String) {
         os_log("foreground (source=%s)", log: self.log, type: .debug, source)
+        log("foreground")
         checkRegistration()
         initialiseTransceiver()
         applySettings()
@@ -115,6 +128,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
     
     func background(_ source: String) {
         os_log("background (source=%s)", log: self.log, type: .debug, source)
+        log("background")
         delegates.forEach{ $0.controller(.background) }
     }
     
@@ -159,6 +173,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
                 return
             }
             os_log("Registration successful (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
+            self.log("registration")
             self.delegates.forEach { $0.registration(serialNumber)}
             
             // Tasks after registration
@@ -184,6 +199,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
         transceiver = ConcreteTransceiver(sharedSecret, codeUpdateAfter: 120)
         transceiver?.append(self)
         os_log("Initialise transceiver successful (serialNumber=%s)", log: self.log, type: .debug, serialNumber.description)
+        self.log("initialiseTransceiver")
         delegates.forEach { $0.transceiver(self.transceiver!) }
     }
 
@@ -203,6 +219,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
                 return
             }
             os_log("Synchronise time successful", log: self.log, type: .debug)
+            self.log("synchroniseTime")
             self.settings.timeDelta(timeDelta)
         }
     }
@@ -236,6 +253,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
                 return
             }
             os_log("Synchronise status successful (remote=%s)", log: self.log, type: .debug, remote.description)
+            self.log("synchroniseStatus")
             self.settings.statusDidUpdateAtServer()
         }
     }
@@ -264,6 +282,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
                 return
             }
             os_log("Synchronise message successful", log: self.log, type: .debug)
+            self.log("synchroniseMessage")
             self.delegates.forEach { $0.message(message) }
         }
     }
@@ -285,6 +304,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
             }
             self.settings.set(serverSettings)
             os_log("Synchronise settings successful", log: self.log, type: .debug)
+            self.log("synchroniseSettings")
             self.applySettings()
         }
     }
@@ -306,6 +326,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
             }
             self.settings.infectionData(infectionData)
             os_log("Synchronise infection data successful", log: self.log, type: .debug)
+            self.log("synchroniseInfectionData")
             self.applySettings()
         }
     }
@@ -356,6 +377,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
     func export() {
         exportContact()
         exportBattery()
+        exportLog()
     }
     
     private func exportContact() {
@@ -408,6 +430,32 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
         }
     }
 
+    private func exportLog() {
+        do {
+            let fileURL = try FileManager.default
+                .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                .appendingPathComponent("log.csv")
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            var string = "timestamp,event\n"
+            database.logEntries.forEach() { logEntry in
+                guard let time = logEntry.time else {
+                    return
+                }
+                let timestamp = dateFormatter.string(from: time)
+                guard let event = logEntry.event else {
+                    return
+                }
+                let row = timestamp + "," + event + "\n"
+                string.append(row)
+            }
+            try string.write(to: fileURL, atomically: true, encoding: .utf8)
+            os_log("exportLog", log: log, type: .debug)
+        } catch {
+            os_log("Failed to export log data to storage (error=%s)", log: log, type: .fault, String(describing: error))
+        }
+    }
+
     // MARK:- ReceiverDelegate
     
     func receiver(didDetect: BeaconCode, rssi: RSSI) {
@@ -421,6 +469,7 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
         os_log("Bluetooth state updated (state=%s)", log: log, type: .debug, didUpdateState.description)
         notification.screenOnTrigger(didUpdateState == .poweredOn)
         delegates.forEach { $0.transceiver(didUpdateState)}
+        log("bluetoothState=" + didUpdateState.description)
     }
     
     // MARK:- BatteryManagerDelegate
@@ -430,7 +479,17 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, BatteryManage
         database.insert(time: Date(), state: didUpdateState, level: level)
     }
     
-
+    // MARK:- NotificationDelegate
+    
+    func notification(deviceLock didUpdateState: DeviceLockState) {
+        os_log("Device lock state updated (state=%s)", log: log, type: .debug, didUpdateState.rawValue)
+        log("deviceLockState=" + didUpdateState.rawValue)
+    }
+    
+    func notification(screenOnActivation didUpdateState: Bool) {
+        os_log("Device screen on activation (state=%s)", log: log, type: .debug, didUpdateState.description)
+        log("screenOnActivation=" + didUpdateState.description)
+    }
 }
 
 protocol ControllerDelegate {

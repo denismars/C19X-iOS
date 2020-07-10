@@ -62,6 +62,7 @@ class ConcreteTransceiver: NSObject, Transceiver {
     private let transmitter: Transmitter
     private let receiver: Receiver
     private let locationManager: LocationManager
+    //private let motionDetection: MotionDetection
     private var delegates: [ReceiverDelegate] = []
 
     init(_ sharedSecret: SharedSecret, codeUpdateAfter: TimeInterval) {
@@ -70,6 +71,7 @@ class ConcreteTransceiver: NSObject, Transceiver {
         receiver = ConcreteReceiver(queue: queue)
         transmitter = ConcreteTransmitter(queue: queue, beaconCodes: beaconCodes, updateCodeAfter: codeUpdateAfter, receiver: receiver)
         locationManager = ConcreteLocationManager()
+        //motionDetection = ConcreteMotionDetection()
         super.init()
     }
     
