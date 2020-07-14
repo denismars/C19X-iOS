@@ -53,7 +53,7 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
     private let repeatingNotificationDelay = TimeInterval(3 * 60)
     private var delegates: [NotificationDelegate] = []
     private var deviceIsLocked: Bool = false
-    private var screenOnTriggerActive: Bool = true
+    private var screenOnTriggerActive: Bool = false
     
     override init() {
         super.init()
@@ -62,6 +62,8 @@ class ConcreteNotification: NSObject, Notification, UNUserNotificationCenterDele
         // Register for device lock and unlock events
         NotificationCenter.default.addObserver(self, selector: #selector(onDeviceLock), name: UIApplication.protectedDataWillBecomeUnavailableNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(onDeviceUnlock), name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+        
+        removeAll()
     }
     
     func show(_ title: String, _ body: String) {

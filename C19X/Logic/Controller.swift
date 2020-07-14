@@ -467,7 +467,8 @@ class ConcreteController : NSObject, Controller, ReceiverDelegate, NotificationD
     
     func receiver(didUpdateState: CBManagerState) {
         os_log("Bluetooth state updated (state=%s)", log: log, type: .debug, didUpdateState.description)
-        notification.screenOnTrigger(didUpdateState == .poweredOn)
+        // Disabled screen on trigger
+        // notification.screenOnTrigger(didUpdateState == .poweredOn)
         delegates.forEach { $0.transceiver(didUpdateState)}
         log("bluetoothState=" + didUpdateState.description)
     }
