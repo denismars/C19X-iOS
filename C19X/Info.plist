@@ -30,9 +30,9 @@
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This allows other people to detect contacts with you</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Select &quot;Change to Always Allow&quot;. This allows you to detect contacts as you move. This app does not record or share your location.</string>
+	<string>Select "Change to Always Allow". This allows you to detect contacts as you move. This app does not record or share your location.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Select &quot;Allow While Using App&quot;. This allows you to detect contacts as you move. This app does not record or share your location.</string>
+	<string>Select "Allow While Using App". This allows you to detect contacts as you move. This app does not record or share your location.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
